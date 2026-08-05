@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Cpu } from 'lucide-react'
+import { Bell, Cpu, Menu } from 'lucide-react'
 import {
   Avatar, AvatarFallback, AvatarImage,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -13,9 +13,13 @@ import { useAuth } from '@/hooks/useAuth'
 
 interface ConsoleHeaderProps {
   sidebarWidth?: string
+  onMobileMenuClick?: () => void
 }
 
-export function ConsoleHeader({ sidebarWidth = 'var(--sidebar-width)' }: ConsoleHeaderProps) {
+export function ConsoleHeader({
+  sidebarWidth = 'var(--sidebar-width)',
+  onMobileMenuClick,
+}: ConsoleHeaderProps) {
   const user = useAuthStore((s) => s.user)
   const { logout } = useAuth()
   const [time, setTime] = React.useState('')
@@ -37,11 +41,13 @@ export function ConsoleHeader({ sidebarWidth = 'var(--sidebar-width)' }: Console
       className={cn(
         'fixed top-0 right-0 z-[var(--z-sticky)]',
         'flex items-center justify-between gap-4',
-        'h-[var(--header-height)] px-5',
-        'transition-all duration-300'
+        'h-[var(--header-height)] px-4',
+        'transition-all duration-300',
+        // モバイル: left=0、デスクトップ: サイドバー幅
+        'left-0 md:left-[var(--sidebar-left)]',
       )}
       style={{
-        left: sidebarWidth,
+        ['--sidebar-left' as string]: sidebarWidth,
         background: 'oklch(0.05 0.002 260 / 0.92)',
         backdropFilter: 'blur(30px) saturate(1.6)',
         WebkitBackdropFilter: 'blur(30px) saturate(1.6)',
@@ -53,12 +59,22 @@ export function ConsoleHeader({ sidebarWidth = 'var(--sidebar-width)' }: Console
         style={{ background: 'linear-gradient(90deg, transparent, oklch(0.73 0.12 78 / 0.50), transparent)' }}
       />
 
-      {/* 左: システム情報 */}
-      <div className="flex items-center gap-5">
+      {/* 左: ハンバーガー（モバイルのみ）+ システム情報 */}
+      <div className="flex items-center gap-3">
+        {/* ハンバーガーボタン（モバイルのみ） */}
+        <button
+          onClick={onMobileMenuClick}
+          className="md:hidden p-2 rounded-[var(--radius)] transition-colors focus:outline-none"
+          style={{ color: 'oklch(0.73 0.12 78 / 0.80)' }}
+          aria-label="メニューを開く"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
         {/* AI Engine status */}
         <div className="flex items-center gap-2">
           <Cpu className="h-3.5 w-3.5" style={{ color: 'oklch(0.85 0.18 198 / 0.7)' }} />
-          <span className="text-[9px] font-bold uppercase tracking-[0.25em]"
+          <span className="hidden sm:inline text-[9px] font-bold uppercase tracking-[0.25em]"
             style={{ color: 'oklch(0.85 0.18 198 / 0.60)' }}>
             AI ENGINE
           </span>
@@ -98,14 +114,13 @@ export function ConsoleHeader({ sidebarWidth = 'var(--sidebar-width)' }: Console
           <Bell className="h-4 w-4" />
         </button>
 
-        {/* Divider */}
         <div className="h-5 w-px" style={{ background: 'oklch(0.73 0.12 78 / 0.15)' }} />
 
         {/* ユーザーメニュー */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-1.5 transition-all duration-200 focus:outline-none"
+              className="flex items-center gap-2.5 rounded-[var(--radius)] px-2 py-1.5 transition-all duration-200 focus:outline-none"
               onMouseEnter={(e) => { e.currentTarget.style.background = 'oklch(0.73 0.12 78 / 0.06)' }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
             >

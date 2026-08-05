@@ -12,9 +12,7 @@ interface ConsoleLayoutProps {
 function Background() {
   return (
     <>
-      {/* パーティクル＋スキャンライン（sidebar/header: z-200 の下、body背景の上） */}
       <HudBackground particleCount={50} showGrid zIndex={1} />
-      {/* ゴールドグロー（上部）*/}
       <div
         className="fixed top-0 left-0 right-0 h-[40vh] pointer-events-none"
         style={{
@@ -22,7 +20,6 @@ function Background() {
           background: 'radial-gradient(ellipse 60% 100% at 50% 0%, oklch(0.73 0.12 78 / 0.06) 0%, transparent 100%)',
         }}
       />
-      {/* シアングロー（右下） */}
       <div
         className="fixed bottom-0 right-0 w-[50vw] h-[40vh] pointer-events-none"
         style={{
@@ -36,29 +33,42 @@ function Background() {
 
 export function ConsoleLayout({ children }: ConsoleLayoutProps) {
   const [collapsed, setCollapsed] = React.useState(false)
+  const [mobileOpen, setMobileOpen] = React.useState(false)
 
+  // デスクトップ用のサイドバー幅（モバイルでは0）
   const sidebarWidth = collapsed
     ? 'var(--sidebar-collapsed-width)'
     : 'var(--sidebar-width)'
 
   return (
     <>
-      {/* パーティクル背景（全コンソールページ共通） */}
       <Background />
 
       <Sidebar
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((p) => !p)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
       />
-      <ConsoleHeader sidebarWidth={sidebarWidth} />
+
+      <ConsoleHeader
+        sidebarWidth={sidebarWidth}
+        onMobileMenuClick={() => setMobileOpen(true)}
+      />
+
       <main
-        className={cn('min-h-dvh pt-[var(--header-height)] transition-all duration-300')}
-        style={{ paddingLeft: sidebarWidth }}
+        className={cn(
+          'min-h-dvh pt-[var(--header-height)] transition-all duration-300',
+          // モバイル: paddingLeft=0、デスクトップ: サイドバー幅分
+          'pl-0 md:pl-[var(--sidebar-left)]',
+        )}
+        style={{ ['--sidebar-left' as string]: sidebarWidth }}
       >
-        <div className="p-6 max-w-[var(--content-max-width)] mx-auto">
+        <div className="p-4 md:p-6 max-w-[var(--content-max-width)] mx-auto">
           {children}
         </div>
       </main>
+
       <Toaster
         position="top-right"
         richColors

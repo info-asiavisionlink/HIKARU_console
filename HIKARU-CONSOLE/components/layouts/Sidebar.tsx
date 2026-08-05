@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
-  Bell, FileText, Zap, Hotel, RefreshCw,
+  Bell, FileText, X,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -39,13 +39,27 @@ const navItems: NavItem[] = [
 
 const GOLD = 'oklch(0.73 0.12 78)'
 
-interface SidebarProps { collapsed?: boolean; onToggleCollapse?: () => void }
+interface SidebarProps {
+  collapsed?: boolean
+  onToggleCollapse?: () => void
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
 
-export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
+export function Sidebar({
+  collapsed = false,
+  onToggleCollapse,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const pathname = usePathname()
 
+  // モバイル: ページ遷移時に自動で閉じる
+  React.useEffect(() => {
+    onMobileClose?.()
+  }, [pathname]) // eslint-disable-line
+
   function isGroupActive(item: NavItem) {
-    if (item.children) return pathname.startsWith(item.href)
     return pathname.startsWith(item.href)
   }
 
@@ -54,12 +68,17 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
     return pathname.startsWith(href)
   }
 
-  return (
+  const sidebarContent = (
     <aside
       className={cn(
         'fixed left-0 top-0 h-full z-[var(--z-sticky)]',
-        'flex flex-col transition-all duration-350',
-        collapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
+        'flex flex-col transition-all duration-300',
+        // デスクトップ: 常に表示、collapsed 対応
+        'md:translate-x-0',
+        collapsed ? 'md:w-[var(--sidebar-collapsed-width)]' : 'md:w-[var(--sidebar-width)]',
+        // モバイル: ドロワー
+        'w-[var(--sidebar-width)]',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
       )}
       style={{
         background: 'oklch(0.04 0.002 260)',
@@ -81,7 +100,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
           <span className="text-sm font-black" style={{ color: 'oklch(0.06 0.003 260)', letterSpacing: '-0.02em' }}>H</span>
         </div>
         {!collapsed && (
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col min-w-0 flex-1">
             <span className="text-sm font-black tracking-[0.15em] uppercase"
               style={{
                 background: `linear-gradient(135deg, oklch(0.62 0.11 75), oklch(0.88 0.13 78), ${GOLD})`,
@@ -91,6 +110,17 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
             </span>
             <span className="text-[8px] tracking-[0.25em] uppercase" style={{ color: `${GOLD}80` }}>AI Platform</span>
           </div>
+        )}
+        {/* モバイル: 閉じるボタン */}
+        {!collapsed && onMobileClose && (
+          <button
+            onClick={onMobileClose}
+            className="md:hidden ml-auto p-1.5 rounded-[var(--radius)] transition-colors"
+            style={{ color: `${GOLD}80` }}
+            aria-label="メニューを閉じる"
+          >
+            <X className="h-4 w-4" />
+          </button>
         )}
       </div>
 
@@ -109,7 +139,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
             if (item.children && !collapsed) {
               return (
                 <li key={item.href}>
-                  {/* 親リンク */}
                   <Link
                     href={item.href}
                     className="flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-all duration-200"
@@ -127,8 +156,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                         style={{ background: GOLD, boxShadow: `0 0 6px ${GOLD}` }} />
                     )}
                   </Link>
-
-                  {/* 子メニュー（常に表示） */}
                   <ul className="ml-7 mt-0.5 flex flex-col gap-0.5 border-l pl-3"
                     style={{ borderColor: `${GOLD}22` }}>
                     {item.children.map((child) => {
@@ -153,11 +180,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               )
             }
 
-            // 通常アイテム（または折りたたみ時）
-            const isActive = item.children
-              ? pathname.startsWith(item.href)
-              : pathname.startsWith(item.href)
-
+            const isActive = pathname.startsWith(item.href)
             return (
               <li key={item.href}>
                 <Link
@@ -213,7 +236,10 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
-            className={cn('flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-all duration-200', collapsed && 'justify-center px-2')}
+            className={cn(
+              'hidden md:flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-all duration-200',
+              collapsed && 'justify-center px-2'
+            )}
             style={{ color: 'oklch(0.40 0.005 75)' }}
           >
             {collapsed
@@ -227,5 +253,20 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       <div className="absolute bottom-0 left-0 right-0 h-px"
         style={{ background: `linear-gradient(90deg, transparent, ${GOLD}59, transparent)` }} />
     </aside>
+  )
+
+  return (
+    <>
+      {sidebarContent}
+      {/* モバイル: 背景オーバーレイ */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 md:hidden"
+          style={{ zIndex: 'calc(var(--z-sticky) - 1)', background: 'oklch(0 0 0 / 0.6)' }}
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      )}
+    </>
   )
 }
