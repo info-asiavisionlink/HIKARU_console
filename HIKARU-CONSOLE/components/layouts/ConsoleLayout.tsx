@@ -11,28 +11,26 @@ interface ConsoleLayoutProps {
 
 function Background() {
   return (
-    <div
-      aria-hidden="true"
-      className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: -1 }}
-    >
-      {/* パーティクル＋スキャンライン Canvas アニメーション */}
-      <HudBackground particleCount={50} showGrid />
-      {/* ゴールドグロー（上部） */}
+    <>
+      {/* パーティクル＋スキャンライン（sidebar/header: z-200 の下、body背景の上） */}
+      <HudBackground particleCount={50} showGrid zIndex={1} />
+      {/* ゴールドグロー（上部）*/}
       <div
-        className="absolute top-0 left-0 right-0 h-[40vh]"
+        className="fixed top-0 left-0 right-0 h-[40vh] pointer-events-none"
         style={{
+          zIndex: 2,
           background: 'radial-gradient(ellipse 60% 100% at 50% 0%, oklch(0.73 0.12 78 / 0.06) 0%, transparent 100%)',
         }}
       />
       {/* シアングロー（右下） */}
       <div
-        className="absolute bottom-0 right-0 w-[50vw] h-[40vh]"
+        className="fixed bottom-0 right-0 w-[50vw] h-[40vh] pointer-events-none"
         style={{
+          zIndex: 2,
           background: 'radial-gradient(ellipse 100% 100% at 100% 100%, oklch(0.60 0.28 260 / 0.05) 0%, transparent 70%)',
         }}
       />
-    </div>
+    </>
   )
 }
 
