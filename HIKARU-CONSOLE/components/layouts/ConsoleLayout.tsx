@@ -3,35 +3,33 @@
 import * as React from 'react'
 import { Sidebar } from './Sidebar'
 import { ConsoleHeader } from './ConsoleHeader'
-import { Toaster, cn } from '@hikaru/ui'
+import { Toaster, HudBackground, cn } from '@hikaru/ui'
 
 interface ConsoleLayoutProps {
   children: React.ReactNode
 }
 
-/* ダッシュボード以外ページ用の軽量CSS背景
-   WebGL不使用・JSアニメーションループなし */
-function CSSBackground() {
+function Background() {
   return (
     <div
       aria-hidden="true"
       className="fixed inset-0 pointer-events-none"
       style={{ zIndex: -1 }}
     >
-      {/* スキャンライン（CSSアニメーションのみ） */}
-      <div className="absolute inset-0 css-bg-scan" />
+      {/* パーティクル＋スキャンライン Canvas アニメーション */}
+      <HudBackground particleCount={50} showGrid />
       {/* ゴールドグロー（上部） */}
       <div
         className="absolute top-0 left-0 right-0 h-[40vh]"
         style={{
-          background: 'radial-gradient(ellipse 60% 100% at 50% 0%, oklch(0.73 0.12 78 / 0.05) 0%, transparent 100%)',
+          background: 'radial-gradient(ellipse 60% 100% at 50% 0%, oklch(0.73 0.12 78 / 0.06) 0%, transparent 100%)',
         }}
       />
       {/* シアングロー（右下） */}
       <div
         className="absolute bottom-0 right-0 w-[50vw] h-[40vh]"
         style={{
-          background: 'radial-gradient(ellipse 100% 100% at 100% 100%, oklch(0.60 0.28 260 / 0.04) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse 100% 100% at 100% 100%, oklch(0.60 0.28 260 / 0.05) 0%, transparent 70%)',
         }}
       />
     </div>
@@ -47,8 +45,8 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
 
   return (
     <>
-      {/* 軽量CSS背景（全ページ共通） */}
-      <CSSBackground />
+      {/* パーティクル背景（全コンソールページ共通） */}
+      <Background />
 
       <Sidebar
         collapsed={collapsed}
