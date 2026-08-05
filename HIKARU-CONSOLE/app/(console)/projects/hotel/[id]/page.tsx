@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 import { PageHeader, Button, Input, Textarea, Card, CardContent, Badge, Skeleton, toast, Breadcrumb } from '@hikaru/ui'
 import { AssigneeSelector, type Assignee } from '@/components/console/AssigneeSelector'
 import {
@@ -17,10 +18,12 @@ interface WorkAreaRow  { id?: string; name: string; description: string }
 
 export default function HotelProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [project, setProject] = React.useState<any>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [editing, setEditing] = React.useState(false)
-  const [saving,  setSaving]  = React.useState(false)
+  const router = useRouter()
+  const [project,    setProject]    = React.useState<any>(null)
+  const [loading,    setLoading]    = React.useState(true)
+  const [editing,    setEditing]    = React.useState(false)
+  const [saving,     setSaving]     = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [form, setForm] = React.useState<any>({})
   const [floors,   setFloors]   = React.useState<FloorRow[]>([])
   const [staffing, setStaffing] = React.useState<StaffingRow[]>([])
@@ -61,6 +64,16 @@ export default function HotelProjectDetailPage() {
       }
     }
     setLoading(false)
+  }
+
+  async function handleDelete() {
+    const res = await fetch(`/api/projects/hotel/${id}`, { method: 'DELETE', credentials: 'include' })
+    if (res.ok) {
+      toast.success('案件を削除しました')
+      router.push('/projects/hotel')
+    } else {
+      toast.error('削除に失敗しました')
+    }
   }
 
   function upd(k: string, v: string) { setForm((p: any) => ({ ...p, [k]: v })) }
@@ -109,7 +122,8 @@ export default function HotelProjectDetailPage() {
             {editing
               ? <><Button variant="outline" size="sm" onClick={() => { setEditing(false); loadData() }}>キャンセル</Button>
                   <Button size="sm" onClick={handleSave} disabled={saving}><Save className="h-4 w-4" />{saving ? '保存中...' : '保存'}</Button></>
-              : <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4" /> 編集</Button>
+              : <><Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4" /> 編集</Button>
+                  <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4" /> 削除</Button></>
             }
           </div>
         }
@@ -306,8 +320,22 @@ export default function HotelProjectDetailPage() {
           }
         </div>
 
-        <div><Link href="/projects/hotel"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link></div>
+        <div className="space-y-3">
+          <Link href="/projects/hotel"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link>
+          {!editing && (
+            <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" /> この案件を削除
+            </Button>
+          )}
+        </div>
       </div>
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="ホテル案件を削除しますか？"
+        description={`「${project?.name}」を削除します。フロア・スタッフィング・作業エリア情報もすべて削除されます。この操作は取り消せません。`}
+      />
     </div>
   )
 }

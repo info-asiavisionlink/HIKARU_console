@@ -14,7 +14,9 @@ import {
   emptyBilling, emptyPrice, BILLING_STATUSES, fmtJPY,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 
@@ -39,10 +41,12 @@ const gold = 'oklch(0.73 0.12 78)'
 
 export default function RecurringProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [project,  setProject]  = React.useState<any>(null)
-  const [loading,  setLoading]  = React.useState(true)
-  const [editing,  setEditing]  = React.useState(false)
-  const [saving,   setSaving]   = React.useState(false)
+  const router = useRouter()
+  const [project,    setProject]    = React.useState<any>(null)
+  const [loading,    setLoading]    = React.useState(true)
+  const [editing,    setEditing]    = React.useState(false)
+  const [saving,     setSaving]     = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [form,     setForm]     = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [prices,   setPrices]   = React.useState<PriceEntry[]>(initPrices())
@@ -127,6 +131,16 @@ export default function RecurringProjectDetailPage() {
     }
 
     setLoading(false)
+  }
+
+  async function handleDelete() {
+    const res = await fetch(`/api/projects/recurring/${id}`, { method: 'DELETE', credentials: 'include' })
+    if (res.ok) {
+      toast.success('案件を削除しました')
+      router.push('/projects/recurring')
+    } else {
+      toast.error('削除に失敗しました')
+    }
   }
 
   function upd(k: string, v: string) { setForm((p: any) => ({ ...p, [k]: v })) }
@@ -232,9 +246,14 @@ export default function RecurringProjectDetailPage() {
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                <Edit2 className="h-4 w-4" /> 編集
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  <Edit2 className="h-4 w-4" /> 編集
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 className="h-4 w-4" /> 削除
+                </Button>
+              </>
             )}
           </div>
         }
@@ -429,6 +448,11 @@ export default function RecurringProjectDetailPage() {
               <ArrowLeft className="h-4 w-4" /> 一覧へ戻る
             </Button>
           </Link>
+          {!editing && (
+            <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" /> この案件を削除
+            </Button>
+          )}
 
           {/* 担当者（閲覧時） */}
           {!editing && assignees.length > 0 && (
@@ -449,6 +473,13 @@ export default function RecurringProjectDetailPage() {
           )}
         </div>
       </div>
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="定期案件を削除しますか？"
+        description={`「${project?.name}」を削除します。関連するスケジュール・単価情報もすべて削除されます。この操作は取り消せません。`}
+      />
     </div>
   )
 }

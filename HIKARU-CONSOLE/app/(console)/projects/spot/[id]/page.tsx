@@ -10,6 +10,7 @@ import {
   BILLING_STATUSES, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Edit2, Save, Trash2, Zap } from 'lucide-react'
+import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
 const statusVariant: Record<string, string> = { active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive' }
 const statusLabel: Record<string, string>   = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
@@ -23,7 +24,8 @@ export default function SpotProjectDetailPage() {
   const [saving,  setSaving]  = React.useState(false)
   const [form, setForm] = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
-  const [price,   setPrice]   = React.useState<PriceEntry>(emptyPrice())
+  const [price,     setPrice]     = React.useState<PriceEntry>(emptyPrice())
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
@@ -64,6 +66,16 @@ export default function SpotProjectDetailPage() {
     }
 
     setLoading(false)
+  }
+
+  async function handleDelete() {
+    const res = await fetch(`/api/projects/spot/${id}`, { method: 'DELETE', credentials: 'include' })
+    if (res.ok) {
+      toast.success('案件を削除しました')
+      router.push('/projects/spot')
+    } else {
+      toast.error('削除に失敗しました')
+    }
   }
 
   function upd(k: string, v: string) { setForm((p: any) => ({ ...p, [k]: v })) }
@@ -118,7 +130,10 @@ export default function SpotProjectDetailPage() {
                 <Button size="sm" onClick={handleSave} disabled={saving}><Save className="h-4 w-4" /> {saving ? '保存中...' : '保存'}</Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4" /> 編集</Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4" /> 編集</Button>
+                <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4" /> 削除</Button>
+              </>
             )}
           </div>
         }
@@ -226,8 +241,20 @@ export default function SpotProjectDetailPage() {
 
         <div className="space-y-4">
           <Link href="/projects/spot"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link>
+          {!editing && (
+            <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" /> この案件を削除
+            </Button>
+          )}
         </div>
       </div>
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="スポット案件を削除しますか？"
+        description={`「${project?.name}」を削除します。この操作は取り消せません。`}
+      />
     </div>
   )
 }
