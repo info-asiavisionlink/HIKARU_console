@@ -183,7 +183,10 @@ export default function ClientsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     const { error } = await deleteClient(deleteTarget.id)
-    if (error) { toast.error('削除に失敗しました'); return }
+    if (error) {
+      toast.error(error.message || '削除に失敗しました')
+      return
+    }
     toast.success('顧客を削除しました')
     setDeleteTarget(null)
     fetchClients()

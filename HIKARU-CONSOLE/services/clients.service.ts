@@ -90,7 +90,13 @@ export async function updateClient(id: string, input: Partial<ClientInsert> & { 
 }
 
 export async function deleteClient(id: string) {
-  const supabase = createClient()
-  const { error } = await supabase.from('clients').delete().eq('id', id)
-  return { error }
+  const res = await fetch(`/api/clients/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    return { error: new Error(body.error ?? `HTTP ${res.status}`) }
+  }
+  return { error: null }
 }

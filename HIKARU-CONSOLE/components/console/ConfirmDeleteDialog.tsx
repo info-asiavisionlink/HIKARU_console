@@ -3,7 +3,7 @@
 import * as React from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogDescription, DialogBody, DialogFooter,
+  DialogDescription, DialogFooter,
   Button,
 } from '@hikaru/ui'
 import { Trash2 } from 'lucide-react'
@@ -27,26 +27,38 @@ export function ConfirmDeleteDialog({
 
   async function handleConfirm() {
     setLoading(true)
-    await onConfirm()
-    setLoading(false)
-    onClose()
+    try {
+      await onConfirm()
+    } catch {
+      // エラーは呼び出し元で処理済み
+    } finally {
+      setLoading(false)
+      onClose()
+    }
+  }
+
+  // ダイアログが閉じるときにloading状態をリセット
+  function handleOpenChange(o: boolean) {
+    if (!o && !loading) onClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent showClose={false}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-[var(--color-error)]" />
+            <Trash2 className="h-5 w-5 text-[var(--color-error-foreground)]" />
             {title}
           </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {description && (
+            <DialogDescription>{description}</DialogDescription>
+          )}
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={loading}>
             キャンセル
           </Button>
-          <Button variant="destructive" onClick={handleConfirm} disabled={loading}>
+          <Button variant="destructive" onClick={handleConfirm} loading={loading}>
             {loading ? '削除中...' : '削除する'}
           </Button>
         </DialogFooter>
