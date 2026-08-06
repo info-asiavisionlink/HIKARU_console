@@ -6,14 +6,14 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
-  Bell, FileText, X, UserCog,
+  Bell, FileText, X, UserCog, Inbox,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
 type IconComponent = React.ComponentType<{ className?: string; style?: React.CSSProperties }>
 
 interface NavChild { label: string; href: string }
-interface NavItem  { label: string; href: string; icon: IconComponent; badge?: number; children?: NavChild[] }
+interface NavItem  { label: string; href: string; icon: IconComponent; badge?: number; children?: NavChild[]; dynamicBadge?: boolean }
 
 const navItems: NavItem[] = [
   { label: 'ダッシュボード',   href: '/dashboard',    icon: LayoutDashboard },
@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
       { label: 'ホテル案件',   href: '/projects/hotel' },
     ],
   },
+  { label: '案件依頼',         href: '/project-requests', icon: Inbox, dynamicBadge: true },
   {
     label: '顧客管理',
     href: '/clients',
@@ -61,6 +62,24 @@ export function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname()
+  const [pendingRequests, setPendingRequests] = React.useState(0)
+
+  // 案件依頼の未対応件数を取得
+  React.useEffect(() => {
+    async function fetchCount() {
+      try {
+        const res = await fetch('/api/project-requests?count=true', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          setPendingRequests(data.count ?? 0)
+        }
+      } catch { /* ignore */ }
+    }
+    fetchCount()
+    // 30秒ごとにポーリング
+    const timer = setInterval(fetchCount, 30000)
+    return () => clearInterval(timer)
+  }, [pathname])
 
   // モバイル: ページ遷移時に自動で閉じる
   React.useEffect(() => {
@@ -210,7 +229,13 @@ export function Sidebar({
                   {!collapsed && (
                     <>
                       <span className="truncate">{item.label}</span>
-                      {item.badge != null && (
+                      {item.dynamicBadge && pendingRequests > 0 && (
+                        <span className="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold animate-pulse"
+                          style={{ background: 'oklch(0.65 0.25 27)', color: 'white', boxShadow: '0 0 8px oklch(0.65 0.25 27 / 0.7)' }}>
+                          {pendingRequests}
+                        </span>
+                      )}
+                      {!item.dynamicBadge && item.badge != null && (
                         <span className="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold"
                           style={{ background: GOLD, color: 'oklch(0.06 0.003 260)', boxShadow: `0 0 8px ${GOLD}99` }}>
                           {item.badge}
