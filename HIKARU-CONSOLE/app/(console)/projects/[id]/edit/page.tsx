@@ -9,7 +9,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Breadcrumb, Skeleton,
 } from '@hikaru/ui'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Users, Building2, Plus, Trash2, MapPin } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: 'active',    label: '稼働中' },
@@ -21,45 +21,75 @@ const STATUS_OPTIONS = [
 export default function EditProjectPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const [loading, setLoading] = React.useState(false)
+  const [loading,  setLoading]  = React.useState(false)
   const [fetching, setFetching] = React.useState(true)
+  const [clients,  setClients]  = React.useState<{ id: string; name: string }[]>([])
+  const [spots,    setSpots]    = React.useState<string[]>([''])
+
   const [form, setForm] = React.useState({
-    name: '',
-    code: '',
-    status: 'active',
-    start_date: '',
-    end_date: '',
-    location_name: '',
-    phone: '',
-    emergency_contact: '',
-    business_hours: '',
-    contract_info: '',
-    notes: '',
+    name: '', code: '', status: 'active', client_id: '',
+    start_date: '', end_date: '',
+    work_start_time: '', work_end_time: '',
+    location_name: '', address: '',
+    phone: '', emergency_contact: '', business_hours: '',
+    contract_info: '', notes: '',
   })
 
+  // 顧客リスト取得
   React.useEffect(() => {
-    getProject(id).then(({ data }) => {
+    fetch('/api/clients?pageSize=100')
+      .then((r) => r.json())
+      .then((r) => setClients(r.clients ?? []))
+  }, [])
+
+  // 案件データ + 作業箇所を読み込み
+  React.useEffect(() => {
+    async function load() {
+      const [projRes, spotsRes] = await Promise.all([
+        getProject(id),
+        fetch(`/api/projects/${id}/spots`, { credentials: 'include' }).then((r) => r.json()),
+      ])
+
+      const data = projRes.data as any
       if (data) {
         setForm({
-          name:              data.name ?? '',
-          code:              data.code ?? '',
-          status:            data.status ?? 'active',
-          start_date:        data.start_date ?? '',
-          end_date:          data.end_date ?? '',
-          location_name:     data.location_name ?? '',
-          phone:             data.phone ?? '',
+          name:              data.name              ?? '',
+          code:              data.code              ?? '',
+          status:            data.status            ?? 'active',
+          client_id:         data.client_id         ?? '',
+          start_date:        data.start_date        ?? '',
+          end_date:          data.end_date          ?? '',
+          work_start_time:   data.work_start_time   ?? '',
+          work_end_time:     data.work_end_time     ?? '',
+          location_name:     data.location_name     ?? '',
+          address:           data.address           ?? '',
+          phone:             data.phone             ?? '',
           emergency_contact: data.emergency_contact ?? '',
-          business_hours:    data.business_hours ?? '',
-          contract_info:     data.contract_info ?? '',
-          notes:             data.notes ?? '',
+          business_hours:    data.business_hours    ?? '',
+          contract_info:     data.contract_info     ?? '',
+          notes:             data.notes             ?? '',
         })
       }
+
+      // 既存の作業箇所
+      const existingSpots: { name: string }[] = spotsRes.data ?? []
+      setSpots(existingSpots.length > 0 ? existingSpots.map((s) => s.name) : [''])
+
       setFetching(false)
-    })
+    }
+    load()
   }, [id])
 
   function update(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function addSpot() { setSpots((prev) => [...prev, '']) }
+  function updateSpot(i: number, val: string) {
+    setSpots((prev) => prev.map((s, idx) => idx === i ? val : s))
+  }
+  function removeSpot(i: number) {
+    setSpots((prev) => prev.length <= 1 ? [''] : prev.filter((_, idx) => idx !== i))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -67,20 +97,41 @@ export default function EditProjectPage() {
     if (!form.name.trim()) { toast.error('案件名を入力してください'); return }
 
     setLoading(true)
-    const { error } = await updateProject(id, {
-      name:              form.name.trim(),
-      code:              form.code.trim()              || null,
-      status:            form.status as any,
-      start_date:        form.start_date               || null,
-      end_date:          form.end_date                 || null,
-      location_name:     form.location_name.trim()     || null,
-      phone:             form.phone.trim()             || null,
-      emergency_contact: form.emergency_contact.trim() || null,
-      business_hours:    form.business_hours.trim()    || null,
-      contract_info:     form.contract_info.trim()     || null,
-      notes:             form.notes.trim()             || null,
-    })
 
+    const [updateRes, _] = await Promise.all([
+      updateProject(id, {
+        name:              form.name.trim(),
+        code:              form.code.trim()              || null,
+        status:            form.status as any,
+        client_id:         form.client_id               || null,
+        start_date:        form.start_date               || null,
+        end_date:          form.end_date                 || null,
+        work_start_time:   form.work_start_time          || null,
+        work_end_time:     form.work_end_time            || null,
+        location_name:     form.location_name.trim()     || null,
+        address:           form.address.trim()           || null,
+        phone:             form.phone.trim()             || null,
+        emergency_contact: form.emergency_contact.trim() || null,
+        business_hours:    form.business_hours.trim()    || null,
+        contract_info:     form.contract_info.trim()     || null,
+        notes:             form.notes.trim()             || null,
+      } as any),
+      // 作業箇所: 全削除 → 再登録
+      (async () => {
+        await fetch(`/api/projects/${id}/spots`, { method: 'DELETE', credentials: 'include' })
+        const validSpots = spots.filter((s) => s.trim())
+        if (validSpots.length > 0) {
+          await fetch(`/api/projects/${id}/spots`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ spots: validSpots.map((name) => ({ name })) }),
+          })
+        }
+      })(),
+    ])
+
+    const { error } = updateRes
     if (error) {
       toast.error('保存に失敗しました')
     } else {
@@ -91,7 +142,11 @@ export default function EditProjectPage() {
   }
 
   if (fetching) {
-    return <div className="space-y-4">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+    return (
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+      </div>
+    )
   }
 
   return (
@@ -123,32 +178,34 @@ export default function EditProjectPage() {
                   <Input label="開始日" type="date" value={form.start_date} onChange={(e) => update('start_date', e.target.value)} />
                   <Input label="終了日" type="date" value={form.end_date}   onChange={(e) => update('end_date', e.target.value)} />
                 </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input label="作業開始時間" type="time" value={form.work_start_time} onChange={(e) => update('work_start_time', e.target.value)} />
+                  <Input label="作業終了時間" type="time" value={form.work_end_time}   onChange={(e) => update('work_end_time', e.target.value)} />
+                </div>
               </CardContent>
             </Card>
 
             {/* 作業場所 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業場所</h2>
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> 作業場所
+                </h2>
                 <Input
                   label="作業場所名"
                   value={form.location_name}
                   onChange={(e) => update('location_name', e.target.value)}
                   placeholder="例: ○○マンション / ○○病院 / ○○工場"
                 />
+                <Input
+                  label="住所"
+                  value={form.address}
+                  onChange={(e) => update('address', e.target.value)}
+                  placeholder="例: 東京都渋谷区○○1-2-3"
+                />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Input
-                    label="電話番号"
-                    value={form.phone}
-                    onChange={(e) => update('phone', e.target.value)}
-                    placeholder="現場の電話番号"
-                  />
-                  <Input
-                    label="緊急連絡先"
-                    value={form.emergency_contact}
-                    onChange={(e) => update('emergency_contact', e.target.value)}
-                    placeholder="緊急時の連絡先"
-                  />
+                  <Input label="電話番号" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="現場の電話番号" />
+                  <Input label="緊急連絡先" value={form.emergency_contact} onChange={(e) => update('emergency_contact', e.target.value)} placeholder="緊急時の連絡先" />
                 </div>
                 <Input
                   label="作業可能時間帯"
@@ -156,6 +213,79 @@ export default function EditProjectPage() {
                   onChange={(e) => update('business_hours', e.target.value)}
                   placeholder="例: 平日 9:00〜18:00"
                 />
+              </CardContent>
+            </Card>
+
+            {/* 作業箇所 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">
+                    作業箇所
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={addSpot}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
+                    style={{
+                      background: 'var(--color-primary-muted)',
+                      border: '1px solid var(--color-primary-glow)',
+                      color: 'var(--color-primary)',
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    箇所を追加
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  清掃・点検する箇所を追加してください。作業者の撮影箇所として使用されます。
+                </p>
+                <div className="space-y-2">
+                  {spots.map((spot, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div
+                        className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
+                        style={{
+                          background: 'var(--color-primary-muted)',
+                          border: '1px solid var(--color-primary-glow)',
+                          color: 'var(--color-primary)',
+                        }}
+                      >
+                        {i + 1}
+                      </div>
+                      <Input
+                        value={spot}
+                        onChange={(e) => updateSpot(i, e.target.value)}
+                        placeholder={
+                          i === 0 ? '例: エアコン清掃' :
+                          i === 1 ? '例: 床清掃' :
+                          i === 2 ? '例: トイレ清掃' : '例: 窓清掃...'
+                        }
+                        className="flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeSpot(i)}
+                        className="p-1.5 rounded-[var(--radius)] transition-colors hover:opacity-80 shrink-0"
+                        style={{ color: 'var(--color-error-foreground)' }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addSpot}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm transition-all hover:opacity-80 border-dashed"
+                  style={{
+                    border: '1.5px dashed var(--color-border)',
+                    color: 'var(--color-muted-foreground)',
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  箇所を追加する
+                </button>
               </CardContent>
             </Card>
 
@@ -169,7 +299,28 @@ export default function EditProjectPage() {
             </Card>
           </div>
 
+          {/* 右カラム */}
           <div className="space-y-4">
+            {/* 顧客 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <Select value={form.client_id} onValueChange={(v) => update('client_id', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="顧客を選択（任意）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* ステータス */}
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>
@@ -183,6 +334,33 @@ export default function EditProjectPage() {
                 </Select>
               </CardContent>
             </Card>
+
+            {/* 作業箇所プレビュー */}
+            {spots.some((s) => s.trim()) && (
+              <Card>
+                <CardContent className="pt-6 space-y-3">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">
+                    作業箇所 ({spots.filter((s) => s.trim()).length})
+                  </h2>
+                  <div className="flex flex-wrap gap-1.5">
+                    {spots.filter((s) => s.trim()).map((s, i) => (
+                      <span
+                        key={i}
+                        className="text-xs px-2 py-1 rounded-[var(--radius)]"
+                        style={{
+                          background: 'var(--color-primary-muted)',
+                          border: '1px solid var(--color-primary-glow)',
+                          color: 'var(--color-primary)',
+                        }}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="flex flex-col gap-2">
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? '保存中...' : '変更を保存'}
