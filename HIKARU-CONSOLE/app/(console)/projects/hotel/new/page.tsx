@@ -13,7 +13,7 @@ import {
   emptyPrice, emptyBilling,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, Building2 } from 'lucide-react'
+import { ArrowLeft, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, Building2, MapPin } from 'lucide-react'
 
 interface FloorRow    { floor_name: string; room_count: string }
 interface StaffingRow { time_slot: string;  required_staff: string }
@@ -44,15 +44,20 @@ export default function NewHotelProjectPage() {
   const [price,    setPrice]    = React.useState<PriceEntry>(emptyPrice())
   const [billing,  setBilling]  = React.useState<BillingEntry>(emptyBilling())
   const [clients,  setClients]  = React.useState<{ id: string; name: string }[]>([])
+  const [spots,    setSpots]    = React.useState<string[]>([''])
 
   const [form, setForm] = React.useState({
-    name: '', status: 'active', client_id: '', location_name: '', notes: '',
+    name: '', status: 'active', client_id: '', location_name: '', address: '', notes: '',
     total_floors: '', operating_start_time: '', operating_end_time: '',
     manager_name: '', phone: '',
     contract_start_date: '', contract_end_date: '',
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
+
+  function addSpot() { setSpots(p => [...p, '']) }
+  function updSpot(i: number, v: string) { setSpots(p => p.map((s, idx) => idx === i ? v : s)) }
+  function rmSpot(i: number) { setSpots(p => p.length <= 1 ? [''] : p.filter((_, idx) => idx !== i)) }
 
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100')
@@ -90,6 +95,7 @@ export default function NewHotelProjectPage() {
         status:        form.status,
         client_id:     form.client_id     || null,
         location_name: form.location_name || null,
+        address:       form.address       || null,
         notes:         form.notes         || null,
         hotel_details: {
           total_floors:          parseInt(form.total_floors) || totalRooms > 0 ? floors.length : 0,
@@ -135,6 +141,16 @@ export default function NewHotelProjectPage() {
       })
     }
 
+    // ③ 作業箇所登録
+    const validSpots = spots.filter(s => s.trim())
+    if (validSpots.length > 0) {
+      await fetch(`/api/projects/${project.id}/spots`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spots: validSpots.map(name => ({ name })) }),
+      })
+    }
+
     toast.success('ホテル案件を登録しました')
     router.push(`/projects/hotel/${project.id}`)
     setLoading(false)
@@ -164,7 +180,8 @@ export default function NewHotelProjectPage() {
                   <Hotel className="h-4 w-4" /> ホテル基本情報
                 </h2>
                 <Input label="ホテル名 *" value={form.name} onChange={e => upd('name', e.target.value)} placeholder="○○ホテル" required />
-                <Input label="住所" value={form.location_name} onChange={e => upd('location_name', e.target.value)} placeholder="東京都○○区..." />
+                <Input label="施設名・通称" value={form.location_name} onChange={e => upd('location_name', e.target.value)} placeholder="例: ○○ホテル別館 / ○○リゾート" />
+                <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="担当責任者" value={form.manager_name} onChange={e => upd('manager_name', e.target.value)} />
                   <Input label="電話番号" type="tel" value={form.phone} onChange={e => upd('phone', e.target.value)} />
@@ -287,6 +304,44 @@ export default function NewHotelProjectPage() {
 
             {/* ★ 請求情報 */}
             <BillingInfoCard value={billing} onChange={setBilling} />
+
+            {/* 作業箇所 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所（撮影箇所）</h2>
+                  <button type="button" onClick={addSpot}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
+                    style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                    <Plus className="h-3.5 w-3.5" /> 箇所を追加
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--color-muted-foreground)]">作業者が写真を撮影する箇所を追加してください（例: ロビー、客室、大浴場）。</p>
+                <div className="space-y-2">
+                  {spots.map((spot, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
+                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                        {i + 1}
+                      </div>
+                      <Input value={spot} onChange={e => updSpot(i, e.target.value)}
+                        placeholder={i === 0 ? '例: ロビー清掃' : i === 1 ? '例: 客室清掃' : '例: 大浴場清掃...'}
+                        className="flex-1" />
+                      <button type="button" onClick={() => rmSpot(i)}
+                        className="p-1.5 rounded-[var(--radius)] hover:opacity-80 shrink-0"
+                        style={{ color: 'var(--color-error-foreground)' }}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={addSpot}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm border-dashed hover:opacity-80"
+                  style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}>
+                  <Plus className="h-4 w-4" /> 箇所を追加する
+                </button>
+              </CardContent>
+            </Card>
 
             {/* 備考 */}
             <Card>

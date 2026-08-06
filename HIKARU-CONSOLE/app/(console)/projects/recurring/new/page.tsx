@@ -43,7 +43,7 @@ export default function NewRecurringProjectPage() {
   )
 
   const [form, setForm] = React.useState({
-    name: '', status: 'active', client_id: '', location_name: '', notes: '',
+    name: '', status: 'active', client_id: '', location_name: '', address: '', notes: '',
     start_date: '', end_date: '', required_staff: '1',
     cycle_type: 'monthly', work_start_time: '', work_end_time: '',
   })
@@ -74,6 +74,7 @@ export default function NewRecurringProjectPage() {
         status:        form.status,
         client_id:     form.client_id     || null,
         location_name: form.location_name || null,
+        address:       form.address       || null,
         start_date:    form.start_date    || null,
         end_date:      form.end_date      || null,
         notes:         form.notes         || null,
@@ -139,6 +140,7 @@ export default function NewRecurringProjectPage() {
                 </h2>
                 <Input label="案件名 *" value={form.name} onChange={e => upd('name', e.target.value)} placeholder="例: ○○飲食店 定期清掃" required />
                 <Input label="作業場所名" value={form.location_name} onChange={e => upd('location_name', e.target.value)} placeholder="○○店 / ○○ビル" />
+                <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="開始日" type="date" value={form.start_date} onChange={e => upd('start_date', e.target.value)} />
                   <Input label="終了日" type="date" value={form.end_date} onChange={e => upd('end_date', e.target.value)} />

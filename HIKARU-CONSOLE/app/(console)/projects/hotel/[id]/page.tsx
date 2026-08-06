@@ -28,6 +28,7 @@ export default function HotelProjectDetailPage() {
   const [floors,   setFloors]   = React.useState<FloorRow[]>([])
   const [staffing, setStaffing] = React.useState<StaffingRow[]>([])
   const [areas,    setAreas]    = React.useState<WorkAreaRow[]>([])
+  const [spots,    setSpots]    = React.useState<string[]>([''])
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [price,   setPrice]   = React.useState<PriceEntry>(emptyPrice())
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
@@ -45,11 +46,20 @@ export default function HotelProjectDetailPage() {
       setProject(data)
       const d = data.hotel_project_details
       setForm({
-        name: data.name, status: data.status, location_name: data.location_name ?? '', notes: data.notes ?? '',
+        name: data.name, status: data.status,
+        location_name: data.location_name ?? '',
+        address: data.address ?? '',
+        notes: data.notes ?? '',
         total_floors: String(d?.total_floors ?? ''), operating_start_time: d?.operating_start_time ?? '',
         operating_end_time: d?.operating_end_time ?? '', manager_name: d?.manager_name ?? '', phone: d?.phone ?? '',
         contract_start_date: d?.contract_start_date ?? '', contract_end_date: d?.contract_end_date ?? '',
       })
+      // 作業箇所
+      const spotsRes = await fetch(`/api/projects/${id}/spots`, { credentials: 'include' })
+      if (spotsRes.ok) {
+        const { data: sd } = await spotsRes.json()
+        setSpots(sd?.length > 0 ? sd.map((s: any) => s.name) : [''])
+      }
       setFloors((data.floors ?? []).map((f: any) => ({ id: f.id, floor_name: f.floor_name, room_count: String(f.room_count) })))
       setStaffing((data.staffing_rules ?? []).map((s: any) => ({ id: s.id, time_slot: s.time_slot, required_staff: String(s.required_staff) })))
       setAreas((data.work_areas ?? []).map((a: any) => ({ id: a.id, name: a.name, description: a.description ?? '' })))
@@ -86,7 +96,9 @@ export default function HotelProjectDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name, status: form.status,
-          location_name: form.location_name || null, notes: form.notes || null,
+          location_name: form.location_name || null,
+          address: form.address || null,
+          notes: form.notes || null,
           hotel_details: { total_floors: parseInt(form.total_floors)||0, operating_start_time: form.operating_start_time||null, operating_end_time: form.operating_end_time||null, manager_name: form.manager_name||null, phone: form.phone||null, contract_start_date: form.contract_start_date||null, contract_end_date: form.contract_end_date||null, auto_generate: true },
           floors:         floors.filter(f => f.floor_name).map((f, i) => ({ floor_name: f.floor_name, room_count: parseInt(f.room_count)||0, order_num: i })),
           staffing_rules: staffing.filter(s => s.time_slot).map((s, i) => ({ time_slot: s.time_slot, required_staff: parseInt(s.required_staff)||0, order_num: i })),
@@ -100,6 +112,17 @@ export default function HotelProjectDetailPage() {
         body: JSON.stringify({ billing, prices: [{ ...price, period_month: null }] }),
       }),
     ])
+    // 作業箇所を更新
+    await fetch(`/api/projects/${id}/spots`, { method: 'DELETE', credentials: 'include' })
+    const valid = spots.filter(s => s.trim())
+    if (valid.length > 0) {
+      await fetch(`/api/projects/${id}/spots`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spots: valid.map(name => ({ name })) }),
+      })
+    }
+
     if (projRes.ok && pricingRes.ok) { toast.success('保存しました'); setEditing(false); await loadData() }
     else toast.error('保存に失敗しました')
     setSaving(false)
@@ -141,7 +164,8 @@ export default function HotelProjectDetailPage() {
               {editing ? (
                 <>
                   <Input label="ホテル名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
-                  <Input label="住所" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
+                  <Input label="施設名・通称" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
+                  <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                   <div className="grid grid-cols-2 gap-4">
                     <Input label="担当責任者" value={form.manager_name} onChange={e => upd('manager_name', e.target.value)} />
                     <Input label="電話番号" type="tel" value={form.phone} onChange={e => upd('phone', e.target.value)} />
@@ -160,7 +184,8 @@ export default function HotelProjectDetailPage() {
               ) : (
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                   {[
-                    ['住所',     project.location_name ?? '—'],
+                    ['施設名',   project.location_name ?? '—'],
+                    ['住所',     project.address ?? '—'],
                     ['担当',     d?.manager_name ?? '—'],
                     ['電話',     d?.phone ?? '—'],
                     ['総階数',   d?.total_floors ? `${d.total_floors}階` : '—'],
@@ -267,6 +292,37 @@ export default function HotelProjectDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {editing && (
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所（撮影箇所）</h2>
+                  <button type="button" onClick={() => setSpots(p => [...p, ''])}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
+                    style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                    <Plus className="h-3.5 w-3.5" /> 箇所を追加
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {spots.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs w-5 text-center" style={{ color: 'var(--color-primary)' }}>{i+1}</span>
+                      <Input value={s} onChange={e => setSpots(p => p.map((x,j) => j===i ? e.target.value : x))}
+                        placeholder={i===0?'例: ロビー清掃':i===1?'例: 客室清掃':'例: 大浴場清掃...'} className="flex-1" />
+                      <button type="button" onClick={() => setSpots(p => p.length<=1?['']:p.filter((_,j)=>j!==i))}
+                        style={{ color: 'var(--color-error-foreground)' }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setSpots(p => [...p, ''])}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-[var(--radius-lg)] text-sm border-dashed hover:opacity-80"
+                  style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}>
+                  <Plus className="h-4 w-4" /> 箇所を追加する
+                </button>
+              </CardContent>
+            </Card>
+          )}
 
           {editing && (
             <Card>

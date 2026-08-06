@@ -72,6 +72,7 @@ export default function RecurringProjectDetailPage() {
         name:            data.name ?? '',
         status:          data.status ?? 'active',
         location_name:   data.location_name ?? '',
+        address:         data.address ?? '',
         notes:           data.notes ?? '',
         start_date:      data.start_date ?? '',
         end_date:        data.end_date ?? '',
@@ -164,6 +165,7 @@ export default function RecurringProjectDetailPage() {
           name:          form.name.trim(),
           status:        form.status,
           location_name: form.location_name || null,
+          address:       form.address       || null,
           notes:         form.notes         || null,
           start_date:    form.start_date    || null,
           end_date:      form.end_date      || null,
@@ -271,7 +273,8 @@ export default function RecurringProjectDetailPage() {
               {editing ? (
                 <>
                   <Input label="案件名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
-                  <Input label="作業場所" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
+                  <Input label="作業場所名" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
+                  <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                   <div className="grid grid-cols-2 gap-4">
                     <Input label="開始日" type="date" value={form.start_date} onChange={e => upd('start_date', e.target.value)} />
                     <Input label="終了日" type="date" value={form.end_date}   onChange={e => upd('end_date',   e.target.value)} />
@@ -298,7 +301,8 @@ export default function RecurringProjectDetailPage() {
               ) : (
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {[
-                    ['作業場所', project.location_name ?? '—'],
+                    ['作業場所名', project.location_name ?? '—'],
+                    ['住所',       project.address ?? '—'],
                     ['作業周期', CYCLE_OPTIONS.find(o => o.value === d.cycle_type)?.label ?? '—'],
                     ['期間',     [project.start_date, project.end_date].filter(Boolean).map((dt: string) => new Date(dt).toLocaleDateString('ja-JP')).join(' 〜 ') || '—'],
                     ['必要人数', `${d.required_staff ?? '—'}名`],
