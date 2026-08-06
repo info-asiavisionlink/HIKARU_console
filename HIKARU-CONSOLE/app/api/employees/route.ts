@@ -1,29 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
-
-async function getAdminCompanyId() {
-  const cookieStore = await cookies()
-  const uid = cookieStore.get('hk_c_uid')?.value
-  if (!uid) return null
-  const admin = createAdminClient()
-  const { data } = await admin.from('profiles').select('company_id, role').eq('id', uid).single()
-  if (!data || data.role !== 'admin') return null
-  return data.company_id as string
-}
+import { getAuthContext } from '@/lib/supabase/server-admin'
 
 // GET /api/employees  - 従業員一覧
 export async function GET(req: NextRequest) {
-  const companyId = await getAdminCompanyId()
-  if (!companyId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { companyId, adminClient: admin } = auth
 
   const { searchParams } = new URL(req.url)
   const search   = searchParams.get('search') ?? ''
   const status   = searchParams.get('status') ?? ''
   const page     = parseInt(searchParams.get('page') ?? '1')
   const pageSize = parseInt(searchParams.get('pageSize') ?? '20')
-
-  const admin = createAdminClient()
   let query = admin
     .from('employees')
     .select('*', { count: 'exact' })
@@ -47,13 +35,12 @@ export async function GET(req: NextRequest) {
 
 // POST /api/employees  - 従業員登録
 export async function POST(req: NextRequest) {
-  const companyId = await getAdminCompanyId()
-  if (!companyId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { companyId, adminClient: admin } = auth
 
   const body = await req.json()
   const { loginPassword, role, ...employeeFields } = body
-
-  const admin = createAdminClient()
 
   // ① まず employees レコードを作成（employee_number はDBトリガーで自動採番）
   const { data: employee, error: empError } = await admin

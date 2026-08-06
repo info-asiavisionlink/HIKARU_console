@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
-
-async function getAdminCompanyId() {
-  const cookieStore = await cookies()
-  const uid = cookieStore.get('hk_c_uid')?.value
-  if (!uid) return null
-  const admin = createAdminClient()
-  const { data } = await admin.from('profiles').select('company_id, role').eq('id', uid).single()
-  if (!data || data.role !== 'admin') return null
-  return data.company_id as string
-}
+import { getAuthContext } from '@/lib/supabase/server-admin'
 
 // GET /api/employees/[id]
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const companyId = await getAdminCompanyId()
-  if (!companyId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-
-  const admin = createAdminClient()
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { companyId, adminClient: admin } = auth
   const { data, error } = await admin
     .from('employees')
     .select('*')
@@ -48,11 +36,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // PATCH /api/employees/[id]
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const companyId = await getAdminCompanyId()
-  if (!companyId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { companyId, adminClient: admin } = auth
 
   const body = await req.json()
-  const admin = createAdminClient()
 
   const { data, error } = await admin
     .from('employees')
@@ -69,10 +57,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 // DELETE /api/employees/[id]  - 物理削除
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const companyId = await getAdminCompanyId()
-  if (!companyId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-
-  const admin = createAdminClient()
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { companyId, adminClient: admin } = auth
 
   // 削除前に auth_user_id を取得
   const { data: emp, error: fetchErr } = await admin
