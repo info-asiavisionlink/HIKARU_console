@@ -30,9 +30,12 @@ export interface ProjectInsert {
   status?: ProjectStatus
   start_date?: string | null
   end_date?: string | null
+  work_start_time?: string | null
+  work_end_time?: string | null
   contract_info?: string | null
   notes?: string | null
   location_name?: string | null
+  address?: string | null
   phone?: string | null
   emergency_contact?: string | null
   business_hours?: string | null
