@@ -67,12 +67,12 @@ export default function ClientAccountsPage() {
           <Breadcrumb items={[{ label: '顧客管理', href: '/clients' }, { label: 'ポータルアカウント' }]} />
         }
         action={
-          <Button asChild>
-            <Link href="/clients/accounts/new">
+          <Link href="/clients/accounts/new">
+            <Button>
               <Plus className="h-4 w-4" />
               新規発行
-            </Link>
-          </Button>
+            </Button>
+          </Link>
         }
       />
 
@@ -84,9 +84,9 @@ export default function ClientAccountsPage() {
         <div className="flex flex-col items-center gap-4 py-20 text-[var(--color-muted-foreground)]">
           <UserCog className="h-14 w-14 opacity-20" />
           <p className="text-sm">ポータルアカウントがありません</p>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/clients/accounts/new">最初のアカウントを発行する</Link>
-          </Button>
+          <Link href="/clients/accounts/new">
+            <Button variant="outline" size="sm">最初のアカウントを発行する</Button>
+          </Link>
         </div>
       ) : (
         <div className="space-y-3">

@@ -263,12 +263,12 @@ export default function NewClientAccountPage() {
                 <UserPlus className="h-4 w-4" />
                 アカウントを発行
               </Button>
-              <Button type="button" variant="ghost" asChild>
-                <Link href="/clients/accounts">
+              <Link href="/clients/accounts">
+                <Button type="button" variant="ghost" className="w-full">
                   <ArrowLeft className="h-4 w-4" />
                   キャンセル
-                </Link>
-              </Button>
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

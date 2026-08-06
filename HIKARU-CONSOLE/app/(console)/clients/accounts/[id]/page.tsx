@@ -250,12 +250,12 @@ export default function ClientAccountDetailPage() {
               <Save className="h-4 w-4" />
               変更を保存
             </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/clients/accounts">
+            <Link href="/clients/accounts">
+              <Button variant="ghost" className="w-full">
                 <ArrowLeft className="h-4 w-4" />
                 一覧に戻る
-              </Link>
-            </Button>
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
