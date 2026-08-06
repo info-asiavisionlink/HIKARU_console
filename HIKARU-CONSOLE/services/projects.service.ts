@@ -24,6 +24,7 @@ export interface ProjectRow {
 
 export interface ProjectInsert {
   store_id?: string | null
+  client_id?: string | null
   name: string
   code?: string | null
   status?: ProjectStatus

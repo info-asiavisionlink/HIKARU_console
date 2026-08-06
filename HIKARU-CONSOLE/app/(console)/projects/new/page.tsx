@@ -10,7 +10,7 @@ import {
   Breadcrumb,
 } from '@hikaru/ui'
 import { AssigneeSelector, type Assignee } from '@/components/console/AssigneeSelector'
-import { ArrowLeft, Users } from 'lucide-react'
+import { ArrowLeft, Users, Building2 } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: 'active',    label: '稼働中' },
@@ -23,10 +23,12 @@ export default function NewProjectPage() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
+  const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
   const [form, setForm] = React.useState({
     name: '',
     code: '',
     status: 'active',
+    client_id: '',
     start_date: '',
     end_date: '',
     location_name: '',
@@ -36,6 +38,12 @@ export default function NewProjectPage() {
     contract_info: '',
     notes: '',
   })
+
+  React.useEffect(() => {
+    fetch('/api/clients?pageSize=100')
+      .then((r) => r.json())
+      .then((r) => setClients(r.data ?? []))
+  }, [])
 
   function update(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -50,6 +58,7 @@ export default function NewProjectPage() {
       name:              form.name.trim(),
       code:              form.code.trim()              || null,
       status:            form.status as any,
+      client_id:         form.client_id               || null,
       start_date:        form.start_date               || null,
       end_date:          form.end_date                 || null,
       location_name:     form.location_name.trim()     || null,
@@ -202,6 +211,24 @@ export default function NewProjectPage() {
 
           {/* 右カラム */}
           <div className="space-y-4">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <Select value={form.client_id} onValueChange={(v) => update('client_id', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="顧客を選択（任意）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>

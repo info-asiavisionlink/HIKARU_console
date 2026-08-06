@@ -13,7 +13,7 @@ import {
   emptyPrice, emptyBilling,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, RefreshCw, Calendar, Users } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Calendar, Users, Building2 } from 'lucide-react'
 
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 const CYCLE_OPTIONS = [
@@ -35,6 +35,7 @@ export default function NewRecurringProjectPage() {
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [prices,  setPrices]  = React.useState<PriceEntry[]>(initPrices())
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
+  const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
 
   // 年間スケジュール（月 → 作業内容テキスト）
   const [monthlyContent, setMonthlyContent] = React.useState<Record<number,string>>(
@@ -42,12 +43,18 @@ export default function NewRecurringProjectPage() {
   )
 
   const [form, setForm] = React.useState({
-    name: '', status: 'active', location_name: '', notes: '',
+    name: '', status: 'active', client_id: '', location_name: '', notes: '',
     start_date: '', end_date: '', required_staff: '1',
     cycle_type: 'monthly', work_start_time: '', work_end_time: '',
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
+
+  React.useEffect(() => {
+    fetch('/api/clients?pageSize=100')
+      .then((r) => r.json())
+      .then((r) => setClients(r.data ?? []))
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -65,6 +72,7 @@ export default function NewRecurringProjectPage() {
       body: JSON.stringify({
         name:          form.name.trim(),
         status:        form.status,
+        client_id:     form.client_id     || null,
         location_name: form.location_name || null,
         start_date:    form.start_date    || null,
         end_date:      form.end_date      || null,
@@ -211,7 +219,24 @@ export default function NewRecurringProjectPage() {
 
           </div>
 
-          <div className="flex flex-col gap-2 h-fit">
+          <div className="flex flex-col gap-4 h-fit">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <Select value={form.client_id} onValueChange={(v) => upd('client_id', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="顧客を選択（任意）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? '登録中...' : '登録する'}
             </Button>

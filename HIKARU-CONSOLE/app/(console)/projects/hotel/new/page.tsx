@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
 import { AssigneeSelector, type Assignee } from '@/components/console/AssigneeSelector'
 import {
@@ -12,7 +13,7 @@ import {
   emptyPrice, emptyBilling,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, Building2 } from 'lucide-react'
 
 interface FloorRow    { floor_name: string; room_count: string }
 interface StaffingRow { time_slot: string;  required_staff: string }
@@ -42,15 +43,22 @@ export default function NewHotelProjectPage() {
   const [workAreas, setWorkAreas] = React.useState<WorkAreaRow[]>(DEFAULT_WORK_AREAS)
   const [price,    setPrice]    = React.useState<PriceEntry>(emptyPrice())
   const [billing,  setBilling]  = React.useState<BillingEntry>(emptyBilling())
+  const [clients,  setClients]  = React.useState<{ id: string; name: string }[]>([])
 
   const [form, setForm] = React.useState({
-    name: '', status: 'active', location_name: '', notes: '',
+    name: '', status: 'active', client_id: '', location_name: '', notes: '',
     total_floors: '', operating_start_time: '', operating_end_time: '',
     manager_name: '', phone: '',
     contract_start_date: '', contract_end_date: '',
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
+
+  React.useEffect(() => {
+    fetch('/api/clients?pageSize=100')
+      .then((r) => r.json())
+      .then((r) => setClients(r.data ?? []))
+  }, [])
 
   // フロアの合計客室数
   const totalRooms = React.useMemo(
@@ -80,6 +88,7 @@ export default function NewHotelProjectPage() {
       body: JSON.stringify({
         name:          form.name.trim(),
         status:        form.status,
+        client_id:     form.client_id     || null,
         location_name: form.location_name || null,
         notes:         form.notes         || null,
         hotel_details: {
@@ -289,7 +298,24 @@ export default function NewHotelProjectPage() {
 
           </div>
 
-          <div className="flex flex-col gap-2 h-fit">
+          <div className="flex flex-col gap-4 h-fit">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <Select value={form.client_id} onValueChange={(v) => upd('client_id', v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="顧客を選択（任意）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? '登録中...' : '登録する'}
             </Button>

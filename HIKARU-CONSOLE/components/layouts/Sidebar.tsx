@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
-  Bell, FileText, X,
+  Bell, FileText, X, UserCog,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -28,7 +28,15 @@ const navItems: NavItem[] = [
       { label: 'ホテル案件',   href: '/projects/hotel' },
     ],
   },
-  { label: '顧客管理',         href: '/clients',       icon: Building2 },
+  {
+    label: '顧客管理',
+    href: '/clients',
+    icon: Building2,
+    children: [
+      { label: '顧客一覧',           href: '/clients' },
+      { label: 'ポータルアカウント', href: '/clients/accounts' },
+    ],
+  },
   { label: '従業員管理',       href: '/employees',     icon: UserCheck },
   { label: '協力業者管理',     href: '/partners',      icon: HandshakeIcon },
   { label: 'マニュアル管理',   href: '/manuals',       icon: BookOpen },
