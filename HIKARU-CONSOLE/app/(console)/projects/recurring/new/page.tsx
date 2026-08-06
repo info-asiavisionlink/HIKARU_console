@@ -53,7 +53,7 @@ export default function NewRecurringProjectPage() {
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100')
       .then((r) => r.json())
-      .then((r) => setClients(r.data ?? []))
+      .then((r) => setClients(r.clients ?? []))
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {

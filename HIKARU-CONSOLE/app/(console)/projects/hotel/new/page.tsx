@@ -57,7 +57,7 @@ export default function NewHotelProjectPage() {
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100')
       .then((r) => r.json())
-      .then((r) => setClients(r.data ?? []))
+      .then((r) => setClients(r.clients ?? []))
   }, [])
 
   // フロアの合計客室数

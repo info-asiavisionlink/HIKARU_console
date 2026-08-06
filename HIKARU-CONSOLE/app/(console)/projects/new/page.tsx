@@ -42,7 +42,7 @@ export default function NewProjectPage() {
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100')
       .then((r) => r.json())
-      .then((r) => setClients(r.data ?? []))
+      .then((r) => setClients(r.clients ?? []))
   }, [])
 
   function update(key: string, value: string) {
