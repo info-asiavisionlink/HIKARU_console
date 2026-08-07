@@ -154,6 +154,7 @@ export default function RecurringProjectDetailPage() {
   async function handleSave() {
     if (!form.name?.trim()) { toast.error('案件名を入力してください'); return }
     setSaving(true)
+    try {
 
     // 月次スケジュールを配列に変換
     const monthlySchedules = Object.entries(schedules)
@@ -207,6 +208,10 @@ export default function RecurringProjectDetailPage() {
       const err1 = projRes.ok ? '' : await projRes.json().then(r => r.error).catch(() => 'エラー')
       const err2 = pricingRes.ok ? '' : await pricingRes.json().then(r => r.error).catch(() => 'エラー')
       toast.error('保存に失敗しました: ' + [err1, err2].filter(Boolean).join(' / '))
+    }
+    } catch (err) {
+      console.error('handleSave error:', err)
+      toast.error('予期しないエラーが発生しました')
     }
     setSaving(false)
   }

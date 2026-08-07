@@ -96,49 +96,57 @@ export default function SpotProjectDetailPage() {
 
   async function handleSave() {
     setSaving(true)
-    const [projRes, pricingRes] = await Promise.all([
-      fetch(`/api/projects/spot/${id}`, {
-        method: 'PATCH', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name, status: form.status,
-          client_id: form.client_id || null,
-          location_name: form.location_name || null,
-          address: form.address || null,
-          notes: form.notes || null,
-          spot_details: {
-            work_datetime: form.work_datetime || null, work_content: form.work_content || null,
-            required_staff: parseInt(form.required_staff) || 1,
-            estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
-          },
-          assignments: assignees,
+    try {
+      // ① 案件本体 + 金額を並行保存
+      const [projRes, pricingRes] = await Promise.all([
+        fetch(`/api/projects/spot/${id}`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name, status: form.status,
+            client_id: form.client_id || null,
+            location_name: form.location_name || null,
+            address: form.address || null,
+            notes: form.notes || null,
+            spot_details: {
+              work_datetime: form.work_datetime || null,
+              work_content: form.work_content || null,
+              required_staff: parseInt(form.required_staff) || 1,
+              estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+            },
+            assignments: assignees,
+          }),
         }),
-      }),
-      // 作業箇所を更新
-      (async () => {
-        await fetch(`/api/projects/${id}/spots`, { method: 'DELETE', credentials: 'include' })
-        const valid = spots.filter(s => s.trim())
-        if (valid.length > 0) {
-          await fetch(`/api/projects/${id}/spots`, {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ spots: valid.map(name => ({ name })) }),
-          })
-        }
-      })(),
-      fetch(`/api/projects/${id}/pricing`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billing, prices: [{ ...price, period_month: null }] }),
-      }),
-    ])
+        fetch(`/api/projects/${id}/pricing`, {
+          method: 'PUT', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ billing, prices: [{ ...price, period_month: null }] }),
+        }),
+      ])
 
-    if (projRes.ok && pricingRes.ok) {
-      toast.success('保存しました')
-      setEditing(false)
-      await loadData()
-    } else {
-      toast.error('保存に失敗しました')
+      // ② 作業箇所を更新（全削除→再登録）
+      await fetch(`/api/projects/${id}/spots`, { method: 'DELETE', credentials: 'include' })
+      const valid = spots.filter(s => s.trim())
+      if (valid.length > 0) {
+        await fetch(`/api/projects/${id}/spots`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spots: valid.map(name => ({ name })) }),
+        })
+      }
+
+      if (projRes.ok && pricingRes.ok) {
+        toast.success('保存しました')
+        setEditing(false)
+        await loadData()
+      } else {
+        const e1 = projRes.ok ? '' : await projRes.json().then((r: any) => r.error).catch(() => 'エラー')
+        const e2 = pricingRes.ok ? '' : await pricingRes.json().then((r: any) => r.error).catch(() => 'エラー')
+        toast.error('保存に失敗しました: ' + [e1, e2].filter(Boolean).join(' / '))
+      }
+    } catch (err) {
+      console.error('handleSave error:', err)
+      toast.error('予期しないエラーが発生しました')
     }
     setSaving(false)
   }

@@ -31,6 +31,14 @@ export function AssigneeSelector({ value, onChange }: AssigneeSelectorProps) {
     loadPartners()
   }, [])
 
+  // employees/partners ロード後に既存アサインのラベルをUUIDから名前に解決
+  React.useEffect(() => {
+    if (employees.length === 0 && partners.length === 0) return
+    const resolved = value.map(a => ({ ...a, label: getLabel(a.assignee_type, a.assignee_id) }))
+    const changed = resolved.some((r, i) => r.label !== value[i].label)
+    if (changed) onChange(resolved)
+  }, [employees, partners]) // eslint-disable-line
+
   async function loadEmployees() {
     setLoadingEmp(true)
     try {
