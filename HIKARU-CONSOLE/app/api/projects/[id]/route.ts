@@ -11,7 +11,7 @@ export async function GET(
 
   const { data, error } = await auth.adminClient
     .from('projects')
-    .select('*, stores(id, name, clients(id, name))')
+    .select('*, clients(id, name), project_assignments(assignee_type, assignee_id)')
     .eq('id', id)
     .eq('company_id', auth.companyId)
     .single()

@@ -360,23 +360,39 @@ export default function RecurringProjectDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
 
-            {/* 案件情報 */}
+            {/* 基本情報 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" /> 案件情報
+                  <RefreshCw className="h-4 w-4" /> 基本情報
                 </h2>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {([
-                    ['顧客',       clientName ?? '—'],
+                    ['案件名',     project.name],
                     ['作業場所名', project.location_name ?? '—'],
                     ['住所',       project.address ?? '—'],
-                    ['作業周期',   CYCLE_OPTIONS.find(o => o.value === d.cycle_type)?.label ?? '—'],
-                    ['期間',       [project.start_date, project.end_date].filter(Boolean).map((dt: string) => new Date(dt).toLocaleDateString('ja-JP')).join(' 〜 ') || '—'],
-                    ['必要人数',   `${d.required_staff ?? '—'}名`],
-                    ['作業時間',   d.work_start_time && d.work_end_time ? `${d.work_start_time} 〜 ${d.work_end_time}` : '—'],
-                    ['備考',       project.notes ?? '—'],
-                  ] as [string, string][]).map(([l, v]) => (
+                    ['開始日',     project.start_date ? new Date(project.start_date).toLocaleDateString('ja-JP') : '—'],
+                    ['終了日',     project.end_date   ? new Date(project.end_date).toLocaleDateString('ja-JP')   : '—'],
+                  ] as [string,string][]).map(([l, v]) => (
+                    <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 作業周期 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" /> 作業周期
+                </h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {([
+                    ['作業周期', CYCLE_OPTIONS.find(o => o.value === d.cycle_type)?.label ?? '—'],
+                    ['必要人数', `${d.required_staff ?? '—'}名`],
+                    ['作業開始時刻', d.work_start_time?.slice(0,5) ?? '—'],
+                    ['作業終了時刻', d.work_end_time?.slice(0,5)   ?? '—'],
+                  ] as [string,string][]).map(([l, v]) => (
                     <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
                   ))}
                 </dl>
@@ -402,6 +418,28 @@ export default function RecurringProjectDetailPage() {
               </CardContent>
             </Card>
 
+            {/* 担当者 */}
+            {assignees.length > 0 && (
+              <Card>
+                <CardContent className="pt-6 space-y-3">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                    <Users className="h-4 w-4" /> 担当者
+                  </h2>
+                  <ul className="space-y-1.5">
+                    {assignees.map((a, i) => {
+                      const name = a.assignee_type === 'employee' ? (empMap[a.assignee_id] ?? a.label) : (parMap[a.assignee_id] ?? a.label)
+                      return (
+                        <li key={i} className="flex items-center gap-2 text-sm rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2">
+                          <span className="text-[var(--color-muted-foreground)] text-xs">{a.assignee_type === 'employee' ? '従業員' : '協力業者'}</span>
+                          <span className="font-medium">{name}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 年間単価 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
@@ -420,8 +458,7 @@ export default function RecurringProjectDetailPage() {
                       <span className="text-xs font-mono">
                         {p.amount_inc_tax > 0
                           ? <span style={{ color: 'oklch(0.85 0.008 75)' }}>{p.amount_inc_tax.toLocaleString('ja-JP')}円</span>
-                          : <span className="text-[var(--color-muted-foreground)]">—</span>
-                        }
+                          : <span className="text-[var(--color-muted-foreground)]">—</span>}
                       </span>
                     </div>
                   ))}
@@ -454,37 +491,42 @@ export default function RecurringProjectDetailPage() {
                     ['請求予定日', billing.billing_date        || '—'],
                     ['入金予定日', billing.payment_due_date    || '—'],
                     ['入金日',     billing.actual_payment_date || '—'],
-                  ] as [string, string][]).map(([l, v]) => (
+                  ] as [string,string][]).map(([l, v]) => (
                     <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
                   ))}
                 </dl>
               </CardContent>
             </Card>
+
+            {/* 備考 */}
+            {project.notes && (
+              <Card>
+                <CardContent className="pt-6 space-y-2">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">備考</h2>
+                  <p className="text-sm whitespace-pre-wrap">{project.notes}</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* 右カラム（閲覧） */}
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4 h-fit">
+            {/* 顧客 */}
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <p className="text-sm font-medium">{clientName ?? '—'}</p>
+              </CardContent>
+            </Card>
+
             <Link href="/projects/recurring">
               <Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ戻る</Button>
             </Link>
             <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" /> この案件を削除
             </Button>
-            {assignees.length > 0 && (
-              <Card>
-                <CardContent className="pt-6 space-y-2">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                    <Users className="h-4 w-4" /> 担当者
-                  </h2>
-                  <ul className="space-y-1 text-sm">
-                    {assignees.map((a, i) => {
-                      const name = a.assignee_type === 'employee' ? (empMap[a.assignee_id] ?? a.label) : (parMap[a.assignee_id] ?? a.label)
-                      return <li key={i}>{a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {name}</li>
-                    })}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       )}

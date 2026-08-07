@@ -389,27 +389,23 @@ export default function SpotProjectDetailPage() {
         /* ══ 閲覧モード ══ */
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
+
+            {/* 基本情報 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                  <Zap className="h-4 w-4" /> 案件情報
+                  <Zap className="h-4 w-4" /> 基本情報
                 </h2>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  {[
-                    ['顧客',       clientName ?? '—'],
-                    ['ステータス', <Badge key="s" variant={statusVariant[project.status] as any}>{statusLabel[project.status]}</Badge>],
+                  {([
+                    ['案件名',     project.name],
                     ['案件コード', project.code ?? '—'],
                     ['開始日',     project.start_date ? new Date(project.start_date).toLocaleDateString('ja-JP') : '—'],
                     ['終了日',     project.end_date   ? new Date(project.end_date).toLocaleDateString('ja-JP')   : '—'],
-                    ['作業時間',   project.work_start_time && project.work_end_time ? `${project.work_start_time} 〜 ${project.work_end_time}` : '—'],
-                    ['作業内容',   project.spot_project_details?.work_content ?? '—'],
-                    ['必要人数',   `${project.spot_project_details?.required_staff ?? '—'}名`],
-                    ['予定時間',   project.spot_project_details?.estimated_hours ? `${project.spot_project_details.estimated_hours}h` : '—'],
-                  ].map(([label, val]) => (
-                    <div key={String(label)}>
-                      <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
-                      <dd className="font-medium mt-0.5">{val}</dd>
-                    </div>
+                    ['作業開始時間', project.work_start_time?.slice(0,5) ?? '—'],
+                    ['作業終了時間', project.work_end_time?.slice(0,5)   ?? '—'],
+                  ] as [string,string][]).map(([l, v]) => (
+                    <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
                   ))}
                 </dl>
               </CardContent>
@@ -422,13 +418,13 @@ export default function SpotProjectDetailPage() {
                   <MapPin className="h-4 w-4" /> 作業場所
                 </h2>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  {[
+                  {([
                     ['作業場所名',     project.location_name     ?? '—'],
                     ['住所',           project.address           ?? '—'],
                     ['電話番号',       project.phone             ?? '—'],
                     ['緊急連絡先',     project.emergency_contact ?? '—'],
                     ['作業可能時間帯', project.business_hours    ?? '—'],
-                  ].map(([l, v]) => (
+                  ] as [string,string][]).map(([l, v]) => (
                     <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
                   ))}
                 </dl>
@@ -452,16 +448,54 @@ export default function SpotProjectDetailPage() {
               </Card>
             )}
 
+            {/* 作業詳細 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業詳細</h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {([
+                    ['作業内容', project.spot_project_details?.work_content ?? '—'],
+                    ['必要人数', `${project.spot_project_details?.required_staff ?? '—'}名`],
+                    ['予定時間', project.spot_project_details?.estimated_hours ? `${project.spot_project_details.estimated_hours}h` : '—'],
+                  ] as [string,string][]).map(([l, v]) => (
+                    <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 担当者 */}
+            {assignees.length > 0 && (
+              <Card>
+                <CardContent className="pt-6 space-y-3">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                    <Users className="h-4 w-4" /> 担当者
+                  </h2>
+                  <ul className="space-y-1.5">
+                    {assignees.map((a, i) => {
+                      const name = a.assignee_type === 'employee' ? (empMap[a.assignee_id] ?? a.label) : (parMap[a.assignee_id] ?? a.label)
+                      return (
+                        <li key={i} className="flex items-center gap-2 text-sm rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2">
+                          <span className="text-[var(--color-muted-foreground)] text-xs">{a.assignee_type === 'employee' ? '従業員' : '協力業者'}</span>
+                          <span className="font-medium">{name}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 契約金額 */}
             <Card>
               <CardContent className="pt-6 space-y-3">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">契約金額</h2>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                  {[
+                  {([
                     ['税抜金額', price.amount_ex_tax  > 0 ? price.amount_ex_tax.toLocaleString('ja-JP')  + '円' : '—'],
                     ['消費税',   price.tax_amount     > 0 ? price.tax_amount.toLocaleString('ja-JP')     + '円' : '—'],
                     ['税込合計', price.amount_inc_tax > 0 ? price.amount_inc_tax.toLocaleString('ja-JP') + '円' : '—'],
-                  ].map(([l, v]) => (
+                  ] as [string,string][]).map(([l, v]) => (
                     <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-bold mt-0.5" style={{ color: 'oklch(0.73 0.12 78)' }}>{v}</dd></div>
                   ))}
                 </dl>
@@ -473,14 +507,14 @@ export default function SpotProjectDetailPage() {
               <CardContent className="pt-6 space-y-3">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">請求情報</h2>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                  {[
+                  {([
                     ['請求状況',   BILLING_STATUSES.find(b => b.value === billing.billing_status)?.label ?? '—'],
                     ['見積番号',   billing.quote_number        || '—'],
                     ['契約日',     billing.contract_date       || '—'],
                     ['請求予定日', billing.billing_date        || '—'],
                     ['入金予定日', billing.payment_due_date    || '—'],
                     ['入金日',     billing.actual_payment_date || '—'],
-                  ].map(([l, v]) => (
+                  ] as [string,string][]).map(([l, v]) => (
                     <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
                   ))}
                 </dl>
@@ -499,26 +533,31 @@ export default function SpotProjectDetailPage() {
           </div>
 
           {/* 右カラム（閲覧） */}
-          <div className="space-y-4">
-            <Link href="/projects/spot"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link>
+          <div className="flex flex-col gap-4 h-fit">
+            {/* 顧客 */}
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <p className="text-sm font-medium">{clientName ?? '—'}</p>
+              </CardContent>
+            </Card>
+
+            {/* ステータス */}
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>
+                <Badge variant={statusVariant[project.status] as any}>{statusLabel[project.status]}</Badge>
+              </CardContent>
+            </Card>
+
+            <Link href="/projects/spot">
+              <Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button>
+            </Link>
             <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" /> この案件を削除
             </Button>
-            {assignees.length > 0 && (
-              <Card>
-                <CardContent className="pt-6 space-y-2">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                    <Users className="h-4 w-4" /> 担当者
-                  </h2>
-                  <ul className="space-y-1 text-sm">
-                    {assignees.map((a, i) => {
-                      const name = a.assignee_type === 'employee' ? (empMap[a.assignee_id] ?? a.label) : (parMap[a.assignee_id] ?? a.label)
-                      return <li key={i}>{a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {name}</li>
-                    })}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       )}
