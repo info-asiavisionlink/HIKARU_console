@@ -52,7 +52,7 @@ export async function getClient(id: string) {
   const res = await fetch(`/api/clients/${id}`, { credentials: 'include', cache: 'no-store' })
   if (!res.ok) return { data: null, error: new Error(`HTTP ${res.status}`) }
   const body = await res.json()
-  return { data: body.client ?? null, error: null }
+  return { data: body.data ?? body.client ?? null, error: null }
 }
 
 // 以下は既存の Supabase client 直接呼び出しを継続（更新・削除は認証済みのサーバーアクション経由が望ましいが今は簡易版）

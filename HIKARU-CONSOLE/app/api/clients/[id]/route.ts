@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 
+// GET /api/clients/:id
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  const { data, error } = await auth.adminClient
+    .from('clients')
+    .select('*')
+    .eq('id', id)
+    .eq('company_id', auth.companyId)
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+  return NextResponse.json({ data })
+}
+
 // DELETE /api/clients/:id
 export async function DELETE(
   req: NextRequest,
