@@ -8,7 +8,7 @@ import {
   PageHeader, Button, Card, CardContent, Badge, Skeleton, Breadcrumb, toast,
 } from '@hikaru/ui'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
-import { Pencil, Trash2, BookOpen, MapPin, Users, Zap, DollarSign, Building2 } from 'lucide-react'
+import { Trash2, BookOpen, MapPin, Users, Zap, DollarSign, Building2 } from 'lucide-react'
 import {
   BILLING_STATUSES, type PriceEntry, type BillingEntry, emptyPrice, emptyBilling,
 } from '@/components/console/PricingCard'
@@ -94,9 +94,6 @@ export default function ProjectDetailPage() {
           <div className="flex gap-2">
             <Link href={`/projects/${id}/manuals`}>
               <Button variant="outline" size="sm"><BookOpen className="h-4 w-4" /> マニュアル</Button>
-            </Link>
-            <Link href={`/projects/${id}/edit`}>
-              <Button variant="outline" size="sm"><Pencil className="h-4 w-4" /> 編集</Button>
             </Link>
             <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" /> 削除
@@ -255,9 +252,6 @@ export default function ProjectDetailPage() {
             </Card>
           </Link>
 
-          <Link href={`/projects/${id}/edit`}>
-            <Button variant="outline" className="w-full"><Pencil className="h-4 w-4" /> 編集する</Button>
-          </Link>
           <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
             <Trash2 className="h-4 w-4" /> この案件を削除
           </Button>

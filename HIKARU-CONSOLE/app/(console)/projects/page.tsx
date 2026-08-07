@@ -14,8 +14,8 @@ import {
 import { EmptyState } from '@/components/console/EmptyState'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 import {
-  Plus, FolderOpen, MoreHorizontal, Pencil, Trash2, Eye,
-  MapPin, Calendar, Hash, Zap, RefreshCw, Hotel,
+  FolderOpen, MoreHorizontal, Trash2, Eye,
+  MapPin, Calendar, Zap, RefreshCw, Hotel,
 } from 'lucide-react'
 
 const TYPE_OPTIONS = [
@@ -128,9 +128,6 @@ function ProjectCard({ project, onDelete, onClick }: {
               <DropdownMenuItem onClick={onClick}>
                 <Eye className="h-4 w-4 mr-2" /> 詳細
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { /* 編集は別途 */ }}>
-                <Pencil className="h-4 w-4 mr-2" /> 編集
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem destructive onClick={() => onDelete(project.id, project.name)}>
                 <Trash2 className="h-4 w-4 mr-2" /> 削除
@@ -191,11 +188,6 @@ export default function ProjectsPage() {
       <PageHeader
         title="案件管理"
         description={`${total}件の案件`}
-        actions={
-          <Link href="/projects/new">
-            <Button><Plus className="h-4 w-4" /> 新規案件</Button>
-          </Link>
-        }
       />
 
       {/* フィルターバー */}
@@ -255,25 +247,24 @@ export default function ProjectsPage() {
         <EmptyState
           icon={<FolderOpen className="h-12 w-12" />}
           title="案件が見つかりません"
-          description={search || status ? '検索条件を変更してみてください' : '新規案件を追加してください'}
-          action={
-            !search && !status && (
-              <Link href="/projects/new">
-                <Button size="sm"><Plus className="h-4 w-4" /> 新規案件</Button>
-              </Link>
-            )
-          }
+          description={search || status ? '検索条件を変更してみてください' : '単発・定期・ホテルのいずれかから案件を追加してください'}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onDelete={(id, name) => setDeleteTarget({ id, name })}
-              onClick={() => router.push(`/projects/${project.id}`)}
-            />
-          ))}
+          {items.map((project) => {
+            const detailHref = project.project_type === 'spot'      ? `/projects/spot/${project.id}`
+                             : project.project_type === 'recurring'  ? `/projects/recurring/${project.id}`
+                             : project.project_type === 'hotel'      ? `/projects/hotel/${project.id}`
+                             : `/projects/${project.id}`
+            return (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onDelete={(id, name) => setDeleteTarget({ id, name })}
+                onClick={() => router.push(detailHref)}
+              />
+            )
+          })}
         </div>
       )}
 
