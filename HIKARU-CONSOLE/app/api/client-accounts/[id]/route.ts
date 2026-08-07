@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!companyId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { contactName, isActive, password, projectIds, permissions } = body
+  const { contactName, isActive, password, projectIds, permissions, loginId } = body
 
   const admin = createAdminClient()
 
@@ -73,6 +73,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (account) {
       await admin.auth.admin.updateUserById(account.profile_id, { password })
     }
+  }
+
+  // ログインID変更
+  if (loginId) {
+    const normalizedId = loginId.toUpperCase().startsWith('CLT-') ? loginId.toUpperCase() : `CLT-${loginId.toUpperCase()}`
+    const newEmail = `${normalizedId.toLowerCase()}@hikaru.client`
+
+    const { data: account } = await admin
+      .from('client_portal_accounts')
+      .select('profile_id')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .single()
+
+    if (!account) return NextResponse.json({ error: 'not found' }, { status: 404 })
+
+    const { error: authError } = await admin.auth.admin.updateUserById(account.profile_id, { email: newEmail })
+    if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
+
+    await admin.from('profiles').update({ email: newEmail }).eq('id', account.profile_id)
+
+    const { error: idError } = await admin
+      .from('client_portal_accounts')
+      .update({ login_id: normalizedId })
+      .eq('id', id)
+      .eq('company_id', companyId)
+    if (idError) return NextResponse.json({ error: idError.message }, { status: 500 })
   }
 
   // 案件権限の更新（全削除 → 再挿入）

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   PageHeader, Button, Input, Card, CardContent, toast, Breadcrumb, Badge,
@@ -26,12 +26,15 @@ export default function NewClientAccountPage() {
   const [projects, setProjects] = React.useState<Project[]>([])
   const [selectedProjects, setSelectedProjects] = React.useState<string[]>([])
 
+  const searchParams = useSearchParams()
+  const prefilledClientId = searchParams.get('clientId') ?? ''
+
   const [form, setForm] = React.useState({
     loginId:     '',
     password:    '',
     contactName: '',
     email:       '',
-    clientId:    '',
+    clientId:    prefilledClientId,
   })
 
   function update(key: string, value: string) {

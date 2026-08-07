@@ -29,15 +29,7 @@ const navItems: NavItem[] = [
     ],
   },
   { label: '案件依頼',         href: '/project-requests', icon: Inbox, dynamicBadge: true },
-  {
-    label: '顧客管理',
-    href: '/clients',
-    icon: Building2,
-    children: [
-      { label: '顧客一覧',           href: '/clients' },
-      { label: 'ポータルアカウント', href: '/clients/accounts' },
-    ],
-  },
+  { label: '顧客管理', href: '/clients', icon: Building2 },
   { label: '従業員管理',       href: '/employees',     icon: UserCheck },
   { label: '協力業者管理',     href: '/partners',      icon: HandshakeIcon },
   { label: 'マニュアル管理',   href: '/manuals',       icon: BookOpen },
