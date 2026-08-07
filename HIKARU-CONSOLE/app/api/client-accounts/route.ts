@@ -82,14 +82,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: authError.message }, { status: 500 })
   }
 
-  // profiles テーブルへの挿入
-  const { error: profileError } = await admin.from('profiles').insert({
-    id: authUser.user.id,
+  // トリガーが profiles を自動作成するため、company_id を UPDATE で補完
+  const { error: profileError } = await admin.from('profiles').update({
     company_id: companyId,
     email: email || internalEmail,
     name: contactName,
     role: 'client',
-  })
+  }).eq('id', authUser.user.id)
 
   if (profileError) {
     await admin.auth.admin.deleteUser(authUser.user.id)
