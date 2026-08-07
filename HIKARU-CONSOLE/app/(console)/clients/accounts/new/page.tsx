@@ -19,7 +19,7 @@ interface Project {
   status: string
 }
 
-export default function NewClientAccountPage() {
+function NewClientAccountForm() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
   const [clients, setClients] = React.useState<Client[]>([])
@@ -277,5 +277,13 @@ export default function NewClientAccountPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function NewClientAccountPage() {
+  return (
+    <React.Suspense>
+      <NewClientAccountForm />
+    </React.Suspense>
   )
 }
