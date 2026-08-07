@@ -14,6 +14,7 @@ import {
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Zap, MapPin, Users, Building2, Plus, Trash2 } from 'lucide-react'
+import { SPOT_RECURRING_STATUSES } from '@/lib/project-status'
 
 export default function NewSpotProjectPage() {
   const router = useRouter()
@@ -374,10 +375,7 @@ export default function NewSpotProjectPage() {
                 <Select value={form.status} onValueChange={v => upd('status', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">稼働中</SelectItem>
-                    <SelectItem value="paused">停止中</SelectItem>
-                    <SelectItem value="completed">完了</SelectItem>
-                    <SelectItem value="cancelled">キャンセル</SelectItem>
+                    {SPOT_RECURRING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </CardContent>

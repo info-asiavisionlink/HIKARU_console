@@ -10,17 +10,16 @@ import {
 } from '@hikaru/ui'
 import { EmptyState } from '@/components/console/EmptyState'
 import { Plus, RefreshCw, Eye } from 'lucide-react'
+import { SPOT_RECURRING_STATUSES, srStatusLabel as statusLabel, srStatusVariant as statusVariant } from '@/lib/project-status'
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'すべて' }, { value: 'active', label: '稼働中' },
-  { value: 'paused', label: '停止中' }, { value: 'completed', label: '完了' },
+  { value: '', label: 'すべて' },
+  ...SPOT_RECURRING_STATUSES.map(s => ({ value: s.value, label: s.label })),
 ]
 const cycleLabel: Record<string, string> = {
   daily: '毎日', weekly: '毎週', monthly: '毎月', biweekly: '隔週',
   nth_weekday: '第○曜日', custom: 'カスタム',
 }
-const statusVariant: Record<string, string> = { active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive' }
-const statusLabel:   Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
 const PAGE_SIZE = 20
 
 function fmtWorkTime(item: any): string {

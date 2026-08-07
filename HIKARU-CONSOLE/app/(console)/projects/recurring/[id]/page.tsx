@@ -16,6 +16,7 @@ import {
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign, Trash2, Building2 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
+import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 const CYCLE_OPTIONS = [
@@ -347,6 +348,19 @@ export default function RecurringProjectDetailPage() {
               </CardContent>
             </Card>
 
+            {/* ステータス */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>
+                <Select value={form.status} onValueChange={v => upd('status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SPOT_RECURRING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
             <Button onClick={handleSave} disabled={saving} className="w-full">
               <Save className="h-4 w-4" /> {saving ? '保存中...' : '保存する'}
             </Button>
@@ -518,6 +532,14 @@ export default function RecurringProjectDetailPage() {
                   <Building2 className="h-4 w-4" /> 顧客
                 </h2>
                 <p className="text-sm font-medium">{clientName ?? '—'}</p>
+              </CardContent>
+            </Card>
+
+            {/* ステータス */}
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>
+                <Badge variant={srStatusVariant[project.status] as any}>{srStatusLabel[project.status] ?? project.status}</Badge>
               </CardContent>
             </Card>
 

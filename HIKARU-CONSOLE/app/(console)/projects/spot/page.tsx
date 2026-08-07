@@ -11,15 +11,12 @@ import {
 import { EmptyState } from '@/components/console/EmptyState'
 import { Plus, Zap, Eye } from 'lucide-react'
 
+import { SPOT_RECURRING_STATUSES, srStatusLabel as statusLabel, srStatusVariant as statusVariant } from '@/lib/project-status'
+
 const STATUS_OPTIONS = [
   { value: '', label: 'すべて' },
-  { value: 'active',    label: '稼働中' },
-  { value: 'paused',    label: '停止中' },
-  { value: 'completed', label: '完了' },
-  { value: 'cancelled', label: 'キャンセル' },
+  ...SPOT_RECURRING_STATUSES.map(s => ({ value: s.value, label: s.label })),
 ]
-const statusVariant: Record<string, string> = { active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive' }
-const statusLabel:   Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
 const PAGE_SIZE = 20
 
 function fmtDateTime(item: any): string {

@@ -1,4 +1,8 @@
-export type ProjectStatus = 'active' | 'paused' | 'completed' | 'cancelled'
+export type ProjectStatus =
+  | 'active' | 'paused' | 'completed' | 'cancelled'
+  | 'scheduled_confirmed' | 'scheduled_unconfirmed'
+  | 'reclean_requested' | 'billing_pending'
+  | 'reclean_scheduled_confirmed' | 'reclean_scheduled_unconfirmed'
 
 export interface ProjectRow {
   id: string

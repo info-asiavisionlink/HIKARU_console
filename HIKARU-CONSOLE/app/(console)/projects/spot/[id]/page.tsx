@@ -14,10 +14,11 @@ import {
   BILLING_STATUSES, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus } from 'lucide-react'
+import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
-const statusVariant: Record<string, string> = { active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive' }
-const statusLabel:   Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+const statusVariant = srStatusVariant
+const statusLabel   = srStatusLabel
 
 export default function SpotProjectDetailPage() {
   const { id }  = useParams<{ id: string }>()
@@ -352,7 +353,7 @@ export default function SpotProjectDetailPage() {
                 <Select value={form.status} onValueChange={v => upd('status', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(statusLabel).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    {SPOT_RECURRING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </CardContent>
