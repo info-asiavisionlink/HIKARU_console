@@ -37,11 +37,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { billing, prices } = body
   const client = auth.adminClient
 
-  // ── billing upsert
+  // ── billing upsert（空文字の日付フィールドをnullに変換）
   if (billing) {
+    const DATE_FIELDS = ['contract_date', 'billing_date', 'payment_due_date', 'actual_payment_date'] as const
+    const sanitized = { ...billing }
+    for (const f of DATE_FIELDS) {
+      if (sanitized[f] === '') sanitized[f] = null
+    }
     const { error } = await client
       .from('project_billing')
-      .upsert({ project_id: id, ...billing }, { onConflict: 'project_id' })
+      .upsert({ project_id: id, ...sanitized }, { onConflict: 'project_id' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
