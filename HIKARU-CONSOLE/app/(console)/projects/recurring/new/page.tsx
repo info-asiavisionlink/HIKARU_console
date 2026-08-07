@@ -47,6 +47,8 @@ export default function NewRecurringProjectPage() {
     name: '', status: 'active', client_id: '', location_name: '', address: '', notes: '',
     start_date: '', end_date: '', required_staff: '1',
     cycle_type: 'monthly', work_start_time: '', work_end_time: '',
+    entry_route: '', key_borrowing: 'false',
+    key_count: '', key_model: '', key_usage: '',
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
@@ -79,6 +81,11 @@ export default function NewRecurringProjectPage() {
         start_date:    form.start_date    || null,
         end_date:      form.end_date      || null,
         notes:         form.notes         || null,
+        entry_route:   form.entry_route   || null,
+        key_borrowing: form.key_borrowing === 'true',
+        key_count:     form.key_borrowing === 'true' && form.key_count ? parseInt(form.key_count) : null,
+        key_model:     form.key_borrowing === 'true' ? (form.key_model || null) : null,
+        key_usage:     form.key_borrowing === 'true' ? (form.key_usage || null) : null,
         recurring_details: {
           cycle_type:      form.cycle_type,
           cycle_config:    {},
@@ -176,6 +183,33 @@ export default function NewRecurringProjectPage() {
                   <Input label="作業開始時刻" type="time" value={form.work_start_time} onChange={e => upd('work_start_time', e.target.value)} />
                   <Input label="作業終了時刻" type="time" value={form.work_end_time} onChange={e => upd('work_end_time', e.target.value)} />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* 入館・鍵情報 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">入館・鍵情報</h2>
+                <Textarea label="入館経路・入室経路" value={form.entry_route} onChange={e => upd('entry_route', e.target.value)} placeholder="例: 1Fエントランス→エレベーター→3F右" rows={2} />
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">鍵の借用</label>
+                  <Select value={form.key_borrowing} onValueChange={v => upd('key_borrowing', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="false">なし</SelectItem>
+                      <SelectItem value="true">あり</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.key_borrowing === 'true' && (
+                  <>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Input label="本数" type="number" min="1" value={form.key_count} onChange={e => upd('key_count', e.target.value)} placeholder="1" />
+                      <Input label="型番" value={form.key_model} onChange={e => upd('key_model', e.target.value)} placeholder="例: MIWA LA" />
+                    </div>
+                    <Input label="使用箇所" value={form.key_usage} onChange={e => upd('key_usage', e.target.value)} placeholder="例: 玄関・倉庫" />
+                  </>
+                )}
               </CardContent>
             </Card>
 
