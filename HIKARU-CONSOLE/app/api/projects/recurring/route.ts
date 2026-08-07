@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   let query = client
     .from('projects')
-    .select(`*, recurring_project_details(*), clients(id, name)`, { count: 'exact' })
+    .select(`*, recurring_project_details(*), clients(id, name), project_assignments(assignee_type, assignee_id)`, { count: 'exact' })
     .eq('company_id', auth.companyId)
     .eq('project_type', 'recurring')
     .order('created_at', { ascending: false })

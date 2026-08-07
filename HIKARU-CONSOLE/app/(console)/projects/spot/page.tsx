@@ -9,7 +9,7 @@ import {
   Pagination, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
 import { EmptyState } from '@/components/console/EmptyState'
-import { Plus, Zap, Eye, Calendar, Clock, Users } from 'lucide-react'
+import { Plus, Zap, Eye } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'すべて' },
@@ -18,28 +18,55 @@ const STATUS_OPTIONS = [
   { value: 'completed', label: '完了' },
   { value: 'cancelled', label: 'キャンセル' },
 ]
-
-const statusVariant: Record<string, string> = {
-  active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive',
-}
-const statusLabel: Record<string, string> = {
-  active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル',
-}
-
+const statusVariant: Record<string, string> = { active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive' }
+const statusLabel:   Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
 const PAGE_SIZE = 20
+
+function fmtDateTime(item: any): string {
+  // 新フィールド優先（start_date + work_start_time）
+  if (item.start_date) {
+    const d = new Date(item.start_date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })
+    const t = item.work_start_time ? item.work_start_time.slice(0, 5) : ''
+    return t ? `${d} ${t}` : d
+  }
+  // 旧フィールドにフォールバック
+  const dt = item.spot_project_details?.work_datetime
+  if (dt) return new Date(dt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return '—'
+}
+
+function fmtAssignees(assignments: any[], empMap: Record<string, string>, parMap: Record<string, string>): string {
+  if (!assignments?.length) return '—'
+  const names = assignments.map(a =>
+    a.assignee_type === 'employee' ? (empMap[a.assignee_id] ?? '?') : (parMap[a.assignee_id] ?? '?')
+  )
+  if (names.length <= 2) return names.join('、')
+  return `${names[0]}、${names[1]} +${names.length - 2}名`
+}
 
 export default function SpotProjectsPage() {
   const router = useRouter()
-  const [items, setItems]   = React.useState<any[]>([])
+  const [items,   setItems]   = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [search, setSearch] = React.useState('')
-  const [status, setStatus] = React.useState('')
-  const [page, setPage]     = React.useState(1)
-  const [total, setTotal]   = React.useState(0)
+  const [search,  setSearch]  = React.useState('')
+  const [status,  setStatus]  = React.useState('')
+  const [page,    setPage]    = React.useState(1)
+  const [total,   setTotal]   = React.useState(0)
+  const [empMap,  setEmpMap]  = React.useState<Record<string, string>>({})
+  const [parMap,  setParMap]  = React.useState<Record<string, string>>({})
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   React.useEffect(() => { setPage(1) }, [search, status])
   React.useEffect(() => { fetchData() }, [search, status, page]) // eslint-disable-line
+  React.useEffect(() => {
+    Promise.all([
+      fetch('/api/employees?pageSize=200&status=active', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/partners?pageSize=200&status=active',  { credentials: 'include' }).then(r => r.json()),
+    ]).then(([e, p]) => {
+      setEmpMap(Object.fromEntries((e.data ?? []).map((x: any) => [x.id, x.name])))
+      setParMap(Object.fromEntries((p.data ?? []).map((x: any) => [x.id, x.company_name])))
+    })
+  }, [])
 
   async function fetchData() {
     setLoading(true)
@@ -47,11 +74,7 @@ export default function SpotProjectsPage() {
     if (search) p.set('search', search)
     if (status) p.set('status', status)
     const res = await fetch(`/api/projects/spot?${p}`, { credentials: 'include', cache: 'no-store' })
-    if (res.ok) {
-      const { data, count } = await res.json()
-      setItems(data ?? [])
-      setTotal(count ?? 0)
-    }
+    if (res.ok) { const { data, count } = await res.json(); setItems(data ?? []); setTotal(count ?? 0) }
     setLoading(false)
   }
 
@@ -60,11 +83,7 @@ export default function SpotProjectsPage() {
       <PageHeader
         title="単発案件"
         description={`${total}件 ／ 引渡・スポット・退去・イベント清掃など`}
-        actions={
-          <Link href="/projects/spot/new">
-            <Button><Plus className="h-4 w-4" /> 単発案件を登録</Button>
-          </Link>
-        }
+        actions={<Link href="/projects/spot/new"><Button><Plus className="h-4 w-4" /> 単発案件を登録</Button></Link>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -72,7 +91,7 @@ export default function SpotProjectsPage() {
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-32"><SelectValue placeholder="ステータス" /></SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            {STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -82,10 +101,9 @@ export default function SpotProjectsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>案件名</TableHead>
-              <TableHead>顧客</TableHead>
               <TableHead>作業日時</TableHead>
-              <TableHead>作業内容</TableHead>
-              <TableHead>必要人数</TableHead>
+              <TableHead>作業場所</TableHead>
+              <TableHead>担当者</TableHead>
               <TableHead>ステータス</TableHead>
               <TableHead className="w-10"></TableHead>
             </TableRow>
@@ -93,11 +111,11 @@ export default function SpotProjectsPage() {
           <TableBody>
             {loading ? (
               [...Array(6)].map((_, i) => (
-                <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}</TableRow>
+                <TableRow key={i}>{[...Array(6)].map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}</TableRow>
               ))
             ) : items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     icon={<Zap className="h-12 w-12" />}
                     title="単発案件がありません"
@@ -105,23 +123,18 @@ export default function SpotProjectsPage() {
                   />
                 </TableCell>
               </TableRow>
-            ) : items.map((item) => (
+            ) : items.map(item => (
               <TableRow key={item.id} className="cursor-pointer" onClick={() => router.push(`/projects/spot/${item.id}`)}>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell>{item.clients?.name ?? '—'}</TableCell>
-                <TableCell>
-                  {item.spot_project_details?.work_datetime
-                    ? new Date(item.spot_project_details.work_datetime).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                    : '—'}
-                </TableCell>
+                <TableCell className="whitespace-nowrap">{fmtDateTime(item)}</TableCell>
+                <TableCell className="max-w-[160px] truncate">{item.location_name ?? '—'}</TableCell>
                 <TableCell className="max-w-[160px] truncate">
-                  {item.spot_project_details?.work_content ?? '—'}
+                  {fmtAssignees(item.project_assignments ?? [], empMap, parMap)}
                 </TableCell>
-                <TableCell>{item.spot_project_details?.required_staff ?? '—'}名</TableCell>
                 <TableCell>
                   <Badge variant={statusVariant[item.status] as any}>{statusLabel[item.status]}</Badge>
                 </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
+                <TableCell onClick={e => e.stopPropagation()}>
                   <Button variant="ghost" size="icon-sm" onClick={() => router.push(`/projects/spot/${item.id}`)}>
                     <Eye className="h-4 w-4" />
                   </Button>
