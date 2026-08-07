@@ -28,8 +28,12 @@ export default function SpotProjectDetailPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
   const [spots, setSpots] = React.useState<string[]>([''])
+  const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
+  React.useEffect(() => {
+    fetch('/api/clients?pageSize=100').then(r => r.json()).then(r => setClients(r.clients ?? []))
+  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -44,6 +48,7 @@ export default function SpotProjectDetailPage() {
       const d = data.spot_project_details
       setForm({
         name: data.name, status: data.status,
+        client_id: data.client_id ?? '',
         location_name: data.location_name ?? '',
         address: data.address ?? '',
         notes: data.notes ?? '',
@@ -97,6 +102,7 @@ export default function SpotProjectDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name, status: form.status,
+          client_id: form.client_id || null,
           location_name: form.location_name || null,
           address: form.address || null,
           notes: form.notes || null,
@@ -174,6 +180,16 @@ export default function SpotProjectDetailPage() {
               {editing ? (
                 <>
                   <Input label="案件名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">顧客</label>
+                    <Select value={form.client_id} onValueChange={v => upd('client_id', v)}>
+                      <SelectTrigger><SelectValue placeholder="顧客を選択（任意）" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">選択なし</SelectItem>
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <Input label="作業日時" type="datetime-local" value={form.work_datetime} onChange={e => upd('work_datetime', e.target.value)} />
                     <div>
@@ -218,6 +234,7 @@ export default function SpotProjectDetailPage() {
               ) : (
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {[
+                    ['顧客',       clients.find(c => c.id === project.client_id)?.name ?? '—'],
                     ['ステータス', <Badge key="s" variant={statusVariant[project.status] as any}>{statusLabel[project.status]}</Badge>],
                     ['作業日時',   project.spot_project_details?.work_datetime ? new Date(project.spot_project_details.work_datetime).toLocaleString('ja-JP') : '—'],
                     ['作業内容',   project.spot_project_details?.work_content ?? '—'],
