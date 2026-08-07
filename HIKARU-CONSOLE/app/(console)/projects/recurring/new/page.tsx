@@ -13,7 +13,7 @@ import {
   emptyPrice, emptyBilling,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, RefreshCw, Calendar, Users, Building2 } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Calendar, Users, Building2, Plus, Trash2 } from 'lucide-react'
 import { SPOT_RECURRING_STATUSES } from '@/lib/project-status'
 
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
@@ -37,6 +37,7 @@ export default function NewRecurringProjectPage() {
   const [prices,  setPrices]  = React.useState<PriceEntry[]>(initPrices())
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
   const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
+  const [keys,    setKeys]    = React.useState<{model: string; usage: string}[]>([{model: '', usage: ''}])
 
   // 年間スケジュール（月 → 作業内容テキスト）
   const [monthlyContent, setMonthlyContent] = React.useState<Record<number,string>>(
@@ -48,10 +49,12 @@ export default function NewRecurringProjectPage() {
     start_date: '', end_date: '', required_staff: '1',
     cycle_type: 'monthly', work_start_time: '', work_end_time: '',
     entry_route: '', key_borrowing: 'false',
-    key_count: '', key_model: '', key_usage: '',
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
+  function addKey() { setKeys(p => [...p, {model: '', usage: ''}]) }
+  function updKey(i: number, f: 'model' | 'usage', v: string) { setKeys(p => p.map((k, idx) => idx === i ? {...k, [f]: v} : k)) }
+  function rmKey(i: number) { setKeys(p => p.length <= 1 ? [{model: '', usage: ''}] : p.filter((_, idx) => idx !== i)) }
 
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100')
@@ -81,11 +84,11 @@ export default function NewRecurringProjectPage() {
         start_date:    form.start_date    || null,
         end_date:      form.end_date      || null,
         notes:         form.notes         || null,
-        entry_route:   form.entry_route   || null,
+        entry_route:   form.entry_route || null,
         key_borrowing: form.key_borrowing === 'true',
-        key_count:     form.key_borrowing === 'true' && form.key_count ? parseInt(form.key_count) : null,
-        key_model:     form.key_borrowing === 'true' ? (form.key_model || null) : null,
-        key_usage:     form.key_borrowing === 'true' ? (form.key_usage || null) : null,
+        keys_info:     form.key_borrowing === 'true'
+          ? keys.filter(k => k.model || k.usage).map(k => ({model: k.model, usage: k.usage}))
+          : [],
         recurring_details: {
           cycle_type:      form.cycle_type,
           cycle_config:    {},
@@ -202,13 +205,32 @@ export default function NewRecurringProjectPage() {
                   </Select>
                 </div>
                 {form.key_borrowing === 'true' && (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Input label="本数" type="number" min="1" value={form.key_count} onChange={e => upd('key_count', e.target.value)} placeholder="1" />
-                      <Input label="型番" value={form.key_model} onChange={e => upd('key_model', e.target.value)} placeholder="例: MIWA LA" />
-                    </div>
-                    <Input label="使用箇所" value={form.key_usage} onChange={e => upd('key_usage', e.target.value)} placeholder="例: 玄関・倉庫" />
-                  </>
+                  <div className="space-y-3">
+                    <p className="text-xs text-[var(--color-muted-foreground)]">鍵ごとに型番と使用箇所を入力してください。</p>
+                    {keys.map((k, i) => (
+                      <div key={i} className="rounded-[var(--radius)] border border-[var(--color-border)] p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold" style={{color: 'var(--color-primary)'}}>鍵 {i + 1}</span>
+                          {keys.length > 1 && (
+                            <button type="button" onClick={() => rmKey(i)}
+                              className="p-1 rounded hover:opacity-80"
+                              style={{color: 'var(--color-error-foreground)'}}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <Input label="型番" value={k.model} onChange={e => updKey(i, 'model', e.target.value)} placeholder="例: MIWA LA" />
+                          <Input label="使用箇所" value={k.usage} onChange={e => updKey(i, 'usage', e.target.value)} placeholder="例: 玄関" />
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addKey}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius)] text-sm border-dashed hover:opacity-80"
+                      style={{border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)'}}>
+                      <Plus className="h-4 w-4" /> 鍵を追加する
+                    </button>
+                  </div>
                 )}
               </CardContent>
             </Card>

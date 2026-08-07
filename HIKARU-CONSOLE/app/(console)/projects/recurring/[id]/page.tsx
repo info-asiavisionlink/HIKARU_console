@@ -14,7 +14,7 @@ import {
   emptyBilling, emptyPrice, BILLING_STATUSES, fmtJPY,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign, Trash2, Building2 } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign, Trash2, Building2, Plus } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 
@@ -52,6 +52,7 @@ export default function RecurringProjectDetailPage() {
   const [prices,    setPrices]    = React.useState<PriceEntry[]>(initPrices())
   const [billing,   setBilling]   = React.useState<BillingEntry>(emptyBilling())
   const [schedules, setSchedules] = React.useState<Record<number, string>>(initSchedules())
+  const [keys,      setKeys]      = React.useState<{model: string; usage: string}[]>([{model: '', usage: ''}])
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
   React.useEffect(() => {
@@ -90,11 +91,10 @@ export default function RecurringProjectDetailPage() {
         work_start_time: d.work_start_time    ?? '',
         work_end_time:   d.work_end_time      ?? '',
         entry_route:     data.entry_route     ?? '',
-        key_borrowing:   data.key_borrowing   ? 'true' : 'false',
-        key_count:       data.key_count       ? String(data.key_count) : '',
-        key_model:       data.key_model       ?? '',
-        key_usage:       data.key_usage       ?? '',
+        key_borrowing:   data.key_borrowing ? 'true' : 'false',
       })
+      const keysData: {model: string; usage: string}[] = data.keys_info ?? []
+      setKeys(keysData.length > 0 ? keysData.map((k: any) => ({model: k.model ?? '', usage: k.usage ?? ''})) : [{model: '', usage: ''}])
       setAssignees(
         (data.assignments ?? []).map((a: any) => ({
           assignee_type: a.assignee_type, assignee_id: a.assignee_id, label: a.assignee_id,
@@ -144,6 +144,9 @@ export default function RecurringProjectDetailPage() {
   }
 
   function upd(k: string, v: string) { setForm((p: any) => ({ ...p, [k]: v })) }
+  function addKey() { setKeys(p => [...p, {model: '', usage: ''}]) }
+  function updKey(i: number, f: 'model' | 'usage', v: string) { setKeys(p => p.map((k, idx) => idx === i ? {...k, [f]: v} : k)) }
+  function rmKey(i: number) { setKeys(p => p.length <= 1 ? [{model: '', usage: ''}] : p.filter((_, idx) => idx !== i)) }
 
   async function handleSave() {
     if (!form.name?.trim()) { toast.error('案件名を入力してください'); return }
@@ -168,9 +171,9 @@ export default function RecurringProjectDetailPage() {
             end_date:      form.end_date      || null,
             entry_route:   form.entry_route   || null,
             key_borrowing: form.key_borrowing === 'true',
-            key_count:     form.key_borrowing === 'true' && form.key_count ? parseInt(form.key_count) : null,
-            key_model:     form.key_borrowing === 'true' ? (form.key_model || null) : null,
-            key_usage:     form.key_borrowing === 'true' ? (form.key_usage || null) : null,
+            keys_info:     form.key_borrowing === 'true'
+              ? keys.filter(k => k.model || k.usage).map(k => ({model: k.model, usage: k.usage}))
+              : [],
             recurring_details: {
               cycle_type:      form.cycle_type,
               cycle_config:    {},
@@ -307,13 +310,32 @@ export default function RecurringProjectDetailPage() {
                   </Select>
                 </div>
                 {form.key_borrowing === 'true' && (
-                  <>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <Input label="本数" type="number" min="1" value={form.key_count} onChange={e => upd('key_count', e.target.value)} placeholder="1" />
-                      <Input label="型番" value={form.key_model} onChange={e => upd('key_model', e.target.value)} placeholder="例: MIWA LA" />
-                    </div>
-                    <Input label="使用箇所" value={form.key_usage} onChange={e => upd('key_usage', e.target.value)} placeholder="例: 玄関・倉庫" />
-                  </>
+                  <div className="space-y-3">
+                    <p className="text-xs text-[var(--color-muted-foreground)]">鍵ごとに型番と使用箇所を入力してください。</p>
+                    {keys.map((k, i) => (
+                      <div key={i} className="rounded-[var(--radius)] border border-[var(--color-border)] p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold" style={{color: 'var(--color-primary)'}}>鍵 {i + 1}</span>
+                          {keys.length > 1 && (
+                            <button type="button" onClick={() => rmKey(i)}
+                              className="p-1 rounded hover:opacity-80"
+                              style={{color: 'var(--color-error-foreground)'}}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <Input label="型番" value={k.model} onChange={e => updKey(i, 'model', e.target.value)} placeholder="例: MIWA LA" />
+                          <Input label="使用箇所" value={k.usage} onChange={e => updKey(i, 'usage', e.target.value)} placeholder="例: 玄関" />
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addKey}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius)] text-sm border-dashed hover:opacity-80"
+                      style={{border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)'}}>
+                      <Plus className="h-4 w-4" /> 鍵を追加する
+                    </button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -478,12 +500,18 @@ export default function RecurringProjectDetailPage() {
                     {project.entry_route && (
                       <div className="col-span-2"><dt className="text-[var(--color-muted-foreground)]">入館経路・入室経路</dt><dd className="font-medium mt-0.5 whitespace-pre-wrap">{project.entry_route}</dd></div>
                     )}
-                    <div><dt className="text-[var(--color-muted-foreground)]">鍵の借用</dt><dd className="font-medium mt-0.5">{project.key_borrowing ? 'あり' : 'なし'}</dd></div>
-                    {project.key_borrowing && <>
-                      <div><dt className="text-[var(--color-muted-foreground)]">本数</dt><dd className="font-medium mt-0.5">{project.key_count ?? '—'}本</dd></div>
-                      <div><dt className="text-[var(--color-muted-foreground)]">型番</dt><dd className="font-medium mt-0.5">{project.key_model ?? '—'}</dd></div>
-                      <div className="col-span-2"><dt className="text-[var(--color-muted-foreground)]">使用箇所</dt><dd className="font-medium mt-0.5">{project.key_usage ?? '—'}</dd></div>
-                    </>}
+                    <div><dt className="text-[var(--color-muted-foreground)]">鍵の借用</dt><dd className="font-medium mt-0.5">{project.key_borrowing ? `あり（${(project.keys_info ?? []).length}本）` : 'なし'}</dd></div>
+                    {project.key_borrowing && (project.keys_info ?? []).length > 0 && (
+                      <div className="col-span-2 space-y-1.5">
+                        {(project.keys_info as {model: string; usage: string}[]).map((k, i) => (
+                          <div key={i} className="flex items-center gap-4 text-xs rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2">
+                            <span className="font-bold shrink-0" style={{color: 'var(--color-primary)'}}>鍵{i + 1}</span>
+                            <span>型番: <span className="font-medium">{k.model || '—'}</span></span>
+                            <span>使用箇所: <span className="font-medium">{k.usage || '—'}</span></span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </dl>
                 </CardContent>
               </Card>
