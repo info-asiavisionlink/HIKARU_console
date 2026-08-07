@@ -53,9 +53,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (assignments?.length) {
-    await client.from('project_assignments').insert(
-      assignments.map((a: any) => ({ project_id: project.id, ...a }))
+    const { error: aErr } = await client.from('project_assignments').insert(
+      assignments.map((a: any) => ({ project_id: project.id, assignee_type: a.assignee_type, assignee_id: a.assignee_id }))
     )
+    if (aErr) console.error('assignments insert error:', aErr.message)
   }
 
   return NextResponse.json({ data: project }, { status: 201 })

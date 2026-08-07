@@ -59,9 +59,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (assignments !== undefined) {
     await client.from('project_assignments').delete().eq('project_id', id)
     if (assignments.length) {
-      await client.from('project_assignments').insert(
-        assignments.map((a: any) => ({ project_id: id, ...a }))
+      const { error: aErr } = await client.from('project_assignments').insert(
+        assignments.map((a: any) => ({ project_id: id, assignee_type: a.assignee_type, assignee_id: a.assignee_id }))
       )
+      if (aErr) console.error('assignments insert error:', aErr.message)
     }
   }
 
