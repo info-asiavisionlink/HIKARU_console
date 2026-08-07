@@ -68,11 +68,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .from('client_portal_accounts')
       .select('profile_id')
       .eq('id', id)
+      .eq('company_id', companyId)
       .single()
 
-    if (account) {
-      await admin.auth.admin.updateUserById(account.profile_id, { password })
-    }
+    if (!account) return NextResponse.json({ error: 'not found' }, { status: 404 })
+
+    const { error: pwError } = await admin.auth.admin.updateUserById(account.profile_id, { password })
+    if (pwError) return NextResponse.json({ error: pwError.message }, { status: 500 })
   }
 
   // ログインID変更

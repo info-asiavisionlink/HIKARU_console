@@ -125,6 +125,13 @@ export default function ClientDetailPage() {
     setCreatingPortal(false)
   }
 
+  async function refreshPortalAccount() {
+    const r = await fetch(`/api/client-accounts?clientId=${id}`)
+    const json = await r.json()
+    const acc = (json.data ?? [])[0] ?? null
+    setPortalAccount(acc)
+  }
+
   async function handleResetPassword() {
     if (!portalAccount) return
     if (newPassword.length < 8) { toast.error('パスワードは8文字以上で入力してください'); return }
@@ -139,7 +146,8 @@ export default function ClientDetailPage() {
       setNewPassword('')
       setShowResetPassword(false)
     } else {
-      toast.error('変更に失敗しました')
+      const data = await res.json()
+      toast.error(data.error ?? '変更に失敗しました')
     }
     setResetting(false)
   }
@@ -153,8 +161,7 @@ export default function ClientDetailPage() {
       body: JSON.stringify({ loginId: newLoginId }),
     })
     if (res.ok) {
-      const normalized = newLoginId.toUpperCase()
-      setPortalAccount((p: any) => ({ ...p, login_id: normalized }))
+      await refreshPortalAccount()
       toast.success('ログインIDを変更しました')
       setNewLoginId('')
       setShowResetId(false)
