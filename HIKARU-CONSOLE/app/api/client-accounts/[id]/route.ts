@@ -77,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // ログインID変更
   if (loginId) {
-    const normalizedId = loginId.toUpperCase().startsWith('CLT-') ? loginId.toUpperCase() : `CLT-${loginId.toUpperCase()}`
+    const normalizedId = loginId.toUpperCase()
     const newEmail = `${normalizedId.toLowerCase()}@hikaru.client`
 
     const { data: account } = await admin

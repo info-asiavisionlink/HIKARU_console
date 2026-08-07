@@ -67,9 +67,7 @@ export default function NewClientPage() {
 
     // ② ポータルアカウント作成（任意）
     if (showPortal) {
-      const loginId = portal.loginId.toUpperCase().startsWith('CLT-')
-        ? portal.loginId
-        : `CLT-${portal.loginId}`
+      const loginId = portal.loginId.toUpperCase()
 
       const res = await fetch('/api/client-accounts', {
         method: 'POST',
@@ -180,8 +178,8 @@ export default function NewClientPage() {
                         label="ログインID *"
                         value={portal.loginId}
                         onChange={(e) => updatePortal('loginId', e.target.value)}
-                        placeholder="CLT-0001"
-                        hint="CLT- プレフィックスが自動付与されます"
+                        placeholder="例: ACME-001"
+                        hint="半角英数字・記号（@不可）"
                       />
                     </div>
                     <Input
@@ -240,7 +238,7 @@ export default function NewClientPage() {
               >
                 <p className="font-semibold" style={{ color: 'oklch(0.73 0.12 78)' }}>ポータルログイン情報</p>
                 <p style={{ color: 'oklch(0.55 0.008 60)' }}>URL: hikari-customer-portal.vercel.app</p>
-                <p style={{ color: 'oklch(0.55 0.008 60)' }}>ID: {portal.loginId ? (portal.loginId.toUpperCase().startsWith('CLT-') ? portal.loginId.toUpperCase() : `CLT-${portal.loginId.toUpperCase()}`) : '—'}</p>
+                <p style={{ color: 'oklch(0.55 0.008 60)' }}>ID: {portal.loginId ? portal.loginId.toUpperCase() : '—'}</p>
               </div>
             )}
           </div>

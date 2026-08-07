@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (loginId.includes('@')) {
-    return NextResponse.json({ error: 'ログインIDにメールアドレスは使用できません。CLT-0001 のような形式で入力してください' }, { status: 400 })
+    return NextResponse.json({ error: 'ログインIDに@は使用できません' }, { status: 400 })
   }
 
   const admin = createAdminClient()

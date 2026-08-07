@@ -106,9 +106,7 @@ export default function ClientDetailPage() {
     if (!newPortal.contactName.trim()) { toast.error('担当者名を入力してください'); return }
     if (newPortal.password.length < 8) { toast.error('パスワードは8文字以上で入力してください'); return }
     setCreatingPortal(true)
-    const loginId = newPortal.loginId.toUpperCase().startsWith('CLT-')
-      ? newPortal.loginId.toUpperCase()
-      : `CLT-${newPortal.loginId.toUpperCase()}`
+    const loginId = newPortal.loginId.toUpperCase()
     const res = await fetch('/api/client-accounts', {
       method: 'POST',
       credentials: 'include',
@@ -155,7 +153,7 @@ export default function ClientDetailPage() {
       body: JSON.stringify({ loginId: newLoginId }),
     })
     if (res.ok) {
-      const normalized = newLoginId.toUpperCase().startsWith('CLT-') ? newLoginId.toUpperCase() : `CLT-${newLoginId.toUpperCase()}`
+      const normalized = newLoginId.toUpperCase()
       setPortalAccount((p: any) => ({ ...p, login_id: normalized }))
       toast.success('ログインIDを変更しました')
       setNewLoginId('')
@@ -168,7 +166,7 @@ export default function ClientDetailPage() {
   }
 
   const previewLoginId = newPortal.loginId
-    ? (newPortal.loginId.toUpperCase().startsWith('CLT-') ? newPortal.loginId.toUpperCase() : `CLT-${newPortal.loginId.toUpperCase()}`)
+    ? newPortal.loginId.toUpperCase()
     : '—'
 
   if (loading) {
@@ -374,10 +372,10 @@ export default function ClientDetailPage() {
                         <div className="space-y-3">
                           <Input
                             label="新しいログインID"
-                            placeholder="例: CLT-0002"
+                            placeholder="例: ACME-002"
                             value={newLoginId}
                             onChange={(e) => setNewLoginId(e.target.value)}
-                            hint="CLT- プレフィックスが自動付与されます"
+                            hint="半角英数字・記号（@不可）"
                           />
                           <Button size="sm" onClick={handleResetLoginId} loading={resetting}>
                             変更する
@@ -394,8 +392,8 @@ export default function ClientDetailPage() {
                         label="ログインID *"
                         value={newPortal.loginId}
                         onChange={(e) => setNewPortal((p) => ({ ...p, loginId: e.target.value }))}
-                        placeholder="CLT-0001"
-                        hint="例: CLT-0001（@は使用不可・CLT-が自動付与されます）"
+                        placeholder="例: ACME-001"
+                        hint="半角英数字・記号（@不可）"
                       />
                       <Input
                         label="ポータル担当者名 *"

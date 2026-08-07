@@ -75,7 +75,7 @@ function NewClientAccountForm() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        loginId:     form.loginId.toUpperCase().startsWith('CLT-') ? form.loginId : `CLT-${form.loginId}`,
+        loginId:     form.loginId.toUpperCase(),
         password:    form.password,
         contactName: form.contactName,
         email:       form.email || undefined,
@@ -119,11 +119,11 @@ function NewClientAccountForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     label="ログインID"
-                    placeholder="CLT-0001"
+                    placeholder="例: ACME-001"
                     value={form.loginId}
                     onChange={(e) => update('loginId', e.target.value)}
                     required
-                    hint="CLT- プレフィックスが自動付与されます"
+                    hint="半角英数字・記号（@不可）"
                   />
                   <Input
                     label="担当者名"
