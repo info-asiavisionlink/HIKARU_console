@@ -49,12 +49,16 @@ export default function RecurringProjectDetailPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [form,     setForm]     = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
+  const [clients,   setClients]   = React.useState<{ id: string; name: string }[]>([])
   const [prices,   setPrices]   = React.useState<PriceEntry[]>(initPrices())
   const [billing,  setBilling]  = React.useState<BillingEntry>(emptyBilling())
   // 月次スケジュール（清掃内容）
   const [schedules, setSchedules] = React.useState<Record<number, string>>(initSchedules())
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
+  React.useEffect(() => {
+    fetch('/api/clients?pageSize=100').then(r => r.json()).then(r => setClients(r.clients ?? []))
+  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -71,6 +75,7 @@ export default function RecurringProjectDetailPage() {
       setForm({
         name:            data.name ?? '',
         status:          data.status ?? 'active',
+        client_id:       data.client_id ?? '',
         location_name:   data.location_name ?? '',
         address:         data.address ?? '',
         notes:           data.notes ?? '',
@@ -164,6 +169,7 @@ export default function RecurringProjectDetailPage() {
         body: JSON.stringify({
           name:          form.name.trim(),
           status:        form.status,
+          client_id:     form.client_id     || null,
           location_name: form.location_name || null,
           address:       form.address       || null,
           notes:         form.notes         || null,
@@ -273,6 +279,16 @@ export default function RecurringProjectDetailPage() {
               {editing ? (
                 <>
                   <Input label="案件名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">顧客</label>
+                    <Select value={form.client_id} onValueChange={v => upd('client_id', v)}>
+                      <SelectTrigger><SelectValue placeholder="顧客を選択（任意）" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">選択なし</SelectItem>
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Input label="作業場所名" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
                   <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                   <div className="grid grid-cols-2 gap-4">
@@ -301,6 +317,7 @@ export default function RecurringProjectDetailPage() {
               ) : (
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                   {[
+                    ['顧客',       clients.find(c => c.id === project.client_id)?.name ?? '—'],
                     ['作業場所名', project.location_name ?? '—'],
                     ['住所',       project.address ?? '—'],
                     ['作業周期', CYCLE_OPTIONS.find(o => o.value === d.cycle_type)?.label ?? '—'],
