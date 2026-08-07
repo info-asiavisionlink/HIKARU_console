@@ -7,12 +7,13 @@ import { createPartner } from '@/services/partners.service'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
 } from '@hikaru/ui'
-import { ArrowLeft, Lock, Building2 } from 'lucide-react'
+import { ArrowLeft, Building2, Lock, Eye, EyeOff } from 'lucide-react'
 
 export default function NewPartnerPage() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
-  const [hasLogin, setHasLogin] = React.useState(true)
+  const [hasLogin, setHasLogin] = React.useState(false)
+  const [showPassword, setShowPassword] = React.useState(false)
 
   const [form, setForm] = React.useState({
     company_name: '',
@@ -89,7 +90,9 @@ export default function NewPartnerPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* 左カラム */}
           <div className="lg:col-span-2 space-y-6">
+
             {/* 基本情報 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
@@ -120,8 +123,8 @@ export default function NewPartnerPage() {
                   <Input label="契約開始日" type="date" value={form.contract_start_date} onChange={(e) => update('contract_start_date', e.target.value)} />
                   <Input label="契約終了日" type="date" value={form.contract_end_date} onChange={(e) => update('contract_end_date', e.target.value)} />
                 </div>
-                <Textarea label="対応可能エリア（改行区切り）" value={form.service_areas} onChange={(e) => update('service_areas', e.target.value)} placeholder="東京都&#10;神奈川県" rows={3} />
-                <Textarea label="対応可能業務（改行区切り）" value={form.service_types} onChange={(e) => update('service_types', e.target.value)} placeholder="ビル清掃&#10;エアコンクリーニング" rows={3} />
+                <Textarea label="対応可能エリア（改行区切り）" value={form.service_areas} onChange={(e) => update('service_areas', e.target.value)} placeholder={'東京都\n神奈川県'} rows={3} />
+                <Textarea label="対応可能業務（改行区切り）" value={form.service_types} onChange={(e) => update('service_types', e.target.value)} placeholder={'ビル清掃\nエアコンクリーニング'} rows={3} />
                 <Textarea label="保有資格（改行区切り）" value={form.qualifications} onChange={(e) => update('qualifications', e.target.value)} rows={3} />
                 <Textarea label="備考" value={form.notes} onChange={(e) => update('notes', e.target.value)} rows={3} />
               </CardContent>
@@ -137,9 +140,10 @@ export default function NewPartnerPage() {
                   <button
                     type="button"
                     onClick={() => setHasLogin((v) => !v)}
-                    className="text-xs text-[var(--color-primary)] hover:underline"
+                    className="text-xs hover:underline"
+                    style={{ color: 'var(--color-primary)' }}
                   >
-                    {hasLogin ? 'ログイン不要に変更' : 'ログインを設定する'}
+                    {hasLogin ? 'ログインを設定しない' : 'ログインを設定する'}
                   </button>
                 </div>
 
@@ -152,13 +156,23 @@ export default function NewPartnerPage() {
                       onChange={(e) => update('loginEmail', e.target.value)}
                       placeholder="login@partner.co.jp"
                     />
-                    <Input
-                      label="パスワード *"
-                      type="password"
-                      value={form.loginPassword}
-                      onChange={(e) => update('loginPassword', e.target.value)}
-                      placeholder="8文字以上"
-                    />
+                    <div className="relative">
+                      <Input
+                        label="パスワード *"
+                        type={showPassword ? 'text' : 'password'}
+                        value={form.loginPassword}
+                        onChange={(e) => update('loginPassword', e.target.value)}
+                        placeholder="8文字以上"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((p) => !p)}
+                        className="absolute right-3 top-8 p-1 rounded opacity-60 hover:opacity-100 transition-opacity"
+                        style={{ color: 'var(--color-muted-foreground)' }}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                     <p className="text-xs text-[var(--color-muted-foreground)]">
                       協力業者は HIKARU-System のみログインできます。HIKARU-CONSOLE にはアクセスできません。
                     </p>
@@ -172,7 +186,8 @@ export default function NewPartnerPage() {
             </Card>
           </div>
 
-          <div className="flex flex-col gap-2 h-fit">
+          {/* 右サイドバー */}
+          <div className="flex flex-col gap-3 h-fit">
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? '登録中...' : '協力業者を登録'}
             </Button>
@@ -181,6 +196,20 @@ export default function NewPartnerPage() {
                 <ArrowLeft className="h-4 w-4" /> キャンセル
               </Button>
             </Link>
+
+            {hasLogin && form.loginEmail && (
+              <div
+                className="rounded-xl p-4 text-xs space-y-1.5 mt-1"
+                style={{
+                  background: 'oklch(0.73 0.12 78 / 0.06)',
+                  border: '1px solid oklch(0.73 0.12 78 / 0.20)',
+                }}
+              >
+                <p className="font-semibold" style={{ color: 'oklch(0.73 0.12 78)' }}>ログイン情報プレビュー</p>
+                <p style={{ color: 'oklch(0.55 0.008 60)' }}>URL: hikaru-system.vercel.app</p>
+                <p style={{ color: 'oklch(0.55 0.008 60)' }}>ID: {form.loginEmail}</p>
+              </div>
+            )}
           </div>
         </div>
       </form>

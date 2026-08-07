@@ -18,13 +18,22 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter,
 } from '@hikaru/ui'
-import { ArrowLeft, Edit2, Save, Key, Trash2, FolderOpen, Building2, Lock } from 'lucide-react'
+import { ArrowLeft, Save, Key, Trash2, FolderOpen, Building2, Lock, Pencil, RefreshCw, Eye, EyeOff } from 'lucide-react'
 
 const statusVariant: Record<PartnerStatus, string> = {
   active:     'success',
   suspended:  'warning',
   terminated: 'secondary',
   deleted:    'secondary',
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="py-2.5 border-b border-[var(--color-border)] last:border-0">
+      <dt className="text-xs font-medium text-[var(--color-muted-foreground)] mb-0.5">{label}</dt>
+      <dd className="text-sm text-[var(--color-foreground)]">{value || '—'}</dd>
+    </div>
+  )
 }
 
 export default function PartnerDetailPage() {
@@ -35,10 +44,13 @@ export default function PartnerDetailPage() {
   const [editing, setEditing]   = React.useState(false)
   const [saving, setSaving]     = React.useState(false)
   const [showDelete, setShowDelete] = React.useState(false)
-  const [showPw, setShowPw]     = React.useState(false)
-  const [newPw, setNewPw]       = React.useState('')
-  const [pwSaving, setPwSaving] = React.useState(false)
   const [form, setForm] = React.useState<Partial<PartnerDetail>>({})
+
+  // パスワード変更
+  const [showPwForm, setShowPwForm] = React.useState(false)
+  const [newPw, setNewPw]       = React.useState('')
+  const [showPwText, setShowPwText] = React.useState(false)
+  const [pwSaving, setPwSaving] = React.useState(false)
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
 
@@ -107,7 +119,7 @@ export default function PartnerDetailPage() {
       toast.error('変更に失敗しました: ' + error)
     } else {
       toast.success('パスワードを変更しました')
-      setShowPw(false)
+      setShowPwForm(false)
       setNewPw('')
     }
     setPwSaving(false)
@@ -130,38 +142,35 @@ export default function PartnerDetailPage() {
     <div>
       <PageHeader
         title={partner.company_name}
-        description={partner.contact_person_name ?? undefined}
         breadcrumb={
           <Breadcrumb items={[{ label: '協力業者管理', href: '/partners' }, { label: partner.company_name }]} />
         }
         actions={
-          <div className="flex gap-2">
-            {partner.auth_user_id && (
-              <Button variant="outline" size="sm" onClick={() => setShowPw(true)}>
-                <Key className="h-4 w-4" /> パスワード変更
+          editing ? (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setEditing(false); loadData() }}>キャンセル</Button>
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                <Save className="h-4 w-4" /> {saving ? '保存中...' : '保存'}
               </Button>
-            )}
-            {editing ? (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setEditing(false)}>キャンセル</Button>
-                <Button size="sm" onClick={handleSave} disabled={saving}>
-                  <Save className="h-4 w-4" /> {saving ? '保存中...' : '保存'}
-                </Button>
-              </>
-            ) : (
+            </div>
+          ) : (
+            <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                <Edit2 className="h-4 w-4" /> 編集
+                <Pencil className="h-4 w-4" /> 編集
               </Button>
-            )}
-            <Button variant="destructive" size="sm" onClick={() => setShowDelete(true)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+              <Button variant="destructive" size="sm" onClick={() => setShowDelete(true)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          )
         }
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* 左カラム */}
         <div className="lg:col-span-2 space-y-6">
+
+          {/* 基本情報 */}
           <Card>
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
@@ -179,30 +188,25 @@ export default function PartnerDetailPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <Input label="電話番号" type="tel" value={form.phone ?? ''} onChange={(e) => update('phone', e.target.value)} />
-                    <Input label="メール" type="email" value={form.email ?? ''} onChange={(e) => update('email', e.target.value)} />
+                    <Input label="メールアドレス" type="email" value={form.email ?? ''} onChange={(e) => update('email', e.target.value)} />
                   </div>
                   <Textarea label="住所" value={form.address ?? ''} onChange={(e) => update('address', e.target.value)} rows={2} />
                 </>
               ) : (
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  {[
-                    ['会社名カナ',  partner.company_name_kana ?? '—'],
-                    ['担当者',      partner.contact_person_name ?? '—'],
-                    ['担当者カナ',  partner.contact_person_kana ?? '—'],
-                    ['電話番号',    partner.phone ?? '—'],
-                    ['メール',      partner.email ?? '—'],
-                    ['住所',        partner.address ?? '—'],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
-                      <dd className="font-medium mt-0.5">{value}</dd>
-                    </div>
-                  ))}
+                <dl>
+                  <InfoRow label="会社名"     value={partner.company_name} />
+                  <InfoRow label="会社名カナ"  value={partner.company_name_kana} />
+                  <InfoRow label="担当者名"    value={partner.contact_person_name} />
+                  <InfoRow label="担当者カナ"  value={partner.contact_person_kana} />
+                  <InfoRow label="電話番号"    value={partner.phone} />
+                  <InfoRow label="メールアドレス" value={partner.email} />
+                  <InfoRow label="住所"       value={partner.address} />
                 </dl>
               )}
             </CardContent>
           </Card>
 
+          {/* 契約情報 */}
           <Card>
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">契約情報</h2>
@@ -232,25 +236,66 @@ export default function PartnerDetailPage() {
                   <Textarea label="備考" value={form.notes ?? ''} onChange={(e) => update('notes', e.target.value)} rows={3} />
                 </>
               ) : (
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  {[
-                    ['契約開始日', partner.contract_start_date ? new Date(partner.contract_start_date).toLocaleDateString('ja-JP') : '—'],
-                    ['契約終了日', partner.contract_end_date   ? new Date(partner.contract_end_date).toLocaleDateString('ja-JP')   : '—'],
-                    ['対応エリア', partner.service_areas.length ? partner.service_areas.join('、') : '—'],
-                    ['対応業務',   partner.service_types.length ? partner.service_types.join('、') : '—'],
-                    ['保有資格',   partner.qualifications.length ? partner.qualifications.join('、') : '—'],
-                    ['備考',       partner.notes ?? '—'],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
-                      <dd className="font-medium mt-0.5">{value}</dd>
-                    </div>
-                  ))}
+                <dl>
+                  <InfoRow label="契約開始日"    value={partner.contract_start_date ? new Date(partner.contract_start_date).toLocaleDateString('ja-JP') : null} />
+                  <InfoRow label="契約終了日"    value={partner.contract_end_date   ? new Date(partner.contract_end_date).toLocaleDateString('ja-JP')   : null} />
+                  <InfoRow label="対応可能エリア" value={partner.service_areas.length ? partner.service_areas.join('、') : null} />
+                  <InfoRow label="対応可能業務"   value={partner.service_types.length ? partner.service_types.join('、') : null} />
+                  <InfoRow label="保有資格"       value={partner.qualifications.length ? partner.qualifications.join('、') : null} />
+                  <InfoRow label="備考"           value={partner.notes} />
                 </dl>
               )}
             </CardContent>
           </Card>
 
+          {/* ログイン情報（新規ページと同スタイル） */}
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                <Lock className="h-4 w-4" /> ログイン情報
+              </h2>
+              <InfoRow label="ログインID（メールアドレス）" value={partner.loginEmail} />
+              {partner.auth_user_id && (
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowPwForm((v) => !v)}
+                    className="text-xs flex items-center gap-1.5 hover:underline"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    {showPwForm ? 'パスワード変更をキャンセル' : 'パスワードを変更する'}
+                  </button>
+                  {showPwForm && (
+                    <div className="space-y-3 pt-1">
+                      <div className="relative">
+                        <Input
+                          label="新しいパスワード（8文字以上）"
+                          type={showPwText ? 'text' : 'password'}
+                          value={newPw}
+                          onChange={(e) => setNewPw(e.target.value)}
+                          placeholder="8文字以上"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPwText((p) => !p)}
+                          className="absolute right-3 top-8 p-1 rounded opacity-60 hover:opacity-100 transition-opacity"
+                          style={{ color: 'var(--color-muted-foreground)' }}
+                        >
+                          {showPwText ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <Button size="sm" onClick={handlePasswordChange} loading={pwSaving}>
+                        変更する
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 担当案件 */}
           <Card>
             <CardContent className="pt-6 space-y-3">
               <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
@@ -274,25 +319,18 @@ export default function PartnerDetailPage() {
           </Card>
         </div>
 
+        {/* 右サイドバー */}
         <div className="space-y-4">
+          {/* ステータスカード */}
           <Card>
             <CardContent className="pt-6 space-y-3">
-              <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                <Lock className="h-4 w-4" /> ステータス・ログイン
-              </h2>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-[var(--color-muted-foreground)]">ステータス</span>
-                  <Badge variant={statusVariant[partner.status] as any}>{partnerStatusLabel[partner.status]}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[var(--color-muted-foreground)]">ログインID</span>
-                  <span className="font-medium">{partner.loginEmail ?? '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[var(--color-muted-foreground)]">登録日</span>
-                  <span>{new Date(partner.created_at).toLocaleDateString('ja-JP')}</span>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--color-muted-foreground)]">ステータス</span>
+                <Badge variant={statusVariant[partner.status] as any}>{partnerStatusLabel[partner.status]}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--color-muted-foreground)]">登録日</span>
+                <span className="text-sm">{new Date(partner.created_at).toLocaleDateString('ja-JP')}</span>
               </div>
             </CardContent>
           </Card>
@@ -305,26 +343,16 @@ export default function PartnerDetailPage() {
         </div>
       </div>
 
-      <Dialog open={showPw} onOpenChange={setShowPw}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>パスワードを変更</DialogTitle></DialogHeader>
-          <DialogBody>
-            <Input label="新しいパスワード（8文字以上）" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="新しいパスワード" autoFocus />
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowPw(false); setNewPw('') }}>キャンセル</Button>
-            <Button onClick={handlePasswordChange} disabled={pwSaving}>{pwSaving ? '変更中...' : '変更する'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* 削除確認ダイアログ */}
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent>
           <DialogHeader><DialogTitle>協力業者を削除しますか？</DialogTitle></DialogHeader>
-          <p className="text-sm text-[var(--color-muted-foreground)]">
-            <span className="font-semibold text-[var(--color-foreground)]">{partner.company_name}</span> を削除します。<br />
-            ログインアカウントと全データが完全に削除されます。この操作は取り消せません。
-          </p>
+          <DialogBody>
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              <span className="font-semibold text-[var(--color-foreground)]">{partner.company_name}</span> を削除します。<br />
+              ログインアカウントと全データが完全に削除されます。この操作は取り消せません。
+            </p>
+          </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDelete(false)}>キャンセル</Button>
             <Button variant="destructive" onClick={handleDelete}>削除する</Button>
