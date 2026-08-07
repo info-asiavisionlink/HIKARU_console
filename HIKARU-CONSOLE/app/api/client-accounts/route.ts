@@ -62,6 +62,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'パスワードは8文字以上で入力してください' }, { status: 400 })
   }
 
+  if (loginId.includes('@')) {
+    return NextResponse.json({ error: 'ログインIDにメールアドレスは使用できません。CLT-0001 のような形式で入力してください' }, { status: 400 })
+  }
+
   const admin = createAdminClient()
 
   // LoginID → internal email: CLT-0001 → clt-0001@hikaru.client

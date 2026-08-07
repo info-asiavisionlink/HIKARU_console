@@ -395,7 +395,7 @@ export default function ClientDetailPage() {
                         value={newPortal.loginId}
                         onChange={(e) => setNewPortal((p) => ({ ...p, loginId: e.target.value }))}
                         placeholder="CLT-0001"
-                        hint="CLT- プレフィックスが自動付与されます"
+                        hint="例: CLT-0001（@は使用不可・CLT-が自動付与されます）"
                       />
                       <Input
                         label="ポータル担当者名 *"
