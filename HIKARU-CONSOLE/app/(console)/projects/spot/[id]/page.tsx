@@ -29,10 +29,19 @@ export default function SpotProjectDetailPage() {
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
   const [spots, setSpots] = React.useState<string[]>([''])
   const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
+  const [empMap,  setEmpMap]  = React.useState<Record<string, string>>({})
+  const [parMap,  setParMap]  = React.useState<Record<string, string>>({})
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100').then(r => r.json()).then(r => setClients(r.clients ?? []))
+    Promise.all([
+      fetch('/api/employees?pageSize=200&status=active', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/partners?pageSize=200&status=active',  { credentials: 'include' }).then(r => r.json()),
+    ]).then(([empData, parData]) => {
+      setEmpMap(Object.fromEntries((empData.data ?? []).map((e: any) => [e.id, `${e.name}${e.employee_number ? ` (${e.employee_number})` : ''}`])))
+      setParMap(Object.fromEntries((parData.data ?? []).map((p: any) => [p.id, p.company_name])))
+    })
   }, [])
 
   async function loadData() {
@@ -318,6 +327,25 @@ export default function SpotProjectDetailPage() {
             <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" /> この案件を削除
             </Button>
+          )}
+          {!editing && assignees.length > 0 && (
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">担当者</h2>
+                <ul className="space-y-1 text-sm">
+                  {assignees.map((a, i) => {
+                    const name = a.assignee_type === 'employee'
+                      ? (empMap[a.assignee_id] ?? a.label)
+                      : (parMap[a.assignee_id] ?? a.label)
+                    return (
+                      <li key={i} className="text-[var(--color-foreground)]">
+                        {a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {name}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>

@@ -50,6 +50,8 @@ export default function RecurringProjectDetailPage() {
   const [form,     setForm]     = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [clients,   setClients]   = React.useState<{ id: string; name: string }[]>([])
+  const [empMap,    setEmpMap]    = React.useState<Record<string, string>>({})
+  const [parMap,    setParMap]    = React.useState<Record<string, string>>({})
   const [prices,   setPrices]   = React.useState<PriceEntry[]>(initPrices())
   const [billing,  setBilling]  = React.useState<BillingEntry>(emptyBilling())
   // 月次スケジュール（清掃内容）
@@ -58,6 +60,13 @@ export default function RecurringProjectDetailPage() {
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100').then(r => r.json()).then(r => setClients(r.clients ?? []))
+    Promise.all([
+      fetch('/api/employees?pageSize=200&status=active', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/partners?pageSize=200&status=active',  { credentials: 'include' }).then(r => r.json()),
+    ]).then(([empData, parData]) => {
+      setEmpMap(Object.fromEntries((empData.data ?? []).map((e: any) => [e.id, `${e.name}${e.employee_number ? ` (${e.employee_number})` : ''}`])))
+      setParMap(Object.fromEntries((parData.data ?? []).map((p: any) => [p.id, p.company_name])))
+    })
   }, [])
 
   async function loadData() {
@@ -488,11 +497,16 @@ export default function RecurringProjectDetailPage() {
                   <Users className="h-4 w-4" /> 担当者
                 </h2>
                 <ul className="space-y-1 text-sm">
-                  {assignees.map((a, i) => (
-                    <li key={i} className="text-[var(--color-foreground)]">
-                      {a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {a.label}
-                    </li>
-                  ))}
+                  {assignees.map((a, i) => {
+                    const name = a.assignee_type === 'employee'
+                      ? (empMap[a.assignee_id] ?? a.label)
+                      : (parMap[a.assignee_id] ?? a.label)
+                    return (
+                      <li key={i} className="text-[var(--color-foreground)]">
+                        {a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {name}
+                      </li>
+                    )
+                  })}
                 </ul>
               </CardContent>
             </Card>
