@@ -258,7 +258,7 @@ export default function ClientsPage() {
               client={client}
               onDelete={(id, name) => setDeleteTarget({ id, name })}
               onClick={() => router.push(`/clients/${client.id}`)}
-              onEdit={() => router.push(`/clients/${client.id}/edit`)}
+              onEdit={() => router.push(`/clients/${client.id}`)}
             />
           ))}
         </div>
