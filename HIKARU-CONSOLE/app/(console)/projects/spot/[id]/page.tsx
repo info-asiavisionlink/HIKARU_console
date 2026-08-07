@@ -3,34 +3,38 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { PageHeader, Button, Input, Textarea, Card, CardContent, Badge, Skeleton, toast, Breadcrumb, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@hikaru/ui'
+import {
+  PageHeader, Button, Input, Textarea, Card, CardContent,
+  Badge, Skeleton, toast, Breadcrumb,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@hikaru/ui'
 import { AssigneeSelector, type Assignee } from '@/components/console/AssigneeSelector'
 import {
   SinglePriceCard, BillingInfoCard, emptyBilling, emptyPrice,
   BILLING_STATUSES, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, Trash2, Zap } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
 const statusVariant: Record<string, string> = { active: 'success', paused: 'warning', completed: 'secondary', cancelled: 'destructive' }
-const statusLabel: Record<string, string>   = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+const statusLabel:   Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
 
 export default function SpotProjectDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const router = useRouter()
-  const [project, setProject] = React.useState<any>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [editing, setEditing] = React.useState(false)
-  const [saving,  setSaving]  = React.useState(false)
-  const [form, setForm] = React.useState<any>({})
+  const { id }  = useParams<{ id: string }>()
+  const router  = useRouter()
+  const [project,    setProject]    = React.useState<any>(null)
+  const [loading,    setLoading]    = React.useState(true)
+  const [editing,    setEditing]    = React.useState(false)
+  const [saving,     setSaving]     = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [form,      setForm]      = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [price,     setPrice]     = React.useState<PriceEntry>(emptyPrice())
-  const [deleteOpen, setDeleteOpen] = React.useState(false)
-  const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
-  const [spots, setSpots] = React.useState<string[]>([''])
-  const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
-  const [empMap,  setEmpMap]  = React.useState<Record<string, string>>({})
-  const [parMap,  setParMap]  = React.useState<Record<string, string>>({})
+  const [billing,   setBilling]   = React.useState<BillingEntry>(emptyBilling())
+  const [spots,     setSpots]     = React.useState<string[]>([''])
+  const [clients,   setClients]   = React.useState<{ id: string; name: string }[]>([])
+  const [empMap,    setEmpMap]    = React.useState<Record<string, string>>({})
+  const [parMap,    setParMap]    = React.useState<Record<string, string>>({})
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
   React.useEffect(() => {
@@ -56,17 +60,24 @@ export default function SpotProjectDetailPage() {
       setProject(data)
       const d = data.spot_project_details
       setForm({
-        name: data.name, status: data.status,
-        client_id: data.client_id ?? '',
-        location_name: data.location_name ?? '',
-        address: data.address ?? '',
-        notes: data.notes ?? '',
-        work_datetime:   d?.work_datetime   ? d.work_datetime.slice(0,16) : '',
-        work_content:    d?.work_content    ?? '',
-        required_staff:  String(d?.required_staff ?? 1),
-        estimated_hours: String(d?.estimated_hours ?? ''),
+        name:              data.name              ?? '',
+        code:              data.code              ?? '',
+        status:            data.status            ?? 'active',
+        client_id:         data.client_id         ?? '',
+        start_date:        data.start_date        ?? '',
+        end_date:          data.end_date          ?? '',
+        work_start_time:   data.work_start_time   ?? '',
+        work_end_time:     data.work_end_time     ?? '',
+        location_name:     data.location_name     ?? '',
+        address:           data.address           ?? '',
+        phone:             data.phone             ?? '',
+        emergency_contact: data.emergency_contact ?? '',
+        business_hours:    data.business_hours    ?? '',
+        work_content:      d?.work_content        ?? '',
+        required_staff:    String(d?.required_staff  ?? 1),
+        estimated_hours:   String(d?.estimated_hours ?? ''),
+        notes:             data.notes             ?? '',
       })
-      // 作業箇所を読み込み
       const spotsRes = await fetch(`/api/projects/${id}/spots`, { credentials: 'include' })
       if (spotsRes.ok) {
         const { data: sd } = await spotsRes.json()
@@ -81,46 +92,59 @@ export default function SpotProjectDetailPage() {
 
     if (pricingRes.ok) {
       const { billing: b, prices: ps } = await pricingRes.json()
-      if (b)  setBilling({ billing_status: b.billing_status ?? 'unbilled', quote_number: b.quote_number ?? '', contract_date: b.contract_date ?? '', billing_date: b.billing_date ?? '', payment_due_date: b.payment_due_date ?? '', actual_payment_date: b.actual_payment_date ?? '', notes: b.notes ?? '' })
+      if (b) setBilling({
+        billing_status: b.billing_status ?? 'unbilled', quote_number: b.quote_number ?? '',
+        contract_date: b.contract_date ?? '', billing_date: b.billing_date ?? '',
+        payment_due_date: b.payment_due_date ?? '', actual_payment_date: b.actual_payment_date ?? '',
+        notes: b.notes ?? '',
+      })
       if (ps?.[0]) {
         const p = ps[0]
         setPrice({ amount_ex_tax: Number(p.amount_ex_tax), tax_rate: Number(p.tax_rate), tax_amount: Number(p.tax_amount), amount_inc_tax: Number(p.amount_inc_tax) })
       }
     }
-
     setLoading(false)
   }
 
   async function handleDelete() {
     const res = await fetch(`/api/projects/spot/${id}`, { method: 'DELETE', credentials: 'include' })
-    if (res.ok) {
-      toast.success('案件を削除しました')
-      router.push('/projects/spot')
-    } else {
-      toast.error('削除に失敗しました')
-    }
+    if (res.ok) { toast.success('案件を削除しました'); router.push('/projects/spot') }
+    else toast.error('削除に失敗しました')
   }
 
   function upd(k: string, v: string) { setForm((p: any) => ({ ...p, [k]: v })) }
 
   async function handleSave() {
+    if (!form.name?.trim()) { toast.error('案件名を入力してください'); return }
     setSaving(true)
     try {
-      // ① 案件本体 + 金額を並行保存
+      const work_datetime = form.start_date && form.work_start_time
+        ? `${form.start_date}T${form.work_start_time}`
+        : form.start_date ? `${form.start_date}T00:00` : null
+
       const [projRes, pricingRes] = await Promise.all([
         fetch(`/api/projects/spot/${id}`, {
           method: 'PATCH', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: form.name, status: form.status,
-            client_id: form.client_id || null,
-            location_name: form.location_name || null,
-            address: form.address || null,
-            notes: form.notes || null,
+            name:              form.name.trim(),
+            code:              form.code.trim()         || null,
+            status:            form.status,
+            client_id:         form.client_id           || null,
+            start_date:        form.start_date          || null,
+            end_date:          form.end_date            || null,
+            work_start_time:   form.work_start_time     || null,
+            work_end_time:     form.work_end_time       || null,
+            location_name:     form.location_name       || null,
+            address:           form.address             || null,
+            phone:             form.phone               || null,
+            emergency_contact: form.emergency_contact   || null,
+            business_hours:    form.business_hours      || null,
+            notes:             form.notes               || null,
             spot_details: {
-              work_datetime: form.work_datetime || null,
-              work_content: form.work_content || null,
-              required_staff: parseInt(form.required_staff) || 1,
+              work_datetime,
+              work_content:    form.work_content    || null,
+              required_staff:  parseInt(form.required_staff) || 1,
               estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
             },
             assignments: assignees,
@@ -133,7 +157,6 @@ export default function SpotProjectDetailPage() {
         }),
       ])
 
-      // ② 作業箇所を更新（全削除→再登録）
       await fetch(`/api/projects/${id}/spots`, { method: 'DELETE', credentials: 'include' })
       const valid = spots.filter(s => s.trim())
       if (valid.length > 0) {
@@ -149,7 +172,7 @@ export default function SpotProjectDetailPage() {
         setEditing(false)
         await loadData()
       } else {
-        const e1 = projRes.ok ? '' : await projRes.json().then((r: any) => r.error).catch(() => 'エラー')
+        const e1 = projRes.ok   ? '' : await projRes.json().then((r: any) => r.error).catch(() => 'エラー')
         const e2 = pricingRes.ok ? '' : await pricingRes.json().then((r: any) => r.error).catch(() => 'エラー')
         toast.error('保存に失敗しました: ' + [e1, e2].filter(Boolean).join(' / '))
       }
@@ -162,6 +185,8 @@ export default function SpotProjectDetailPage() {
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-10 w-64" /><Skeleton className="h-64 w-full" /></div>
   if (!project) return <div className="text-center py-20 text-[var(--color-muted-foreground)]">案件が見つかりません</div>
+
+  const clientName = clients.find(c => c.id === project.client_id)?.name
 
   return (
     <div>
@@ -185,175 +210,324 @@ export default function SpotProjectDetailPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+      {editing ? (
+        /* ══ 編集モード：新規ページと同じレイアウト ══ */
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
 
-          {/* 案件情報 */}
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                <Zap className="h-4 w-4" /> 案件情報
-              </h2>
-              {editing ? (
-                <>
-                  <Input label="案件名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">顧客</label>
-                    <Select value={form.client_id} onValueChange={v => upd('client_id', v)}>
-                      <SelectTrigger><SelectValue placeholder="顧客を選択（任意）" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">選択なし</SelectItem>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input label="作業日時" type="datetime-local" value={form.work_datetime} onChange={e => upd('work_datetime', e.target.value)} />
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium">ステータス</label>
-                      <Select value={form.status} onValueChange={v => upd('status', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{Object.entries(statusLabel).map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Textarea label="作業内容" value={form.work_content} onChange={e => upd('work_content', e.target.value)} rows={3} />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input label="必要人数" type="number" min="1" value={form.required_staff} onChange={e => upd('required_staff', e.target.value)} />
-                    <Input label="予定時間（h）" type="number" step="0.5" value={form.estimated_hours} onChange={e => upd('estimated_hours', e.target.value)} />
-                  </div>
-                  <Input label="場所名" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
-                  <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
-                  <Textarea label="備考" value={form.notes} onChange={e => upd('notes', e.target.value)} rows={2} />
-                  {/* 作業箇所 */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium">作業箇所</label>
-                      <button type="button" onClick={() => setSpots(p => [...p, ''])}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded"
-                        style={{ background: 'var(--color-primary-muted)', color: 'var(--color-primary)', border: '1px solid var(--color-primary-glow)' }}>
-                        <span>＋ 追加</span>
-                      </button>
-                    </div>
-                    <div className="space-y-1.5">
-                      {spots.map((s, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className="text-xs w-5 text-center" style={{ color: 'var(--color-primary)' }}>{i+1}</span>
-                          <Input value={s} onChange={e => setSpots(p => p.map((x, j) => j===i ? e.target.value : x))}
-                            placeholder="例: エアコン清掃" className="flex-1" />
-                          <button type="button" onClick={() => setSpots(p => p.length<=1?['']:p.filter((_,j)=>j!==i))}
-                            style={{ color: 'var(--color-error-foreground)' }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                  {[
-                    ['顧客',       clients.find(c => c.id === project.client_id)?.name ?? '—'],
-                    ['ステータス', <Badge key="s" variant={statusVariant[project.status] as any}>{statusLabel[project.status]}</Badge>],
-                    ['作業日時',   project.spot_project_details?.work_datetime ? new Date(project.spot_project_details.work_datetime).toLocaleString('ja-JP') : '—'],
-                    ['作業内容',   project.spot_project_details?.work_content ?? '—'],
-                    ['必要人数',   `${project.spot_project_details?.required_staff ?? '—'}名`],
-                    ['予定時間',   project.spot_project_details?.estimated_hours ? `${project.spot_project_details.estimated_hours}h` : '—'],
-                    ['場所名',     project.location_name ?? '—'],
-                    ['住所',       project.address ?? '—'],
-                    ['作業箇所',   spots.filter(s=>s).join('、') || '—'],
-                    ['備考',       project.notes ?? '—'],
-                  ].map(([label, val]) => (
-                    <div key={String(label)}><dt className="text-[var(--color-muted-foreground)]">{label}</dt><dd className="font-medium mt-0.5">{val}</dd></div>
-                  ))}
-                </dl>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 担当者 */}
-          {editing && (
+            {/* 基本情報 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">担当者</h2>
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Zap className="h-4 w-4" /> 基本情報
+                </h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input label="案件名 *" value={form.name} onChange={e => upd('name', e.target.value)} placeholder="例: ○○マンション 退去後清掃" required />
+                  <Input label="案件コード" value={form.code} onChange={e => upd('code', e.target.value)} placeholder="例: SPT-001" />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input label="開始日" type="date" value={form.start_date} onChange={e => upd('start_date', e.target.value)} />
+                  <Input label="終了日" type="date" value={form.end_date} onChange={e => upd('end_date', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input label="作業開始時間" type="time" value={form.work_start_time} onChange={e => upd('work_start_time', e.target.value)} />
+                  <Input label="作業終了時間" type="time" value={form.work_end_time} onChange={e => upd('work_end_time', e.target.value)} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 作業場所 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> 作業場所
+                </h2>
+                <Input label="作業場所名" value={form.location_name} onChange={e => upd('location_name', e.target.value)} placeholder="例: ○○マンション 301号室" />
+                <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input label="電話番号" value={form.phone} onChange={e => upd('phone', e.target.value)} placeholder="現場の電話番号" />
+                  <Input label="緊急連絡先" value={form.emergency_contact} onChange={e => upd('emergency_contact', e.target.value)} placeholder="緊急時の連絡先" />
+                </div>
+                <Input label="作業可能時間帯" value={form.business_hours} onChange={e => upd('business_hours', e.target.value)} placeholder="例: 平日 9:00〜18:00" />
+              </CardContent>
+            </Card>
+
+            {/* 作業箇所 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所</h2>
+                  <button type="button" onClick={() => setSpots(p => [...p, ''])}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
+                    style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                    <Plus className="h-3.5 w-3.5" /> 箇所を追加
+                  </button>
+                </div>
+                <p className="text-xs text-[var(--color-muted-foreground)]">清掃・点検する箇所を追加してください（例: エアコン清掃、床清掃）。</p>
+                <div className="space-y-2">
+                  {spots.map((s, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
+                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                        {i + 1}
+                      </div>
+                      <Input value={s} onChange={e => setSpots(p => p.map((x, j) => j === i ? e.target.value : x))}
+                        placeholder={i === 0 ? '例: エアコン清掃' : i === 1 ? '例: 床清掃' : '例: トイレ清掃...'}
+                        className="flex-1" />
+                      <button type="button" onClick={() => setSpots(p => p.length <= 1 ? [''] : p.filter((_, j) => j !== i))}
+                        className="p-1.5 rounded-[var(--radius)] hover:opacity-80 shrink-0"
+                        style={{ color: 'var(--color-error-foreground)' }}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setSpots(p => [...p, ''])}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm border-dashed hover:opacity-80"
+                  style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}>
+                  <Plus className="h-4 w-4" /> 箇所を追加する
+                </button>
+              </CardContent>
+            </Card>
+
+            {/* 作業詳細 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業詳細</h2>
+                <Textarea label="作業内容" value={form.work_content} onChange={e => upd('work_content', e.target.value)} placeholder="床洗浄・ワックス施工、ガラス清掃..." rows={3} />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input label="必要人数" type="number" min="1" value={form.required_staff} onChange={e => upd('required_staff', e.target.value)} />
+                  <Input label="予定時間（時間）" type="number" step="0.5" min="0" value={form.estimated_hours} onChange={e => upd('estimated_hours', e.target.value)} placeholder="3.5" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 担当者 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Users className="h-4 w-4" /> 担当者
+                </h2>
                 <AssigneeSelector value={assignees} onChange={setAssignees} />
               </CardContent>
             </Card>
-          )}
 
-          {/* 金額 */}
-          {editing
-            ? <SinglePriceCard value={price} onChange={setPrice} title="契約金額" />
-            : (
+            {/* 契約金額 */}
+            <SinglePriceCard value={price} onChange={setPrice} title="契約金額" />
+
+            {/* 請求情報 */}
+            <BillingInfoCard value={billing} onChange={setBilling} />
+
+            {/* 備考 */}
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">備考</h2>
+                <Textarea value={form.notes} onChange={e => upd('notes', e.target.value)} rows={3} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 右カラム */}
+          <div className="flex flex-col gap-4 h-fit">
+            {/* 顧客 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> 顧客
+                </h2>
+                <Select value={form.client_id} onValueChange={v => upd('client_id', v)}>
+                  <SelectTrigger><SelectValue placeholder="顧客を選択（任意）" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">選択なし</SelectItem>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* ステータス */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>
+                <Select value={form.status} onValueChange={v => upd('status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(statusLabel).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* 作業箇所プレビュー */}
+            {spots.some(s => s.trim()) && (
               <Card>
                 <CardContent className="pt-6 space-y-3">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">契約金額</h2>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                    {[
-                      ['税抜金額', price.amount_ex_tax > 0 ? price.amount_ex_tax.toLocaleString('ja-JP')+'円' : '—'],
-                      ['消費税',   price.tax_amount > 0 ? price.tax_amount.toLocaleString('ja-JP')+'円' : '—'],
-                      ['税込合計', price.amount_inc_tax > 0 ? price.amount_inc_tax.toLocaleString('ja-JP')+'円' : '—'],
-                    ].map(([l,v]) => <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-bold mt-0.5" style={{ color: 'oklch(0.73 0.12 78)' }}>{v}</dd></div>)}
-                  </dl>
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">
+                    作業箇所 ({spots.filter(s => s.trim()).length})
+                  </h2>
+                  <div className="flex flex-wrap gap-1.5">
+                    {spots.filter(s => s.trim()).map((s, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-[var(--radius)]"
+                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-            )
-          }
+            )}
 
-          {/* 請求情報 */}
-          {editing
-            ? <BillingInfoCard value={billing} onChange={setBilling} />
-            : (
-              <Card>
-                <CardContent className="pt-6 space-y-3">
-                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">請求情報</h2>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                    {[
-                      ['請求状況', BILLING_STATUSES.find(b => b.value === billing.billing_status)?.label ?? '—'],
-                      ['見積番号', billing.quote_number || '—'],
-                      ['契約日',   billing.contract_date || '—'],
-                      ['請求予定日', billing.billing_date || '—'],
-                      ['入金予定日', billing.payment_due_date || '—'],
-                      ['入金日',   billing.actual_payment_date || '—'],
-                    ].map(([l,v]) => <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>)}
-                  </dl>
-                </CardContent>
-              </Card>
-            )
-          }
+            <Button onClick={handleSave} disabled={saving} className="w-full">
+              <Save className="h-4 w-4" /> {saving ? '保存中...' : '保存する'}
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => { setEditing(false); loadData() }}>
+              キャンセル
+            </Button>
+          </div>
         </div>
+      ) : (
+        /* ══ 閲覧モード ══ */
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <Zap className="h-4 w-4" /> 案件情報
+                </h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {[
+                    ['顧客',       clientName ?? '—'],
+                    ['ステータス', <Badge key="s" variant={statusVariant[project.status] as any}>{statusLabel[project.status]}</Badge>],
+                    ['案件コード', project.code ?? '—'],
+                    ['開始日',     project.start_date ? new Date(project.start_date).toLocaleDateString('ja-JP') : '—'],
+                    ['終了日',     project.end_date   ? new Date(project.end_date).toLocaleDateString('ja-JP')   : '—'],
+                    ['作業時間',   project.work_start_time && project.work_end_time ? `${project.work_start_time} 〜 ${project.work_end_time}` : '—'],
+                    ['作業内容',   project.spot_project_details?.work_content ?? '—'],
+                    ['必要人数',   `${project.spot_project_details?.required_staff ?? '—'}名`],
+                    ['予定時間',   project.spot_project_details?.estimated_hours ? `${project.spot_project_details.estimated_hours}h` : '—'],
+                  ].map(([label, val]) => (
+                    <div key={String(label)}>
+                      <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
+                      <dd className="font-medium mt-0.5">{val}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
 
-        <div className="space-y-4">
-          <Link href="/projects/spot"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link>
-          {!editing && (
+            {/* 作業場所 */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> 作業場所
+                </h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {[
+                    ['作業場所名',     project.location_name     ?? '—'],
+                    ['住所',           project.address           ?? '—'],
+                    ['電話番号',       project.phone             ?? '—'],
+                    ['緊急連絡先',     project.emergency_contact ?? '—'],
+                    ['作業可能時間帯', project.business_hours    ?? '—'],
+                  ].map(([l, v]) => (
+                    <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 作業箇所 */}
+            {spots.filter(s => s).length > 0 && (
+              <Card>
+                <CardContent className="pt-6 space-y-3">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所</h2>
+                  <div className="flex flex-wrap gap-1.5">
+                    {spots.filter(s => s).map((s, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-[var(--radius)]"
+                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 契約金額 */}
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">契約金額</h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  {[
+                    ['税抜金額', price.amount_ex_tax  > 0 ? price.amount_ex_tax.toLocaleString('ja-JP')  + '円' : '—'],
+                    ['消費税',   price.tax_amount     > 0 ? price.tax_amount.toLocaleString('ja-JP')     + '円' : '—'],
+                    ['税込合計', price.amount_inc_tax > 0 ? price.amount_inc_tax.toLocaleString('ja-JP') + '円' : '—'],
+                  ].map(([l, v]) => (
+                    <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-bold mt-0.5" style={{ color: 'oklch(0.73 0.12 78)' }}>{v}</dd></div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 請求情報 */}
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">請求情報</h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  {[
+                    ['請求状況',   BILLING_STATUSES.find(b => b.value === billing.billing_status)?.label ?? '—'],
+                    ['見積番号',   billing.quote_number        || '—'],
+                    ['契約日',     billing.contract_date       || '—'],
+                    ['請求予定日', billing.billing_date        || '—'],
+                    ['入金予定日', billing.payment_due_date    || '—'],
+                    ['入金日',     billing.actual_payment_date || '—'],
+                  ].map(([l, v]) => (
+                    <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 備考 */}
+            {project.notes && (
+              <Card>
+                <CardContent className="pt-6 space-y-2">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">備考</h2>
+                  <p className="text-sm whitespace-pre-wrap">{project.notes}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 右カラム（閲覧） */}
+          <div className="space-y-4">
+            <Link href="/projects/spot"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link>
             <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" /> この案件を削除
             </Button>
-          )}
-          {!editing && assignees.length > 0 && (
-            <Card>
-              <CardContent className="pt-6 space-y-2">
-                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">担当者</h2>
-                <ul className="space-y-1 text-sm">
-                  {assignees.map((a, i) => {
-                    const name = a.assignee_type === 'employee'
-                      ? (empMap[a.assignee_id] ?? a.label)
-                      : (parMap[a.assignee_id] ?? a.label)
-                    return (
-                      <li key={i} className="text-[var(--color-foreground)]">
-                        {a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {name}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+            {assignees.length > 0 && (
+              <Card>
+                <CardContent className="pt-6 space-y-2">
+                  <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                    <Users className="h-4 w-4" /> 担当者
+                  </h2>
+                  <ul className="space-y-1 text-sm">
+                    {assignees.map((a, i) => {
+                      const name = a.assignee_type === 'employee' ? (empMap[a.assignee_id] ?? a.label) : (parMap[a.assignee_id] ?? a.label)
+                      return <li key={i}>{a.assignee_type === 'employee' ? '従業員' : '協力業者'}: {name}</li>
+                    })}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
       <ConfirmDeleteDialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="スポット案件を削除しますか？"
+        title="単発案件を削除しますか？"
         description={`「${project?.name}」を削除します。この操作は取り消せません。`}
       />
     </div>
