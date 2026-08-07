@@ -97,33 +97,34 @@ export default function NewSpotProjectPage() {
 
     const { data: project } = await projRes.json()
 
-    const tasks: Promise<any>[] = []
+    const errors: string[] = []
 
     // 単価・請求情報
     if (price.amount_ex_tax > 0 || billing.billing_status !== 'unbilled') {
-      tasks.push(
-        fetch(`/api/projects/${project.id}/pricing`, {
-          method: 'PUT', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ billing, prices: [{ ...price, period_month: null }] }),
-        })
-      )
+      const r = await fetch(`/api/projects/${project.id}/pricing`, {
+        method: 'PUT', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billing, prices: [{ ...price, period_month: null }] }),
+      })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); errors.push('金額: ' + (j.error ?? r.status)) }
     }
 
     // 作業箇所
     const validSpots = spots.filter(s => s.trim())
     if (validSpots.length > 0) {
-      tasks.push(
-        fetch(`/api/projects/${project.id}/spots`, {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ spots: validSpots.map(name => ({ name })) }),
-        })
-      )
+      const r = await fetch(`/api/projects/${project.id}/spots`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spots: validSpots.map(name => ({ name })) }),
+      })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); errors.push('作業箇所: ' + (j.error ?? r.status)) }
     }
 
-    await Promise.all(tasks)
-    toast.success('単発案件を登録しました')
+    if (errors.length > 0) {
+      toast.error('一部の保存に失敗しました: ' + errors.join(' / '))
+    } else {
+      toast.success('単発案件を登録しました')
+    }
     router.push(`/projects/spot/${project.id}`)
     setLoading(false)
   }

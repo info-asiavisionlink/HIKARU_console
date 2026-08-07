@@ -100,14 +100,21 @@ export default function NewRecurringProjectPage() {
 
     const { data: project } = await projRes.json()
 
-    // ② 月別単価・請求情報を保存（金額が1件以上入力されている場合）
+    // ② 月別単価・請求情報を保存
     const filledPrices = prices.filter(p => p.amount_ex_tax > 0)
     if (filledPrices.length > 0 || billing.billing_status !== 'unbilled') {
-      await fetch(`/api/projects/${project.id}/pricing`, {
+      const r = await fetch(`/api/projects/${project.id}/pricing`, {
         method: 'PUT', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ billing, prices: filledPrices }),
       })
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        toast.error('金額の保存に失敗しました: ' + (j.error ?? r.status))
+        router.push(`/projects/recurring/${project.id}`)
+        setLoading(false)
+        return
+      }
     }
 
     toast.success('定期案件を登録しました')

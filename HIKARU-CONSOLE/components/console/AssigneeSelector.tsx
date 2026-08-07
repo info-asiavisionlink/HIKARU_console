@@ -138,9 +138,19 @@ export function AssigneeSelector({ value, onChange }: AssigneeSelectorProps) {
           </SelectContent>
         </Select>
 
-        <Select value={addId} onValueChange={setAddId} disabled={loading || options.length === 0}>
+        <Select
+          value=""
+          onValueChange={(id) => {
+            if (!id) return
+            const already = value.some(a => a.assignee_type === addType && a.assignee_id === id)
+            if (already) return
+            const label = getLabel(addType, id)
+            onChange([...value, { assignee_type: addType, assignee_id: id, label }])
+          }}
+          disabled={loading || options.length === 0}
+        >
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder={loading ? '読み込み中...' : options.length === 0 ? '登録なし' : '選択してください'} />
+            <SelectValue placeholder={loading ? '読み込み中...' : options.length === 0 ? '登録なし' : '担当者を選択して追加'} />
           </SelectTrigger>
           <SelectContent>
             {addType === 'employee'
@@ -161,10 +171,6 @@ export function AssigneeSelector({ value, onChange }: AssigneeSelectorProps) {
             }
           </SelectContent>
         </Select>
-
-        <Button type="button" variant="outline" size="sm" onClick={handleAdd} disabled={!addId}>
-          <Plus className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   )
