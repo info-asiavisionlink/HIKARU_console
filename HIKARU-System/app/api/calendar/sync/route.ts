@@ -87,16 +87,19 @@ export async function POST() {
   const accessToken = await getValidToken(tokenRow, admin, user.id)
   if (!accessToken) return NextResponse.json({ error: 'token_invalid' }, { status: 400 })
 
-  // 今日以降の案件を取得（profilesテーブル経由でworker_idを確認）
-  const today = new Date().toISOString().split('T')[0]
+  // 過去30日〜未来すべての案件を同期対象にする
+  const from = new Date()
+  from.setDate(from.getDate() - 30)
+  const fromStr = from.toISOString().split('T')[0]
+
   const { data: jobs } = await supabase
     .from('jobs')
     .select('id, work_date, status, projects(name, location_name)')
     .eq('worker_id', user.id)
-    .gte('work_date', today)
+    .gte('work_date', fromStr)
     .neq('status', 'cancelled')
     .order('work_date', { ascending: true })
-    .limit(50)
+    .limit(100)
 
   if (!jobs || jobs.length === 0) {
     return NextResponse.json({ success: true, synced: 0 })

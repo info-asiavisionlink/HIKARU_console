@@ -44,6 +44,22 @@ export default function SchedulePage() {
   const [loading, setLoading] = React.useState(true)
   const [gcalUrl, setGcalUrl] = React.useState('')
   const [gcalInput, setGcalInput] = React.useState('')
+  const [googleEmail, setGoogleEmail] = React.useState<string | null>(null)
+
+  // Google連携状態を確認して自動でカレンダーURLをセット
+  React.useEffect(() => {
+    fetch('/api/calendar/sync', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (json?.connected && json?.google_email) {
+          setGoogleEmail(json.google_email)
+          const autoUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(json.google_email)}&ctz=Asia%2FTokyo&hl=ja`
+          setGcalUrl(autoUrl)
+          setGcalInput(autoUrl)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   React.useEffect(() => {
     setLoading(true)
@@ -277,10 +293,16 @@ export default function SchedulePage() {
           <h2 className="text-sm font-bold" style={{ color: 'oklch(0.88 0.008 75)' }}>Googleカレンダーと連携</h2>
         </div>
         <div className="rounded-2xl p-4 space-y-3" style={{ background: 'oklch(0.09 0.005 255 / 0.82)', border: `1px solid ${GOLD}15` }}>
-          <p className="text-xs" style={{ color: 'oklch(0.55 0.007 75)' }}>
-            GoogleカレンダーのURLまたは埋め込みコードを貼り付けると、カレンダーが表示されます。<br />
-            Googleカレンダー設定 →「カレンダーを統合」→「HTMLコード」をそのまま貼ってください。
-          </p>
+          {googleEmail ? (
+            <p className="text-xs" style={{ color: 'oklch(0.72 0.18 150)' }}>
+              ✓ {googleEmail} のGoogleカレンダーを表示中
+            </p>
+          ) : (
+            <p className="text-xs" style={{ color: 'oklch(0.55 0.007 75)' }}>
+              GoogleカレンダーのURLまたは埋め込みコードを貼り付けると表示されます。<br />
+              <a href="/google" style={{ color: 'oklch(0.73 0.12 78)' }}>Google連携</a>するとカレンダーが自動表示されます。
+            </p>
+          )}
           <div className="flex gap-2">
             <input
               type="text"
