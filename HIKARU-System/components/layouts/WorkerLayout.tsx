@@ -1,21 +1,24 @@
 'use client'
 
 import * as React from 'react'
-import { BottomNav } from './BottomNav'
+import { SideDrawer } from './SideDrawer'
 import { Toaster } from '@hikaru/ui'
 
 interface WorkerLayoutProps {
   children: React.ReactNode
-  hideBottomNav?: boolean
+  hideBottomNav?: boolean // 後方互換性のために残す（効果なし）
 }
 
-export function WorkerLayout({ children, hideBottomNav = false }: WorkerLayoutProps) {
+export function WorkerLayout({ children }: WorkerLayoutProps) {
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
+
+  // children に onMenuClick を注入するために Context を使う
   return (
-    <>
-      <main className="min-h-dvh pb-[var(--bottom-nav-height)]">
+    <MenuContext.Provider value={{ openMenu: () => setDrawerOpen(true) }}>
+      <main className="min-h-dvh">
         {children}
       </main>
-      {!hideBottomNav && <BottomNav />}
+      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <Toaster
         position="top-center"
         richColors
@@ -26,6 +29,15 @@ export function WorkerLayout({ children, hideBottomNav = false }: WorkerLayoutPr
           },
         }}
       />
-    </>
+    </MenuContext.Provider>
   )
+}
+
+// Context でメニュー開閉を子コンポーネントに伝える
+export const MenuContext = React.createContext<{ openMenu: () => void }>({
+  openMenu: () => {},
+})
+
+export function useMenuContext() {
+  return React.useContext(MenuContext)
 }
