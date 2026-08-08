@@ -40,6 +40,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = React.useState(true)
   const [starting, setStarting] = React.useState(false)
   const [completing, setCompleting] = React.useState(false)
+  const [generatingReport, setGeneratingReport] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
@@ -103,13 +104,38 @@ export default function JobDetailPage() {
 
     setCompleting(true)
     const ok = await completeJob(activeJob.id)
-    if (ok) {
-      setActiveJob((prev: any) => ({ ...prev, status: 'completed', completed_at: new Date().toISOString() }))
-      toast.success('作業完了しました！お疲れ様でした！')
-    } else {
+    if (!ok) {
       toast.error('完了処理に失敗しました')
+      setCompleting(false)
+      return
     }
+
+    const completedAt = new Date().toISOString()
+    setActiveJob((prev: any) => ({ ...prev, status: 'completed', completed_at: completedAt }))
     setCompleting(false)
+
+    // 報告書を自動生成
+    setGeneratingReport(true)
+    toast.success('作業完了！報告書を自動生成しています...')
+    try {
+      const res = await fetch('/api/ai/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: activeJob.id }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('報告書を生成しました！お疲れ様でした！')
+        router.push(`/jobs/${projectId}/evaluation`)
+      } else {
+        toast.error('報告書の自動生成に失敗しました。評価ページから手動で生成できます。')
+        router.push(`/jobs/${projectId}/evaluation`)
+      }
+    } catch {
+      toast.error('ネットワークエラーが発生しました')
+    } finally {
+      setGeneratingReport(false)
+    }
   }
 
   // Photo stats
@@ -336,10 +362,13 @@ export default function JobDetailPage() {
             {afterCount === totalSpots && totalSpots > 0 && (
               <button
                 onClick={handleComplete}
-                disabled={completing}
-                className="flex-1 rounded-[var(--radius-xl)] bg-[var(--color-success)] py-4 text-base font-semibold text-white active:bg-[var(--color-success-hover)] transition-colors disabled:opacity-50"
+                disabled={completing || generatingReport}
+                className="flex-1 rounded-[var(--radius-xl)] bg-[var(--color-success)] py-4 text-base font-semibold text-white active:bg-[var(--color-success-hover)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {completing ? '処理中...' : '作業完了'}
+                {(completing || generatingReport) && (
+                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                )}
+                {completing ? '完了処理中...' : generatingReport ? '報告書生成中...' : '作業完了'}
               </button>
             )}
           </div>
