@@ -31,10 +31,10 @@ export function LoginForm() {
 
       <Input
         name="email"
-        type="email"
-        label="メールアドレス"
-        placeholder="admin@hikaru.com"
-        autoComplete="email"
+        type="text"
+        label="メールアドレス / 社員番号"
+        placeholder="admin@example.com または EMP-0023"
+        autoComplete="username"
         required
       />
 
