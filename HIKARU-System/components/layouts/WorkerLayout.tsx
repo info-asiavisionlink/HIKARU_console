@@ -26,9 +26,7 @@ export function WorkerLayout({ children }: WorkerLayoutProps) {
       <main
         className="min-h-dvh pt-[var(--header-height)] md:pl-[var(--sidebar-width)] transition-all duration-300"
       >
-        <div className="relative z-10 px-4 py-6 md:px-6">
-          {children}
-        </div>
+        {children}
       </main>
 
       <Toaster
