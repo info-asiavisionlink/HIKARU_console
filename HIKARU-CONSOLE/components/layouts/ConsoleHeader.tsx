@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell, Cpu, Menu } from 'lucide-react'
 import {
   Avatar, AvatarFallback, AvatarImage,
@@ -9,7 +10,7 @@ import {
   cn,
 } from '@hikaru/ui'
 import { useAuthStore } from '@/stores/auth.store'
-import { useAuth } from '@/hooks/useAuth'
+import { logoutAction } from '@/app/(auth)/login/actions'
 
 interface ConsoleHeaderProps {
   sidebarWidth?: string
@@ -21,7 +22,7 @@ export function ConsoleHeader({
   onMobileMenuClick,
 }: ConsoleHeaderProps) {
   const user = useAuthStore((s) => s.user)
-  const { logout } = useAuth()
+  const router = useRouter()
   const [time, setTime] = React.useState('')
   const [date, setDate] = React.useState('')
 
@@ -143,10 +144,9 @@ export function ConsoleHeader({
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>{user?.email ?? 'admin@hikaru.com'}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>プロフィール</DropdownMenuItem>
-            <DropdownMenuItem>設定</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/settings')}>設定</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem destructive onSelect={logout}>ログアウト</DropdownMenuItem>
+            <DropdownMenuItem destructive onSelect={async () => { await logoutAction() }}>ログアウト</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
