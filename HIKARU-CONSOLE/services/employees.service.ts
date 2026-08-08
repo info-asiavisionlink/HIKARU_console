@@ -25,6 +25,7 @@ export interface EmployeeRow {
 
 export interface EmployeeDetail extends EmployeeRow {
   loginEmail: string | null
+  role: 'admin' | 'worker' | null
   assignments: {
     project_id: string
     assigned_at: string
@@ -133,6 +134,20 @@ export async function deleteEmployee(id: string): Promise<{ error: string | null
   const res = await fetch(`/api/employees/${id}`, {
     method: 'DELETE',
     credentials: 'include',
+  })
+  const json = await res.json()
+  return { error: res.ok ? null : json.error }
+}
+
+export async function changeEmployeeRole(
+  id: string,
+  role: 'admin' | 'worker'
+): Promise<{ error: string | null }> {
+  const res = await fetch(`/api/employees/${id}/role`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
   })
   const json = await res.json()
   return { error: res.ok ? null : json.error }

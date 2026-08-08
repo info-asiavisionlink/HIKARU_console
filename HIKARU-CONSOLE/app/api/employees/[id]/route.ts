@@ -16,11 +16,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })
 
-  // ログインアカウント情報も取得
+  // ログインアカウント情報・ロールも取得
   let loginEmail: string | null = null
+  let role: string | null = null
   if (data.auth_user_id) {
     const { data: authUser } = await admin.auth.admin.getUserById(data.auth_user_id)
     loginEmail = authUser.user?.email ?? null
+    const { data: profile } = await admin.from('profiles').select('role').eq('id', data.auth_user_id).single()
+    role = (profile as any)?.role ?? null
   }
 
   // 担当案件
@@ -30,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .eq('assignee_type', 'employee')
     .eq('assignee_id', id)
 
-  return NextResponse.json({ data: { ...data, loginEmail, assignments: assignments ?? [] } })
+  return NextResponse.json({ data: { ...data, loginEmail, role, assignments: assignments ?? [] } })
 }
 
 // PATCH /api/employees/[id]

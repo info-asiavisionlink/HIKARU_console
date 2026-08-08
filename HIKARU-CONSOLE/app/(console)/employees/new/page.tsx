@@ -8,12 +8,7 @@ import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
-import { ArrowLeft, Lock, User } from 'lucide-react'
-
-const ROLE_OPTIONS = [
-  { value: 'worker', label: '従業員（HIKARU-System のみ）' },
-  { value: 'admin',  label: '管理者（HIKARU-CONSOLE アクセス可）' },
-]
+import { ArrowLeft, Lock, User, Monitor, Smartphone } from 'lucide-react'
 
 export default function NewEmployeePage() {
   const router = useRouter()
@@ -166,16 +161,39 @@ export default function NewEmployeePage() {
                         メールアドレスの入力は不要です。
                       </p>
                     </div>
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">権限 *</label>
-                      <Select value={form.role} onValueChange={(v) => update('role', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {ROLE_OPTIONS.map((r) => (
-                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    {/* システムアクセス設定 */}
+                    <div className="space-y-2">
+                      <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">システムアクセス</label>
+                      <div className="flex items-center gap-3 rounded-[var(--radius-lg)] p-3"
+                        style={{ background: 'var(--color-success-muted)', border: '1px solid var(--color-success-foreground)20' }}>
+                        <Smartphone className="h-4 w-4 text-[var(--color-success-foreground)] shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-[var(--color-success-foreground)]">HIKARU System</p>
+                          <p className="text-[10px] text-[var(--color-success-foreground)] opacity-70">常時アクセス可</p>
+                        </div>
+                        <div className="h-2 w-2 rounded-full bg-[var(--color-success)]" />
+                      </div>
+                      <button type="button" onClick={() => update('role', form.role === 'admin' ? 'worker' : 'admin')}
+                        className="w-full flex items-center gap-3 rounded-[var(--radius-lg)] p-3 transition-all text-left"
+                        style={{
+                          background: form.role === 'admin' ? 'oklch(0.73 0.12 78 / 0.10)' : 'var(--color-muted)',
+                          border: `1px solid ${form.role === 'admin' ? 'oklch(0.73 0.12 78 / 0.35)' : 'var(--color-border)'}`,
+                        }}>
+                        <Monitor className="h-4 w-4 shrink-0" style={{ color: form.role === 'admin' ? 'oklch(0.73 0.12 78)' : 'var(--color-muted-foreground)' }} />
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold" style={{ color: form.role === 'admin' ? 'oklch(0.73 0.12 78)' : 'var(--color-muted-foreground)' }}>
+                            HIKARU Console
+                          </p>
+                          <p className="text-[10px]" style={{ color: form.role === 'admin' ? 'oklch(0.73 0.12 78 / 0.70)' : 'var(--color-subtle)' }}>
+                            {form.role === 'admin' ? 'クリックして無効にする' : 'クリックして許可する'}
+                          </p>
+                        </div>
+                        <div className={`h-4 w-8 rounded-full transition-all relative ${form.role === 'admin' ? '' : 'opacity-40'}`}
+                          style={{ background: form.role === 'admin' ? 'oklch(0.73 0.12 78)' : 'var(--color-muted-foreground)' }}>
+                          <div className="absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all"
+                            style={{ left: form.role === 'admin' ? 'calc(100% - 14px)' : '2px' }} />
+                        </div>
+                      </button>
                     </div>
                     <Input
                       label="初期パスワード *"

@@ -17,8 +17,13 @@ export async function loginAction(
   const password = formData.get('password')  as string
 
   if (!email || !password) {
-    return { error: 'メールアドレスとパスワードを入力してください。' }
+    return { error: 'メールアドレスまたはIDとパスワードを入力してください。' }
   }
+
+  // EMP-XXXX 形式を内部メールに変換（従業員がSystemと同じIDでログイン可能）
+  const resolvedEmail = /^EMP-\d+$/i.test(email.trim())
+    ? `${email.trim().toLowerCase()}@hikaru.internal`
+    : email
 
   const cookieStore = await cookies()
 
@@ -40,7 +45,7 @@ export async function loginAction(
 
   // ① Supabase 標準サインイン（セッションCookieを正しい形式で自動設定）
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email,
+    email: resolvedEmail,
     password,
   })
 
