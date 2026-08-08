@@ -278,20 +278,26 @@ export default function SchedulePage() {
         </div>
         <div className="rounded-2xl p-4 space-y-3" style={{ background: 'oklch(0.09 0.005 255 / 0.82)', border: `1px solid ${GOLD}15` }}>
           <p className="text-xs" style={{ color: 'oklch(0.55 0.007 75)' }}>
-            GoogleカレンダーのEmbedURLを入力すると、カレンダーが下に表示されます。<br />
-            Googleカレンダー設定 → 「カレンダーを統合」→「HTMLコード」からURLを取得してください。
+            GoogleカレンダーのURLまたは埋め込みコードを貼り付けると、カレンダーが表示されます。<br />
+            Googleカレンダー設定 →「カレンダーを統合」→「HTMLコード」をそのまま貼ってください。
           </p>
           <div className="flex gap-2">
             <input
-              type="url"
+              type="text"
               value={gcalInput}
               onChange={e => setGcalInput(e.target.value)}
-              placeholder="https://calendar.google.com/calendar/embed?src=..."
+              placeholder="URLまたは <iframe src=...> をそのまま貼り付け"
               className="flex-1 h-10 rounded-xl px-3 text-xs outline-none"
               style={{ background: 'oklch(0.07 0.004 255 / 0.90)', border: `1px solid ${GOLD}20`, color: 'oklch(0.88 0.008 75)' }}
             />
             <button
-              onClick={() => setGcalUrl(gcalInput.trim())}
+              onClick={() => {
+                const raw = gcalInput.trim()
+                // <iframe src="..."> が貼られた場合はsrc属性のURLだけを抽出
+                const srcMatch = raw.match(/src=["']([^"']+)["']/)
+                const url = srcMatch ? srcMatch[1] : raw
+                setGcalUrl(url)
+              }}
               className="shrink-0 px-4 h-10 rounded-xl text-sm font-medium transition-all"
               style={{ background: GOLD, color: 'oklch(0.06 0.003 260)', fontWeight: 700 }}
             >
