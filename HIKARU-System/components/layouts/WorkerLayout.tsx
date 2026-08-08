@@ -1,24 +1,36 @@
 'use client'
 
 import * as React from 'react'
-import { SideDrawer } from './SideDrawer'
+import { WorkerSidebar } from './WorkerSidebar'
+import { WorkerTopBar } from './WorkerTopBar'
 import { Toaster } from '@hikaru/ui'
 
 interface WorkerLayoutProps {
   children: React.ReactNode
-  hideBottomNav?: boolean // 後方互換性のために残す（効果なし）
+  hideBottomNav?: boolean // 後方互換性のためのダミープロップ
 }
 
 export function WorkerLayout({ children }: WorkerLayoutProps) {
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const [mobileOpen, setMobileOpen] = React.useState(false)
 
-  // children に onMenuClick を注入するために Context を使う
   return (
-    <MenuContext.Provider value={{ openMenu: () => setDrawerOpen(true) }}>
-      <main className="min-h-dvh">
-        {children}
+    <>
+      <WorkerSidebar
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+
+      <WorkerTopBar onMobileMenuClick={() => setMobileOpen(true)} />
+
+      {/* メインコンテンツ: デスクトップはサイドバー分右にずらす */}
+      <main
+        className="min-h-dvh pt-[var(--header-height)] md:pl-[var(--sidebar-width)] transition-all duration-300"
+      >
+        <div className="relative z-10 px-4 py-6 md:px-6">
+          {children}
+        </div>
       </main>
-      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
       <Toaster
         position="top-center"
         richColors
@@ -29,15 +41,10 @@ export function WorkerLayout({ children }: WorkerLayoutProps) {
           },
         }}
       />
-    </MenuContext.Provider>
+    </>
   )
 }
 
-// Context でメニュー開閉を子コンポーネントに伝える
-export const MenuContext = React.createContext<{ openMenu: () => void }>({
-  openMenu: () => {},
-})
-
-export function useMenuContext() {
-  return React.useContext(MenuContext)
-}
+// 後方互換性のためのダミー Context（MenuButton から参照されていた）
+export const MenuContext = React.createContext<{ openMenu: () => void }>({ openMenu: () => {} })
+export function useMenuContext() { return React.useContext(MenuContext) }

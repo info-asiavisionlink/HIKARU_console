@@ -7,7 +7,6 @@ import {
   Briefcase, CheckCircle2, Clock, ChevronRight,
   Bell, PlayCircle, Activity,
 } from 'lucide-react'
-import { MenuButton } from '@/components/layouts/MenuButton'
 
 /* Gold mini stat card */
 function StatCard({ label, value, icon: Icon, href }: {
@@ -171,22 +170,19 @@ export default function HomePage() {
       <div className="px-4 pt-5 pb-4"
         style={{ borderBottom: '1px solid oklch(0.73 0.12 78 / 0.10)' }}>
         <div className="flex items-start justify-between">
-          <div className="flex items-start gap-1">
-            <MenuButton className="-ml-2 -mt-1" />
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.3em]"
-                style={{ color: 'oklch(0.73 0.12 78 / 0.55)' }}>
-                {dateStr}
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em]"
+              style={{ color: 'oklch(0.73 0.12 78 / 0.55)' }}>
+              {dateStr}
+            </p>
+            <h1 className="mt-1 text-xl font-bold" style={{ color: 'oklch(0.92 0.008 75)' }}>
+              {greeting}
+            </h1>
+            {profile?.name && (
+              <p className="text-sm mt-0.5" style={{ color: 'oklch(0.55 0.007 75)' }}>
+                {profile.name}さん
               </p>
-              <h1 className="mt-1 text-xl font-bold" style={{ color: 'oklch(0.92 0.008 75)' }}>
-                {greeting}
-              </h1>
-              {profile?.name && (
-                <p className="text-sm mt-0.5" style={{ color: 'oklch(0.55 0.007 75)' }}>
-                  {profile.name}さん
-                </p>
-              )}
-            </div>
+            )}
           </div>
           <Link href="/notifications"
             className="relative p-2 rounded-full transition-all duration-150"

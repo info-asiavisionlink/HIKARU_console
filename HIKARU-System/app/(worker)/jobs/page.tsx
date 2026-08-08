@@ -8,7 +8,6 @@ import {
   Search, X, MapPin, ChevronRight,
   CheckCircle2, PlayCircle, Briefcase, SlidersHorizontal,
 } from 'lucide-react'
-import { MenuButton } from '@/components/layouts/MenuButton'
 
 type FilterStatus = 'all' | 'not_started' | 'in_progress' | 'completed'
 
@@ -73,12 +72,9 @@ export default function JobsPage() {
     <div className="min-h-dvh bg-[var(--color-background)]">
       {/* ヘッダー */}
       <div className="sticky top-0 z-10 bg-[var(--color-surface)]/95 backdrop-blur-md border-b border-[var(--color-border)]">
-        <div className="px-4 pt-3 pb-3 flex items-center gap-2">
-          <MenuButton className="-ml-2" />
-          <div>
-            <h1 className="text-lg font-bold text-[var(--color-foreground)]">案件一覧</h1>
-            <p className="text-xs text-[var(--color-muted-foreground)]">{projects.length}件の案件</p>
-          </div>
+        <div className="px-4 pt-4 pb-3">
+          <h1 className="text-lg font-bold text-[var(--color-foreground)]">案件一覧</h1>
+          <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">{projects.length}件の案件</p>
         </div>
 
         {/* 検索バー */}

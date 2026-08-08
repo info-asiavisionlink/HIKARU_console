@@ -20,7 +20,7 @@ export function WorkerHeader({ title, showBack = false, rightAction, className }
   return (
     <header
       className={cn(
-        'sticky top-0 z-[var(--z-sticky)]',
+        'sticky top-[var(--header-height)] z-[40]',
         'flex items-center h-[var(--header-height)] px-4 gap-3 relative',
         className
       )}

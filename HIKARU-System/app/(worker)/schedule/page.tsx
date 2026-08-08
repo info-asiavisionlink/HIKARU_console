@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react'
-import { MenuButton } from '@/components/layouts/MenuButton'
 
 const GOLD = 'oklch(0.73 0.12 78)'
 const CYAN = 'oklch(0.85 0.18 198)'
@@ -90,12 +89,9 @@ export default function SchedulePage() {
   return (
     <div className="max-w-5xl space-y-6">
       {/* ヘッダー */}
-      <div className="flex items-center gap-2">
-        <MenuButton className="-ml-2" />
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: 'oklch(0.92 0.008 75)' }}>スケジュール</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'oklch(0.50 0.007 75)' }}>担当案件のカレンダービュー</p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold" style={{ color: 'oklch(0.92 0.008 75)' }}>スケジュール</h1>
+        <p className="text-xs mt-0.5" style={{ color: 'oklch(0.50 0.007 75)' }}>担当案件のカレンダービュー</p>
       </div>
 
       {/* 月ナビゲーション */}
