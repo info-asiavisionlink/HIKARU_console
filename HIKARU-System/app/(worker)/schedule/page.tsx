@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Link2 } from 'lucide-react'
 
 const GOLD = 'oklch(0.73 0.12 78)'
 const CYAN = 'oklch(0.85 0.18 198)'
@@ -42,23 +42,20 @@ export default function SchedulePage() {
   const [month, setMonth] = React.useState(today.getMonth() + 1) // 1-indexed
   const [projects, setProjects] = React.useState<Project[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [gcalUrl, setGcalUrl] = React.useState('')
-  const [gcalInput, setGcalInput] = React.useState('')
   const [googleEmail, setGoogleEmail] = React.useState<string | null>(null)
+  const [gcalChecked, setGcalChecked] = React.useState(false)
 
-  // Google連携状態を確認して自動でカレンダーURLをセット
+  // Google連携状態を確認
   React.useEffect(() => {
     fetch('/api/calendar/sync', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(json => {
         if (json?.connected && json?.google_email) {
           setGoogleEmail(json.google_email)
-          const autoUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(json.google_email)}&ctz=Asia%2FTokyo&hl=ja`
-          setGcalUrl(autoUrl)
-          setGcalInput(autoUrl)
         }
+        setGcalChecked(true)
       })
-      .catch(() => {})
+      .catch(() => setGcalChecked(true))
   }, [])
 
   React.useEffect(() => {
@@ -286,77 +283,44 @@ export default function SchedulePage() {
         </section>
       )}
 
-      {/* Googleカレンダー連携 */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="h-4 w-4" style={{ color: GOLD }} />
-          <h2 className="text-sm font-bold" style={{ color: 'oklch(0.88 0.008 75)' }}>Googleカレンダーと連携</h2>
-        </div>
-        <div className="rounded-2xl p-4 space-y-3" style={{ background: 'oklch(0.09 0.005 255 / 0.82)', border: `1px solid ${GOLD}15` }}>
-          {googleEmail ? (
-            <p className="text-xs" style={{ color: 'oklch(0.72 0.18 150)' }}>
-              ✓ {googleEmail} のGoogleカレンダーを表示中
-            </p>
-          ) : (
-            <p className="text-xs" style={{ color: 'oklch(0.55 0.007 75)' }}>
-              GoogleカレンダーのURLまたは埋め込みコードを貼り付けると表示されます。<br />
-              <a href="/google" style={{ color: 'oklch(0.73 0.12 78)' }}>Google連携</a>するとカレンダーが自動表示されます。
-            </p>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={gcalInput}
-              onChange={e => setGcalInput(e.target.value)}
-              placeholder="URLまたは <iframe src=...> をそのまま貼り付け"
-              className="flex-1 h-10 rounded-xl px-3 text-xs outline-none"
-              style={{ background: 'oklch(0.07 0.004 255 / 0.90)', border: `1px solid ${GOLD}20`, color: 'oklch(0.88 0.008 75)' }}
-            />
-            <button
-              onClick={() => {
-                const raw = gcalInput.trim()
-                // <iframe src="..."> が貼られた場合はsrc属性のURLだけを抽出
-                const srcMatch = raw.match(/src=["']([^"']+)["']/)
-                const url = srcMatch ? srcMatch[1] : raw
-                setGcalUrl(url)
-              }}
-              className="shrink-0 px-4 h-10 rounded-xl text-sm font-medium transition-all"
-              style={{ background: GOLD, color: 'oklch(0.06 0.003 260)', fontWeight: 700 }}
-            >
-              表示
-            </button>
-            {gcalUrl && (
-              <button
-                onClick={() => { setGcalUrl(''); setGcalInput('') }}
-                className="shrink-0 px-3 h-10 rounded-xl text-sm font-medium transition-all"
-                style={{ background: 'oklch(0.12 0.007 255 / 0.70)', color: 'oklch(0.55 0.007 75)', border: `1px solid ${GOLD}15` }}
-              >
-                クリア
-              </button>
+      {/* Googleカレンダー（連携済みの場合のみ自動表示） */}
+      {gcalChecked && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" style={{ color: GOLD }} />
+              <h2 className="text-sm font-bold" style={{ color: 'oklch(0.88 0.008 75)' }}>Googleカレンダー</h2>
+            </div>
+            {googleEmail && (
+              <span className="text-[10px]" style={{ color: 'oklch(0.72 0.18 150)' }}>
+                ✓ {googleEmail}
+              </span>
             )}
           </div>
 
-          {gcalUrl && (
-            <div className="mt-2 rounded-xl overflow-hidden" style={{ border: `1px solid ${GOLD}18` }}>
+          {googleEmail ? (
+            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${GOLD}18` }}>
               <iframe
-                src={gcalUrl}
+                src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(googleEmail)}&ctz=Asia%2FTokyo&hl=ja`}
                 title="Googleカレンダー"
                 width="100%"
-                height="500"
+                height="520"
                 style={{ display: 'block', border: 'none', background: '#fff' }}
                 allowFullScreen
               />
             </div>
+          ) : (
+            <a
+              href="/google"
+              className="flex items-center gap-2 rounded-2xl px-4 py-3 text-sm transition-all"
+              style={{ background: 'oklch(0.09 0.005 255 / 0.82)', border: `1px solid ${GOLD}15`, color: GOLD, textDecoration: 'none' }}
+            >
+              <Link2 className="h-4 w-4 shrink-0" />
+              Google連携するとここにGoogleカレンダーが表示されます
+            </a>
           )}
-
-          {!gcalUrl && (
-            <div className="flex items-center gap-2 text-xs" style={{ color: 'oklch(0.45 0.006 75)' }}>
-              <ExternalLink className="h-3.5 w-3.5" />
-              URLを入力すると Googleカレンダーが表示されます
-            </div>
-          )}
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   )
 }
