@@ -15,7 +15,7 @@ type Status = {
   last_synced: string | null
 }
 
-export default function GooglePage() {
+function GooglePageInner() {
   const params = useSearchParams()
   const [status, setStatus]   = React.useState<Status | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -218,5 +218,17 @@ export default function GooglePage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function GooglePage() {
+  return (
+    <React.Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'oklch(0.73 0.12 78)' }} />
+      </div>
+    }>
+      <GooglePageInner />
+    </React.Suspense>
   )
 }
