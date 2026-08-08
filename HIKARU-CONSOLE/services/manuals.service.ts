@@ -4,22 +4,28 @@ export type ManualType = 'pdf' | 'image' | 'video' | 'text' | 'faq' | 'note'
 
 export interface ManualRow {
   id: string
-  project_id: string
+  project_id: string | null
+  company_id: string | null
   type: ManualType
   title: string
   content: string | null
   file_url: string | null
+  category: string | null
+  is_template: boolean
   order_num: number
   created_at: string
   updated_at: string
 }
 
 export interface ManualInsert {
-  project_id: string
+  project_id?: string | null
+  company_id?: string | null
   type: ManualType
   title: string
   content?: string | null
   file_url?: string | null
+  category?: string | null
+  is_template?: boolean
   order_num?: number
 }
 
@@ -33,7 +39,8 @@ export const manualTypeLabel: Record<ManualType, string> = {
 }
 
 export async function listManuals(projectId: string) {
-  const supabase = createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any
   const { data, error } = await supabase
     .from('manuals')
     .select('*')
@@ -43,7 +50,8 @@ export async function listManuals(projectId: string) {
 }
 
 export async function listAllManuals(opts?: { search?: string; type?: ManualType | '' }) {
-  const supabase = createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any
   let query = supabase
     .from('manuals')
     .select('*, projects(id, name)')
@@ -57,11 +65,12 @@ export async function listAllManuals(opts?: { search?: string; type?: ManualType
   }
 
   const { data, error } = await query
-  return { data, error }
+  return { data: data as ManualRow[] | null, error }
 }
 
 export async function createManual(input: ManualInsert) {
-  const supabase = createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any
   const { data: existing } = await supabase
     .from('manuals')
     .select('order_num')
@@ -70,29 +79,31 @@ export async function createManual(input: ManualInsert) {
     .limit(1)
     .single()
 
-  const nextOrder = input.order_num ?? ((existing?.order_num ?? -1) + 1)
+  const nextOrder = input.order_num ?? (((existing as { order_num: number } | null)?.order_num ?? -1) + 1)
 
   const { data, error } = await supabase
     .from('manuals')
     .insert({ ...input, order_num: nextOrder })
     .select()
     .single()
-  return { data, error }
+  return { data: data as ManualRow | null, error }
 }
 
 export async function updateManual(id: string, input: Partial<Omit<ManualInsert, 'project_id'>>) {
-  const supabase = createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any
   const { data, error } = await supabase
     .from('manuals')
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single()
-  return { data, error }
+  return { data: data as ManualRow | null, error }
 }
 
 export async function deleteManual(id: string) {
-  const supabase = createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any
   const { error } = await supabase.from('manuals').delete().eq('id', id)
   return { error }
 }
