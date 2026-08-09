@@ -1,0 +1,6118 @@
+[
+  {
+    "category": "general",
+    "title": "Supabase Documentation",
+    "url": "https://supabase.com/docs",
+    "summary": "Supabase is the Postgres development platform providing all the backend features you need to build a product.",
+    "tags": [
+      "documentation",
+      "general",
+      "supabase"
+    ],
+    "file": "docs/general/001_Supabase_Documentation.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "ai",
+    "title": "AI & Vectors",
+    "url": "https://supabase.com/docs/guides/ai",
+    "summary": "The best vector database is the database you already have.",
+    "tags": [
+      "ai",
+      "vector",
+      "vectors"
+    ],
+    "file": "docs/ai/001_AI_&_Vectors.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "AI Tools",
+    "url": "https://supabase.com/docs/guides/ai-tools",
+    "summary": "Connect your AI coding agent to Supabase.",
+    "tags": [
+      "ai",
+      "ai-tools",
+      "tools"
+    ],
+    "file": "docs/ai/002_AI_Tools.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "AI Prompts",
+    "url": "https://supabase.com/docs/guides/ai-tools/ai-prompts",
+    "summary": "Prompts for working with Supabase using AI-powered IDE tools",
+    "tags": [
+      "ai",
+      "ai-prompts",
+      "ai-tools",
+      "prompts"
+    ],
+    "file": "docs/ai/003_AI_Prompts.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "Agent Skills",
+    "url": "https://supabase.com/docs/guides/ai-tools/ai-skills",
+    "summary": "Searchdocs...",
+    "tags": [
+      "agent",
+      "ai",
+      "ai-skills",
+      "ai-tools",
+      "skills"
+    ],
+    "file": "docs/ai/004_Agent_Skills.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "ai",
+    "title": "Deploy MCP servers",
+    "url": "https://supabase.com/docs/guides/ai-tools/byo-mcp",
+    "summary": "Build and deploy remote MCP servers on Supabase Edge Functions",
+    "tags": [
+      "ai",
+      "ai-tools",
+      "byo-mcp",
+      "deploy",
+      "servers"
+    ],
+    "file": "docs/ai/005_Deploy_MCP_servers.md",
+    "code_blocks": 11
+  },
+  {
+    "category": "ai",
+    "title": "Supabase MCP Server",
+    "url": "https://supabase.com/docs/guides/ai-tools/mcp",
+    "summary": "Connect your AI tools to Supabase using MCP",
+    "tags": [
+      "ai",
+      "ai-tools",
+      "mcp",
+      "server",
+      "supabase"
+    ],
+    "file": "docs/ai/006_Supabase_MCP_Server.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "ai",
+    "title": "Supabase Plugin for AI Coding Agents",
+    "url": "https://supabase.com/docs/guides/ai-tools/plugins",
+    "summary": "The Supabase plugin for AI coding agents bundles the MCP server and agent skills into a single install for your AI coding agent.",
+    "tags": [
+      "agents",
+      "ai",
+      "ai-tools",
+      "coding",
+      "plugin",
+      "plugins",
+      "supabase"
+    ],
+    "file": "docs/ai/007_Supabase_Plugin_for_AI_Coding_Agents.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "ai",
+    "title": "Automatic embeddings",
+    "url": "https://supabase.com/docs/guides/ai/automatic-embeddings",
+    "summary": "Automate embedding generation and updates in Postgres",
+    "tags": [
+      "ai",
+      "automatic",
+      "automatic-embeddings",
+      "embedding",
+      "embeddings"
+    ],
+    "file": "docs/ai/008_Automatic_embeddings.md",
+    "code_blocks": 24
+  },
+  {
+    "category": "ai",
+    "title": "Choosing your Compute Add-on",
+    "url": "https://supabase.com/docs/guides/ai/choosing-compute-addon",
+    "summary": "Choosing the right Compute Add-on for your vector workload.",
+    "tags": [
+      "ai",
+      "choosing",
+      "choosing-compute-addon",
+      "compute",
+      "your"
+    ],
+    "file": "docs/ai/009_Choosing_your_Compute_Add-on.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "Concepts",
+    "url": "https://supabase.com/docs/guides/ai/concepts",
+    "summary": "Learn about embeddings within AI and vector applications.",
+    "tags": [
+      "ai",
+      "concepts"
+    ],
+    "file": "docs/ai/010_Concepts.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "Engineering for Scale",
+    "url": "https://supabase.com/docs/guides/ai/engineering-for-scale",
+    "summary": "Building an enterprise-grade vector architecture",
+    "tags": [
+      "ai",
+      "engineering",
+      "engineering-for-scale",
+      "scale"
+    ],
+    "file": "docs/ai/011_Engineering_for_Scale.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "ai",
+    "title": "Building ChatGPT plugins",
+    "url": "https://supabase.com/docs/guides/ai/examples/building-chatgpt-plugins",
+    "summary": "Use Supabase as a Retrieval Store for your ChatGPT plugin.",
+    "tags": [
+      "ai",
+      "building",
+      "building-chatgpt-plugins",
+      "chatgpt",
+      "examples",
+      "plugins"
+    ],
+    "file": "docs/ai/012_Building_ChatGPT_plugins.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "ai",
+    "title": "Adding generative Q&A for your documentation",
+    "url": "https://supabase.com/docs/guides/ai/examples/headless-vector-search",
+    "summary": "Learn how to build a ChatGPT-style doc search powered using our headless search toolkit.",
+    "tags": [
+      "adding",
+      "ai",
+      "documentation",
+      "examples",
+      "generative",
+      "headless-vector-search",
+      "vector",
+      "your"
+    ],
+    "file": "docs/ai/013_Adding_generative_Q&A_for_your_documentation.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "ai",
+    "title": "Generate image captions using Hugging Face",
+    "url": "https://supabase.com/docs/guides/ai/examples/huggingface-image-captioning",
+    "summary": "Use the Hugging Face Inference API to make calls to 100,000+ Machine Learning models from Supabase Edge Functions.",
+    "tags": [
+      "ai",
+      "captions",
+      "examples",
+      "face",
+      "generate",
+      "hugging",
+      "huggingface-image-captioning",
+      "image",
+      "using"
+    ],
+    "file": "docs/ai/014_Generate_image_captions_using_Hugging_Face.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "ai",
+    "title": "Image Search with OpenAI CLIP",
+    "url": "https://supabase.com/docs/guides/ai/examples/image-search-openai-clip",
+    "summary": "Implement image search with the OpenAI CLIP Model and Supabase Vector.",
+    "tags": [
+      "ai",
+      "cli",
+      "clip",
+      "examples",
+      "image",
+      "image-search-openai-clip",
+      "openai",
+      "search",
+      "with"
+    ],
+    "file": "docs/ai/015_Image_Search_with_OpenAI_CLIP.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "ai",
+    "title": "Video Search with Mixpeek Multimodal Embeddings",
+    "url": "https://supabase.com/docs/guides/ai/examples/mixpeek-video-search",
+    "summary": "Implement video search with the Mixpeek Multimodal Embed API and Supabase Vector.",
+    "tags": [
+      "ai",
+      "embedding",
+      "embeddings",
+      "examples",
+      "mixpeek",
+      "mixpeek-video-search",
+      "multimodal",
+      "search",
+      "video",
+      "with"
+    ],
+    "file": "docs/ai/016_Video_Search_with_Mixpeek_Multimodal_Embeddings.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "ai",
+    "title": "Vector search with Next.js and OpenAI",
+    "url": "https://supabase.com/docs/guides/ai/examples/nextjs-vector-search",
+    "summary": "Learn how to build a ChatGPT-style doc search powered by Next.js, OpenAI, and Supabase.",
+    "tags": [
+      "ai",
+      "examples",
+      "next",
+      "nextjs",
+      "nextjs-vector-search",
+      "openai",
+      "search",
+      "vector",
+      "with"
+    ],
+    "file": "docs/ai/017_Vector_search_with_Next.js_and_OpenAI.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "ai",
+    "title": "Generating OpenAI GPT3 completions",
+    "url": "https://supabase.com/docs/guides/ai/examples/openai",
+    "summary": "Generate GPT text completions using OpenAI and Supabase Edge Functions.",
+    "tags": [
+      "ai",
+      "completions",
+      "examples",
+      "generating",
+      "openai"
+    ],
+    "file": "docs/ai/018_Generating_OpenAI_GPT3_completions.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "ai",
+    "title": "Semantic Image Search with Amazon Titan",
+    "url": "https://supabase.com/docs/guides/ai/examples/semantic-image-search-amazon-titan",
+    "summary": "Implement semantic image search with Amazon Titan and Supabase Vector in Python.",
+    "tags": [
+      "ai",
+      "amazon",
+      "examples",
+      "image",
+      "search",
+      "semantic",
+      "semantic-image-search-amazon-titan",
+      "titan",
+      "with"
+    ],
+    "file": "docs/ai/019_Semantic_Image_Search_with_Amazon_Titan.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "ai",
+    "title": "Going to Production",
+    "url": "https://supabase.com/docs/guides/ai/going-to-prod",
+    "summary": "Checklist for going to production with your AI application.",
+    "tags": [
+      "ai",
+      "going",
+      "going-to-prod",
+      "production"
+    ],
+    "file": "docs/ai/020_Going_to_Production.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "Google Colab",
+    "url": "https://supabase.com/docs/guides/ai/google-colab",
+    "summary": "Use Google Colab to manage your Supabase Vector store.",
+    "tags": [
+      "ai",
+      "colab",
+      "google",
+      "google-colab"
+    ],
+    "file": "docs/ai/021_Google_Colab.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "ai",
+    "title": "Hugging Face Inference API",
+    "url": "https://supabase.com/docs/guides/ai/hugging-face",
+    "summary": "Learn how to integrate hugging face models with Supabase",
+    "tags": [
+      "ai",
+      "api",
+      "face",
+      "hugging",
+      "hugging-face",
+      "inference"
+    ],
+    "file": "docs/ai/022_Hugging_Face_Inference_API.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "ai",
+    "title": "Hybrid search",
+    "url": "https://supabase.com/docs/guides/ai/hybrid-search",
+    "summary": "Combine keyword search with semantic search to get both direct and contextual results.",
+    "tags": [
+      "ai",
+      "hybrid",
+      "hybrid-search",
+      "search"
+    ],
+    "file": "docs/ai/023_Hybrid_search.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "ai",
+    "title": "Amazon Bedrock",
+    "url": "https://supabase.com/docs/guides/ai/integrations/amazon-bedrock",
+    "summary": "Learn how to integrate Supabase with Amazon Bedrock, a fully managed service of high-performing foundation models.",
+    "tags": [
+      "ai",
+      "amazon",
+      "amazon-bedrock",
+      "bedrock",
+      "integrations"
+    ],
+    "file": "docs/ai/024_Amazon_Bedrock.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "ai",
+    "title": "Learn how to integrate Supabase with LlamaIndex, a data framework for your LLM applications.",
+    "url": "https://supabase.com/docs/guides/ai/integrations/llamaindex",
+    "summary": "Learn how to integrate Supabase with LlamaIndex, a data framework for your LLM applications.",
+    "tags": [
+      "ai",
+      "applications",
+      "data",
+      "framework",
+      "integrate",
+      "integrations",
+      "learn",
+      "llamaindex",
+      "supabase",
+      "with",
+      "your"
+    ],
+    "file": "docs/ai/025_Learn_how_to_integrate_Supabase_with_LlamaIndex,_a_data_framework_for_your_LLM_a.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "ai",
+    "title": "Roboflow",
+    "url": "https://supabase.com/docs/guides/ai/integrations/roboflow",
+    "summary": "Learn how to integrate Supabase with Roboflow, a tool for running fine-tuned and foundation vision models.",
+    "tags": [
+      "ai",
+      "integrations",
+      "roboflow"
+    ],
+    "file": "docs/ai/026_Roboflow.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "ai",
+    "title": "Keyword search",
+    "url": "https://supabase.com/docs/guides/ai/keyword-search",
+    "summary": "Learn how to search by words or phrases.",
+    "tags": [
+      "ai",
+      "keyword",
+      "keyword-search",
+      "search"
+    ],
+    "file": "docs/ai/027_Keyword_search.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "LangChain",
+    "url": "https://supabase.com/docs/guides/ai/langchain",
+    "summary": "Learn how to integrate Supabase with LangChain, a popular framework for composing AI, Vectors, and embeddings",
+    "tags": [
+      "ai",
+      "langchain"
+    ],
+    "file": "docs/ai/028_LangChain.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "ai",
+    "title": "Choosing a Client",
+    "url": "https://supabase.com/docs/guides/ai/python-clients",
+    "summary": "Learn how to manage vectors using Python",
+    "tags": [
+      "ai",
+      "choosing",
+      "cli",
+      "client",
+      "python",
+      "python-clients"
+    ],
+    "file": "docs/ai/029_Choosing_a_Client.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "API",
+    "url": "https://supabase.com/docs/guides/ai/python/api",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "api",
+      "python"
+    ],
+    "file": "docs/ai/030_API.md",
+    "code_blocks": 18
+  },
+  {
+    "category": "ai",
+    "title": "Collections",
+    "url": "https://supabase.com/docs/guides/ai/python/collections",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "collections",
+      "python"
+    ],
+    "file": "docs/ai/031_Collections.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "ai",
+    "title": "Indexes",
+    "url": "https://supabase.com/docs/guides/ai/python/indexes",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "indexes",
+      "python"
+    ],
+    "file": "docs/ai/032_Indexes.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "ai",
+    "title": "Metadata",
+    "url": "https://supabase.com/docs/guides/ai/python/metadata",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "metadata",
+      "python"
+    ],
+    "file": "docs/ai/033_Metadata.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "ai",
+    "title": "Face similarity search",
+    "url": "https://supabase.com/docs/guides/ai/quickstarts/face-similarity",
+    "summary": "Identify the celebrities who look most similar to you using Supabase Vecs.",
+    "tags": [
+      "ai",
+      "face",
+      "face-similarity",
+      "quickstarts",
+      "search",
+      "similarity"
+    ],
+    "file": "docs/ai/034_Face_similarity_search.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "ai",
+    "title": "Generate Embeddings",
+    "url": "https://supabase.com/docs/guides/ai/quickstarts/generate-text-embeddings",
+    "summary": "Generate text embeddings using Edge Functions.",
+    "tags": [
+      "ai",
+      "embedding",
+      "embeddings",
+      "generate",
+      "generate-text-embeddings",
+      "quickstarts"
+    ],
+    "file": "docs/ai/035_Generate_Embeddings.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "ai",
+    "title": "Creating and managing collections",
+    "url": "https://supabase.com/docs/guides/ai/quickstarts/hello-world",
+    "summary": "Connecting to your database with Colab.",
+    "tags": [
+      "ai",
+      "collections",
+      "creating",
+      "hello-world",
+      "managing",
+      "quickstarts"
+    ],
+    "file": "docs/ai/036_Creating_and_managing_collections.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "ai",
+    "title": "Semantic Text Deduplication",
+    "url": "https://supabase.com/docs/guides/ai/quickstarts/text-deduplication",
+    "summary": "Finding duplicate movie reviews with Supabase Vecs.",
+    "tags": [
+      "ai",
+      "deduplication",
+      "quickstarts",
+      "semantic",
+      "text",
+      "text-deduplication"
+    ],
+    "file": "docs/ai/037_Semantic_Text_Deduplication.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "ai",
+    "title": "RAG with Permissions",
+    "url": "https://supabase.com/docs/guides/ai/rag-with-permissions",
+    "summary": "Implement fine-grained access control with retrieval augmented generation",
+    "tags": [
+      "ai",
+      "permissions",
+      "rag-with-permissions",
+      "with"
+    ],
+    "file": "docs/ai/038_RAG_with_Permissions.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "ai",
+    "title": "Semantic search",
+    "url": "https://supabase.com/docs/guides/ai/semantic-search",
+    "summary": "Learn how to search by meaning rather than exact keywords.",
+    "tags": [
+      "ai",
+      "search",
+      "semantic",
+      "semantic-search"
+    ],
+    "file": "docs/ai/039_Semantic_search.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "ai",
+    "title": "Structured and Unstructured",
+    "url": "https://supabase.com/docs/guides/ai/structured-unstructured",
+    "summary": "Supabase is flexible enough to associate structured and unstructured metadata with embeddings.",
+    "tags": [
+      "ai",
+      "structured",
+      "structured-unstructured",
+      "unstructured"
+    ],
+    "file": "docs/ai/040_Structured_and_Unstructured.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "ai",
+    "title": "Python client",
+    "url": "https://supabase.com/docs/guides/ai/vecs-python-client",
+    "summary": "Manage unstructured vector stores in Postgres.",
+    "tags": [
+      "ai",
+      "cli",
+      "client",
+      "python",
+      "vecs-python-client"
+    ],
+    "file": "docs/ai/041_Python_client.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "ai",
+    "title": "Vector columns",
+    "url": "https://supabase.com/docs/guides/ai/vector-columns",
+    "summary": "Learn how to use vectors within your own Postgres tables",
+    "tags": [
+      "ai",
+      "columns",
+      "vector",
+      "vector-columns"
+    ],
+    "file": "docs/ai/042_Vector_columns.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "ai",
+    "title": "Vector indexes",
+    "url": "https://supabase.com/docs/guides/ai/vector-indexes",
+    "summary": "Understanding vector indexes",
+    "tags": [
+      "ai",
+      "indexes",
+      "vector",
+      "vector-indexes"
+    ],
+    "file": "docs/ai/043_Vector_indexes.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "ai",
+    "title": "HNSW indexes",
+    "url": "https://supabase.com/docs/guides/ai/vector-indexes/hnsw-indexes",
+    "summary": "Understanding HNSW indexes in pgvector",
+    "tags": [
+      "ai",
+      "hnsw",
+      "hnsw-indexes",
+      "indexes",
+      "vector",
+      "vector-indexes"
+    ],
+    "file": "docs/ai/044_HNSW_indexes.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "ai",
+    "title": "IVFFlat indexes",
+    "url": "https://supabase.com/docs/guides/ai/vector-indexes/ivf-indexes",
+    "summary": "Understanding IVFFlat indexes in pgvector",
+    "tags": [
+      "ai",
+      "indexes",
+      "ivf-indexes",
+      "ivfflat",
+      "vector",
+      "vector-indexes"
+    ],
+    "file": "docs/ai/045_IVFFlat_indexes.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "api",
+    "title": "Data REST API",
+    "url": "https://supabase.com/docs/guides/api",
+    "summary": "Auto-generating data REST API.",
+    "tags": [
+      "api",
+      "data",
+      "rest"
+    ],
+    "file": "docs/api/001_Data_REST_API.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "api",
+    "title": "How to do automatic retries withsupabase-js",
+    "url": "https://supabase.com/docs/guides/api/automatic-retries-in-supabase-js",
+    "summary": "Learn how to configure automatic retries for your Supabase API requests.",
+    "tags": [
+      "api",
+      "automatic",
+      "automatic-retries-in-supabase-js",
+      "retries",
+      "withsupabase"
+    ],
+    "file": "docs/api/002_How_to_do_automatic_retries_withsupabase-js.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "api",
+    "title": "Creating API Routes",
+    "url": "https://supabase.com/docs/guides/api/creating-routes",
+    "summary": "API routes are automatically created when you create Postgres Tables, Views, or Functions.",
+    "tags": [
+      "api",
+      "creating",
+      "creating-routes",
+      "routes"
+    ],
+    "file": "docs/api/003_Creating_API_Routes.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "api",
+    "title": "Custom Claims & Role-based Access Control (RBAC)",
+    "url": "https://supabase.com/docs/guides/api/custom-claims-and-role-based-access-control-rbac",
+    "summary": "Use Auth Hooks to add custom claims for managing role-based access control.",
+    "tags": [
+      "access",
+      "ai",
+      "api",
+      "based",
+      "claims",
+      "control",
+      "custom",
+      "custom-claims-and-role-based-access-control-rbac",
+      "rbac",
+      "role"
+    ],
+    "file": "docs/api/004_Custom_Claims_&_Role-based_Access_Control_(RBAC).md",
+    "code_blocks": 7
+  },
+  {
+    "category": "api",
+    "title": "Handling errors insupabase-js",
+    "url": "https://supabase.com/docs/guides/api/handling-errors-in-supabase-js",
+    "summary": "Read `error.hint` first — Postgres often tells you the exact fix. Log the full error so you actually see it.",
+    "tags": [
+      "api",
+      "errors",
+      "handling",
+      "handling-errors-in-supabase-js",
+      "insupabase"
+    ],
+    "file": "docs/api/005_Handling_errors_insupabase-js.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "api",
+    "title": "Build an API route in less than 2 minutes.",
+    "url": "https://supabase.com/docs/guides/api/quickstart",
+    "summary": "Create your first API route by creating a public `leaderboard` table.",
+    "tags": [
+      "api",
+      "build",
+      "less",
+      "minutes",
+      "quickstart",
+      "route",
+      "than"
+    ],
+    "file": "docs/api/006_Build_an_API_route_in_less_than_2_minutes..md",
+    "code_blocks": 8
+  },
+  {
+    "category": "api",
+    "title": "Auto-generated documentation",
+    "url": "https://supabase.com/docs/guides/api/rest/auto-generated-docs",
+    "summary": "Supabase provides documentation that updates automatically.",
+    "tags": [
+      "api",
+      "auto",
+      "auto-generated-docs",
+      "documentation",
+      "generated",
+      "rest"
+    ],
+    "file": "docs/api/007_Auto-generated_documentation.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "api",
+    "title": "Client Libraries",
+    "url": "https://supabase.com/docs/guides/api/rest/client-libs",
+    "summary": "Supabase provides several client libraries for the REST and Realtime APIs.",
+    "tags": [
+      "api",
+      "cli",
+      "client",
+      "client-libs",
+      "libraries",
+      "rest"
+    ],
+    "file": "docs/api/008_Client_Libraries.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "api",
+    "title": "Generating Python Types",
+    "url": "https://supabase.com/docs/guides/api/rest/generating-python-types",
+    "summary": "How to generate Python types for your API and Supabase libraries.",
+    "tags": [
+      "api",
+      "generating",
+      "generating-python-types",
+      "python",
+      "rest",
+      "types"
+    ],
+    "file": "docs/api/009_Generating_Python_Types.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "api",
+    "title": "Generating TypeScript Types",
+    "url": "https://supabase.com/docs/guides/api/rest/generating-types",
+    "summary": "How to generate types for your API and Supabase libraries.",
+    "tags": [
+      "api",
+      "generating",
+      "generating-types",
+      "rest",
+      "types",
+      "typescript"
+    ],
+    "file": "docs/api/010_Generating_TypeScript_Types.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "api",
+    "title": "Error Codes",
+    "url": "https://supabase.com/docs/guides/api/rest/postgrest-error-codes",
+    "summary": "PostgREST Error Codes",
+    "tags": [
+      "api",
+      "codes",
+      "error",
+      "postgres",
+      "postgrest-error-codes",
+      "rest"
+    ],
+    "file": "docs/api/011_Error_Codes.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "api",
+    "title": "Securing your API",
+    "url": "https://supabase.com/docs/guides/api/securing-your-api",
+    "summary": "Secure your Data API with explicit grants and Postgres Row Level Security.",
+    "tags": [
+      "api",
+      "securing",
+      "securing-your-api",
+      "your"
+    ],
+    "file": "docs/api/012_Securing_your_API.md",
+    "code_blocks": 15
+  },
+  {
+    "category": "api",
+    "title": "Converting SQL to JavaScript API",
+    "url": "https://supabase.com/docs/guides/api/sql-to-api",
+    "summary": "Implementing common SQL patterns in the JavaScript API",
+    "tags": [
+      "api",
+      "converting",
+      "javascript",
+      "sql",
+      "sql-to-api"
+    ],
+    "file": "docs/api/013_Converting_SQL_to_JavaScript_API.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "api",
+    "title": "SQL to REST API Translator",
+    "url": "https://supabase.com/docs/guides/api/sql-to-rest",
+    "summary": "Translate SQL queries to HTTP requests and Supabase client code",
+    "tags": [
+      "api",
+      "rest",
+      "sql",
+      "sql-to-rest",
+      "translator"
+    ],
+    "file": "docs/api/014_SQL_to_REST_API_Translator.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "api",
+    "title": "Using Custom Schemas",
+    "url": "https://supabase.com/docs/guides/api/using-custom-schemas",
+    "summary": "You need additional steps to use custom database schemas with data APIs.",
+    "tags": [
+      "api",
+      "custom",
+      "schemas",
+      "using",
+      "using-custom-schemas"
+    ],
+    "file": "docs/api/015_Using_Custom_Schemas.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Auth",
+    "url": "https://supabase.com/docs/guides/auth",
+    "summary": "Use Supabase to authenticate and authorize your users.",
+    "tags": [
+      "auth"
+    ],
+    "file": "docs/auth/001_Auth.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Auth architecture",
+    "url": "https://supabase.com/docs/guides/auth/architecture",
+    "summary": "The architecture behind Supabase Auth.",
+    "tags": [
+      "architecture",
+      "auth"
+    ],
+    "file": "docs/auth/002_Auth_architecture.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Auth Audit Logs",
+    "url": "https://supabase.com/docs/guides/auth/audit-logs",
+    "summary": "Monitor and track authentication events with audit logging.",
+    "tags": [
+      "audit",
+      "audit-logs",
+      "auth",
+      "logs"
+    ],
+    "file": "docs/auth/003_Auth_Audit_Logs.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "auth",
+    "title": "Anonymous Sign-Ins",
+    "url": "https://supabase.com/docs/guides/auth/auth-anonymous",
+    "summary": "Create and use anonymous users to authenticate with Supabase",
+    "tags": [
+      "anonymous",
+      "auth",
+      "auth-anonymous",
+      "sign"
+    ],
+    "file": "docs/auth/004_Anonymous_Sign-Ins.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "auth",
+    "title": "Enable CAPTCHA Protection",
+    "url": "https://supabase.com/docs/guides/auth/auth-captcha",
+    "summary": "Add CAPTCHA Protection to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-captcha",
+      "captcha",
+      "enable",
+      "protection"
+    ],
+    "file": "docs/auth/005_Enable_CAPTCHA_Protection.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "auth",
+    "title": "Passwordless email logins",
+    "url": "https://supabase.com/docs/guides/auth/auth-email-passwordless",
+    "summary": "Email logins using Magic Links or One-Time Passwords (OTPs)",
+    "tags": [
+      "ai",
+      "auth",
+      "auth-email-passwordless",
+      "email",
+      "logins",
+      "passwordless"
+    ],
+    "file": "docs/auth/006_Passwordless_email_logins.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "auth",
+    "title": "Email Templates",
+    "url": "https://supabase.com/docs/guides/auth/auth-email-templates",
+    "summary": "Learn how to manage the email templates in Supabase.",
+    "tags": [
+      "ai",
+      "auth",
+      "auth-email-templates",
+      "email",
+      "templates"
+    ],
+    "file": "docs/auth/007_Email_Templates.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "auth",
+    "title": "Auth Hooks",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks",
+    "summary": "Use HTTP or Postgres Functions to customize your authentication flow",
+    "tags": [
+      "auth",
+      "auth-hooks",
+      "hooks"
+    ],
+    "file": "docs/auth/008_Auth_Hooks.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "auth",
+    "title": "Before User Created Hook",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook",
+    "summary": "Prevent unwanted signups by inspecting and rejecting user creation requests",
+    "tags": [
+      "auth",
+      "auth-hooks",
+      "before",
+      "before-user-created-hook",
+      "created",
+      "hook",
+      "user"
+    ],
+    "file": "docs/auth/009_Before_User_Created_Hook.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Custom Access Token Hook",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook",
+    "summary": "Customize the access token issued by Supabase Auth",
+    "tags": [
+      "access",
+      "auth",
+      "auth-hooks",
+      "custom",
+      "custom-access-token-hook",
+      "hook",
+      "token"
+    ],
+    "file": "docs/auth/010_Custom_Access_Token_Hook.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "MFA Verification Hook",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks/mfa-verification-hook",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "auth-hooks",
+      "hook",
+      "mfa-verification-hook",
+      "verification"
+    ],
+    "file": "docs/auth/011_MFA_Verification_Hook.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Password Verification Hook",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks/password-verification-hook",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "auth-hooks",
+      "hook",
+      "password",
+      "password-verification-hook",
+      "verification"
+    ],
+    "file": "docs/auth/012_Password_Verification_Hook.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Send Email Hook",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook",
+    "summary": "Use your own email service to send authentication emails.",
+    "tags": [
+      "ai",
+      "auth",
+      "auth-hooks",
+      "email",
+      "hook",
+      "send",
+      "send-email-hook"
+    ],
+    "file": "docs/auth/013_Send_Email_Hook.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "auth",
+    "title": "Send SMS Hook",
+    "url": "https://supabase.com/docs/guides/auth/auth-hooks/send-sms-hook",
+    "summary": "Use your own SMS service to send authentication messages.",
+    "tags": [
+      "auth",
+      "auth-hooks",
+      "hook",
+      "send",
+      "send-sms-hook"
+    ],
+    "file": "docs/auth/014_Send_SMS_Hook.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Identity Linking",
+    "url": "https://supabase.com/docs/guides/auth/auth-identity-linking",
+    "summary": "Manage the identities associated with your user",
+    "tags": [
+      "auth",
+      "auth-identity-linking",
+      "identity",
+      "linking"
+    ],
+    "file": "docs/auth/015_Identity_Linking.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Multi-Factor Authentication",
+    "url": "https://supabase.com/docs/guides/auth/auth-mfa",
+    "summary": "Add an additional layer of security to your apps with Supabase Auth multi-factor authentication.",
+    "tags": [
+      "auth",
+      "auth-mfa",
+      "authentication",
+      "factor",
+      "multi"
+    ],
+    "file": "docs/auth/016_Multi-Factor_Authentication.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Multi-Factor Authentication (Phone)",
+    "url": "https://supabase.com/docs/guides/auth/auth-mfa/phone",
+    "summary": "Add an additional layer of security with phone (SMS or WhatsApp) multi-factor-authentication.",
+    "tags": [
+      "auth",
+      "auth-mfa",
+      "authentication",
+      "factor",
+      "multi",
+      "phone"
+    ],
+    "file": "docs/auth/017_Multi-Factor_Authentication_(Phone).md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Multi-Factor Authentication (TOTP)",
+    "url": "https://supabase.com/docs/guides/auth/auth-mfa/totp",
+    "summary": "Add an additional layer of security to your apps with TOTP multi-factor authentication.",
+    "tags": [
+      "auth",
+      "auth-mfa",
+      "authentication",
+      "factor",
+      "multi",
+      "totp"
+    ],
+    "file": "docs/auth/018_Multi-Factor_Authentication_(TOTP).md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Send emails with custom SMTP",
+    "url": "https://supabase.com/docs/guides/auth/auth-smtp",
+    "summary": "Moving towards production: Configuring a custom SMTP provider",
+    "tags": [
+      "ai",
+      "auth",
+      "auth-smtp",
+      "custom",
+      "emails",
+      "send",
+      "smtp",
+      "with"
+    ],
+    "file": "docs/auth/019_Send_emails_with_custom_SMTP.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "auth",
+    "title": "Sign in with Web3",
+    "url": "https://supabase.com/docs/guides/auth/auth-web3",
+    "summary": "Use your Web3 wallet to authenticate users with Supabase",
+    "tags": [
+      "auth",
+      "auth-web3",
+      "sign",
+      "with"
+    ],
+    "file": "docs/auth/020_Sign_in_with_Web3.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "auth",
+    "title": "Which package to use",
+    "url": "https://supabase.com/docs/guides/auth/choosing-a-server-package",
+    "summary": "When to use supabase-js, @supabase/ssr, or @supabase/server on the server.",
+    "tags": [
+      "auth",
+      "choosing-a-server-package",
+      "package",
+      "which"
+    ],
+    "file": "docs/auth/021_Which_package_to_use.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Custom OAuth/OIDC Providers",
+    "url": "https://supabase.com/docs/guides/auth/custom-oauth-providers",
+    "summary": "Add any OAuth2 or OIDC-compatible identity provider to your Supabase project",
+    "tags": [
+      "auth",
+      "custom",
+      "custom-oauth-providers",
+      "oauth",
+      "oidc",
+      "providers"
+    ],
+    "file": "docs/auth/022_Custom_OAuthOIDC_Providers.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Error Codes",
+    "url": "https://supabase.com/docs/guides/auth/debugging/error-codes",
+    "summary": "Supabase Auth Error Codes",
+    "tags": [
+      "auth",
+      "codes",
+      "debugging",
+      "error",
+      "error-codes"
+    ],
+    "file": "docs/auth/023_Error_Codes.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Enterprise Single Sign-On",
+    "url": "https://supabase.com/docs/guides/auth/enterprise-sso",
+    "summary": "Learn about Single Sign-On support in Supabase Auth for enterprise applications",
+    "tags": [
+      "auth",
+      "enterprise",
+      "enterprise-sso",
+      "sign",
+      "single"
+    ],
+    "file": "docs/auth/024_Enterprise_Single_Sign-On.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Single Sign-On with SAML 2.0 for Projects",
+    "url": "https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml",
+    "summary": "Use Single Sign-On (SSO) authentication on your project with SAML 2.0",
+    "tags": [
+      "auth",
+      "auth-sso-saml",
+      "enterprise-sso",
+      "projects",
+      "saml",
+      "sign",
+      "single",
+      "with"
+    ],
+    "file": "docs/auth/025_Single_Sign-On_with_SAML_2.0_for_Projects.md",
+    "code_blocks": 20
+  },
+  {
+    "category": "auth",
+    "title": "General configuration",
+    "url": "https://supabase.com/docs/guides/auth/general-configuration",
+    "summary": "General configuration options for Supabase Auth",
+    "tags": [
+      "auth",
+      "configuration",
+      "general",
+      "general-configuration"
+    ],
+    "file": "docs/auth/026_General_configuration.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Identities",
+    "url": "https://supabase.com/docs/guides/auth/identities",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "identities"
+    ],
+    "file": "docs/auth/027_Identities.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "JWT Claims Reference",
+    "url": "https://supabase.com/docs/guides/auth/jwt-fields",
+    "summary": "Complete reference for claims appearing in JWTs created by Supabase Auth",
+    "tags": [
+      "ai",
+      "auth",
+      "claims",
+      "jwt-fields",
+      "reference"
+    ],
+    "file": "docs/auth/028_JWT_Claims_Reference.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "auth",
+    "title": "JSON Web Token (JWT)",
+    "url": "https://supabase.com/docs/guides/auth/jwts",
+    "summary": "Information on how best to use JSON Web Tokens with Supabase",
+    "tags": [
+      "auth",
+      "json",
+      "jwts",
+      "token"
+    ],
+    "file": "docs/auth/029_JSON_Web_Token_(JWT).md",
+    "code_blocks": 8
+  },
+  {
+    "category": "auth",
+    "title": "User Management",
+    "url": "https://supabase.com/docs/guides/auth/managing-user-data",
+    "summary": "View, delete, and export user information.",
+    "tags": [
+      "auth",
+      "management",
+      "managing-user-data",
+      "user"
+    ],
+    "file": "docs/auth/030_User_Management.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Native Mobile Deep Linking",
+    "url": "https://supabase.com/docs/guides/auth/native-mobile-deep-linking",
+    "summary": "Set up Deep Linking for mobile applications.",
+    "tags": [
+      "auth",
+      "deep",
+      "linking",
+      "mobile",
+      "native",
+      "native-mobile-deep-linking"
+    ],
+    "file": "docs/auth/031_Native_Mobile_Deep_Linking.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "OAuth 2.1 Server",
+    "url": "https://supabase.com/docs/guides/auth/oauth-server",
+    "summary": "Turn your Supabase project into an OAuth 2.1 and OpenID Connect identity provider",
+    "tags": [
+      "auth",
+      "oauth",
+      "oauth-server",
+      "server"
+    ],
+    "file": "docs/auth/032_OAuth_2.1_Server.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Getting Started with OAuth 2.1 Server",
+    "url": "https://supabase.com/docs/guides/auth/oauth-server/getting-started",
+    "summary": "Learn how to enable OAuth 2.1 and register client applications in your Supabase project",
+    "tags": [
+      "auth",
+      "edge",
+      "getting",
+      "getting-started",
+      "oauth",
+      "oauth-server",
+      "server",
+      "started",
+      "with"
+    ],
+    "file": "docs/auth/033_Getting_Started_with_OAuth_2.1_Server.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "Model Context Protocol (MCP) Authentication",
+    "url": "https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication",
+    "summary": "Integrate Supabase Auth with MCP servers to authenticate AI agents using your existing user base",
+    "tags": [
+      "auth",
+      "authentication",
+      "context",
+      "mcp-authentication",
+      "model",
+      "oauth-server",
+      "protocol"
+    ],
+    "file": "docs/auth/034_Model_Context_Protocol_(MCP)_Authentication.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "OAuth 2.1 Flows",
+    "url": "https://supabase.com/docs/guides/auth/oauth-server/oauth-flows",
+    "summary": "Understanding the authorization code and refresh token flows with OpenID Connect",
+    "tags": [
+      "auth",
+      "flows",
+      "oauth",
+      "oauth-flows",
+      "oauth-server"
+    ],
+    "file": "docs/auth/035_OAuth_2.1_Flows.md",
+    "code_blocks": 27
+  },
+  {
+    "category": "auth",
+    "title": "Token Security and Row Level Security",
+    "url": "https://supabase.com/docs/guides/auth/oauth-server/token-security",
+    "summary": "Secure your data with Row Level Security policies for OAuth clients",
+    "tags": [
+      "auth",
+      "level",
+      "oauth-server",
+      "security",
+      "token",
+      "token-security"
+    ],
+    "file": "docs/auth/036_Token_Security_and_Row_Level_Security.md",
+    "code_blocks": 17
+  },
+  {
+    "category": "auth",
+    "title": "Passkey authentication",
+    "url": "https://supabase.com/docs/guides/auth/passkeys",
+    "summary": "Allow users to sign in with passkeys (WebAuthn)",
+    "tags": [
+      "auth",
+      "authentication",
+      "passkey",
+      "passkeys"
+    ],
+    "file": "docs/auth/037_Passkey_authentication.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "auth",
+    "title": "Password security",
+    "url": "https://supabase.com/docs/guides/auth/password-security",
+    "summary": "Help your users to protect their password security",
+    "tags": [
+      "auth",
+      "password",
+      "password-security",
+      "security"
+    ],
+    "file": "docs/auth/038_Password_security.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "Password-based Auth",
+    "url": "https://supabase.com/docs/guides/auth/passwords",
+    "summary": "Allow users to sign in with a password connected to their email or phone number.",
+    "tags": [
+      "auth",
+      "based",
+      "password",
+      "passwords"
+    ],
+    "file": "docs/auth/039_Password-based_Auth.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "auth",
+    "title": "Phone Login",
+    "url": "https://supabase.com/docs/guides/auth/phone-login",
+    "summary": "Learn about logging in to your platform using SMS one-time passwords.",
+    "tags": [
+      "auth",
+      "login",
+      "phone",
+      "phone-login"
+    ],
+    "file": "docs/auth/040_Phone_Login.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Use Supabase Auth with Astro",
+    "url": "https://supabase.com/docs/guides/auth/quickstarts/astrojs",
+    "summary": "Learn how to configure Supabase Auth for Astro with server-side rendering.",
+    "tags": [
+      "astro",
+      "astrojs",
+      "auth",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/auth/041_Use_Supabase_Auth_with_Astro.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "auth",
+    "title": "Use Supabase Auth with Next.js",
+    "url": "https://supabase.com/docs/guides/auth/quickstarts/nextjs",
+    "summary": "Learn how to configure Supabase Auth for the Next.js App Router.",
+    "tags": [
+      "auth",
+      "next",
+      "nextjs",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/auth/042_Use_Supabase_Auth_with_Next.js.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Use Supabase Auth with React",
+    "url": "https://supabase.com/docs/guides/auth/quickstarts/react",
+    "summary": "Learn how to use Supabase Auth with React.js.",
+    "tags": [
+      "auth",
+      "quickstarts",
+      "react",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/auth/043_Use_Supabase_Auth_with_React.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "auth",
+    "title": "Use Supabase Auth with React Native",
+    "url": "https://supabase.com/docs/guides/auth/quickstarts/react-native",
+    "summary": "Learn how to use Supabase Auth with React Native",
+    "tags": [
+      "auth",
+      "native",
+      "quickstarts",
+      "react",
+      "react-native",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/auth/044_Use_Supabase_Auth_with_React_Native.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "auth",
+    "title": "Build a Social Auth App with Expo React Native",
+    "url": "https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth",
+    "summary": "Learn how to implement social authentication in an app with Expo React Native and Supabase Database and Auth functionality.",
+    "tags": [
+      "auth",
+      "build",
+      "expo",
+      "native",
+      "quickstarts",
+      "react",
+      "social",
+      "with",
+      "with-expo-react-native-social-auth"
+    ],
+    "file": "docs/auth/045_Build_a_Social_Auth_App_with_Expo_React_Native.md",
+    "code_blocks": 32
+  },
+  {
+    "category": "auth",
+    "title": "Rate limits",
+    "url": "https://supabase.com/docs/guides/auth/rate-limits",
+    "summary": "Rate limits protect your services from abuse",
+    "tags": [
+      "auth",
+      "limits",
+      "rate",
+      "rate-limits"
+    ],
+    "file": "docs/auth/046_Rate_limits.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Redirect URLs",
+    "url": "https://supabase.com/docs/guides/auth/redirect-urls",
+    "summary": "Set up redirect urls with Supabase Auth.",
+    "tags": [
+      "auth",
+      "redirect",
+      "redirect-urls",
+      "rls",
+      "urls"
+    ],
+    "file": "docs/auth/047_Redirect_URLs.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Server-Side Rendering",
+    "url": "https://supabase.com/docs/guides/auth/server-side",
+    "summary": "How SSR works with Supabase Auth.",
+    "tags": [
+      "auth",
+      "rendering",
+      "server",
+      "server-side",
+      "side"
+    ],
+    "file": "docs/auth/048_Server-Side_Rendering.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Advanced guide",
+    "url": "https://supabase.com/docs/guides/auth/server-side/advanced-guide",
+    "summary": "Details about SSR Auth flows and implementation for advanced users.",
+    "tags": [
+      "advanced",
+      "advanced-guide",
+      "auth",
+      "guide",
+      "server-side"
+    ],
+    "file": "docs/auth/049_Advanced_guide.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "Creating a Supabase client for SSR",
+    "url": "https://supabase.com/docs/guides/auth/server-side/creating-a-client",
+    "summary": "Configure your Supabase client to use cookies",
+    "tags": [
+      "auth",
+      "cli",
+      "client",
+      "creating",
+      "creating-a-client",
+      "server-side",
+      "supabase"
+    ],
+    "file": "docs/auth/050_Creating_a_Supabase_client_for_SSR.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Migrating to the SSR package from Auth Helpers",
+    "url": "https://supabase.com/docs/guides/auth/server-side/migrating-to-ssr-from-auth-helpers",
+    "summary": "Step-by-step guide to migrating your app to the new SSR package",
+    "tags": [
+      "auth",
+      "from",
+      "helpers",
+      "migrating",
+      "migrating-to-ssr-from-auth-helpers",
+      "package",
+      "server-side"
+    ],
+    "file": "docs/auth/051_Migrating_to_the_SSR_package_from_Auth_Helpers.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "User sessions",
+    "url": "https://supabase.com/docs/guides/auth/sessions",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "sessions",
+      "user"
+    ],
+    "file": "docs/auth/052_User_sessions.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "auth",
+    "title": "Implicit flow",
+    "url": "https://supabase.com/docs/guides/auth/sessions/implicit-flow",
+    "summary": "About authenticating with implicit flow.",
+    "tags": [
+      "auth",
+      "flow",
+      "implicit",
+      "implicit-flow",
+      "sessions"
+    ],
+    "file": "docs/auth/053_Implicit_flow.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "auth",
+    "title": "PKCE flow",
+    "url": "https://supabase.com/docs/guides/auth/sessions/pkce-flow",
+    "summary": "About authenticating with PKCE flow.",
+    "tags": [
+      "auth",
+      "flow",
+      "pkce",
+      "pkce-flow",
+      "sessions"
+    ],
+    "file": "docs/auth/054_PKCE_flow.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "JWT Signing Keys",
+    "url": "https://supabase.com/docs/guides/auth/signing-keys",
+    "summary": "Best practices on managing keys used by Supabase Auth to create and verify JSON Web Tokens",
+    "tags": [
+      "auth",
+      "keys",
+      "signing",
+      "signing-keys"
+    ],
+    "file": "docs/auth/055_JWT_Signing_Keys.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "auth",
+    "title": "Signing out",
+    "url": "https://supabase.com/docs/guides/auth/signout",
+    "summary": "Signing out a user",
+    "tags": [
+      "auth",
+      "signing",
+      "signout"
+    ],
+    "file": "docs/auth/056_Signing_out.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "Social Login",
+    "url": "https://supabase.com/docs/guides/auth/social-login",
+    "summary": "Logging in with social accounts",
+    "tags": [
+      "auth",
+      "login",
+      "social",
+      "social-login"
+    ],
+    "file": "docs/auth/057_Social_Login.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "Login with Apple",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-apple",
+    "summary": "Use Sign in with Apple with Supabase",
+    "tags": [
+      "apple",
+      "auth",
+      "auth-apple",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/058_Login_with_Apple.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "auth",
+    "title": "Login with Azure (Microsoft)",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-azure",
+    "summary": "Add Azure (Microsoft) OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-azure",
+      "azure",
+      "login",
+      "microsoft",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/059_Login_with_Azure_(Microsoft).md",
+    "code_blocks": 8
+  },
+  {
+    "category": "auth",
+    "title": "Login with Bitbucket",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-bitbucket",
+    "summary": "Add Bitbucket OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-bitbucket",
+      "bitbucket",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/060_Login_with_Bitbucket.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Login with Discord",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-discord",
+    "summary": "Add Discord OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-discord",
+      "discord",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/061_Login_with_Discord.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Login with Facebook",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-facebook",
+    "summary": "Add Facebook OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-facebook",
+      "facebook",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/062_Login_with_Facebook.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Login with Figma",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-figma",
+    "summary": "Add Figma OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-figma",
+      "figma",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/063_Login_with_Figma.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Login with GitHub",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-github",
+    "summary": "Add GitHub OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-github",
+      "github",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/064_Login_with_GitHub.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Login with GitLab",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-gitlab",
+    "summary": "Add GitLab OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-gitlab",
+      "gitlab",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/065_Login_with_GitLab.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Login with Google",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-google",
+    "summary": "Use Sign in with Google on the web, in native apps or with Chrome extensions",
+    "tags": [
+      "auth",
+      "auth-google",
+      "google",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/066_Login_with_Google.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "auth",
+    "title": "Login with Kakao",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-kakao",
+    "summary": "Add Kakao OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-kakao",
+      "kakao",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/067_Login_with_Kakao.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "auth",
+    "title": "Login with Keycloak",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-keycloak",
+    "summary": "Add Keycloak OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-keycloak",
+      "keycloak",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/068_Login_with_Keycloak.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Login with LinkedIn",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-linkedin",
+    "summary": "Add LinkedIn OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-linkedin",
+      "linkedin",
+      "login",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/069_Login_with_LinkedIn.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "auth",
+    "title": "Login with Notion",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-notion",
+    "summary": "Add Notion OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-notion",
+      "login",
+      "notion",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/070_Login_with_Notion.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Login with Slack",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-slack",
+    "summary": "Add Slack OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-slack",
+      "login",
+      "slack",
+      "social-login",
+      "with"
+    ],
+    "file": "docs/auth/071_Login_with_Slack.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Login with Spotify",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-spotify",
+    "summary": "Add Spotify OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-spotify",
+      "login",
+      "social-login",
+      "spotify",
+      "with"
+    ],
+    "file": "docs/auth/072_Login_with_Spotify.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Login with Twitch",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-twitch",
+    "summary": "Add Twitch OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-twitch",
+      "login",
+      "social-login",
+      "twitch",
+      "with"
+    ],
+    "file": "docs/auth/073_Login_with_Twitch.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Login with X / Twitter",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-twitter",
+    "summary": "Add X / Twitter OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-twitter",
+      "login",
+      "social-login",
+      "twitter",
+      "with"
+    ],
+    "file": "docs/auth/074_Login_with_X_Twitter.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "SSO and Social Login with WorkOS",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-workos",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "auth-workos",
+      "login",
+      "social",
+      "social-login",
+      "with",
+      "workos"
+    ],
+    "file": "docs/auth/075_SSO_and_Social_Login_with_WorkOS.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Login with Zoom",
+    "url": "https://supabase.com/docs/guides/auth/social-login/auth-zoom",
+    "summary": "Add Zoom OAuth to your Supabase project",
+    "tags": [
+      "auth",
+      "auth-zoom",
+      "login",
+      "social-login",
+      "with",
+      "zoom"
+    ],
+    "file": "docs/auth/076_Login_with_Zoom.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "auth",
+    "title": "Auth0",
+    "url": "https://supabase.com/docs/guides/auth/third-party/auth0",
+    "summary": "Use Auth0 with your Supabase project",
+    "tags": [
+      "auth",
+      "auth0",
+      "third-party"
+    ],
+    "file": "docs/auth/077_Auth0.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Amazon Cognito (Amplify)",
+    "url": "https://supabase.com/docs/guides/auth/third-party/aws-cognito",
+    "summary": "Use Amazon Cognito via Amplify or standalone with your Supabase project",
+    "tags": [
+      "amazon",
+      "amplify",
+      "auth",
+      "aws-cognito",
+      "cognito",
+      "third-party"
+    ],
+    "file": "docs/auth/078_Amazon_Cognito_(Amplify).md",
+    "code_blocks": 3
+  },
+  {
+    "category": "auth",
+    "title": "Clerk",
+    "url": "https://supabase.com/docs/guides/auth/third-party/clerk",
+    "summary": "Use Clerk with your Supabase project",
+    "tags": [
+      "auth",
+      "clerk",
+      "third-party"
+    ],
+    "file": "docs/auth/079_Clerk.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "auth",
+    "title": "Firebase Auth",
+    "url": "https://supabase.com/docs/guides/auth/third-party/firebase-auth",
+    "summary": "Use Firebase Auth with your Supabase project",
+    "tags": [
+      "auth",
+      "firebase",
+      "firebase-auth",
+      "third-party"
+    ],
+    "file": "docs/auth/080_Firebase_Auth.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "auth",
+    "title": "Third-party auth",
+    "url": "https://supabase.com/docs/guides/auth/third-party/overview",
+    "summary": "First-class support for authentication providers",
+    "tags": [
+      "auth",
+      "overview",
+      "party",
+      "third",
+      "third-party"
+    ],
+    "file": "docs/auth/081_Third-party_auth.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "auth",
+    "title": "WorkOS",
+    "url": "https://supabase.com/docs/guides/auth/third-party/workos",
+    "summary": "Use WorkOS with your Supabase project",
+    "tags": [
+      "auth",
+      "third-party",
+      "workos"
+    ],
+    "file": "docs/auth/082_WorkOS.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "auth",
+    "title": "Users",
+    "url": "https://supabase.com/docs/guides/auth/users",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "users"
+    ],
+    "file": "docs/auth/083_Users.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "cli",
+    "title": "Local Development & CLI",
+    "url": "https://supabase.com/docs/guides/cli",
+    "summary": "Learn how to develop locally and use the Supabase CLI",
+    "tags": [
+      "cli",
+      "development",
+      "local"
+    ],
+    "file": "docs/cli/001_Local_Development_&_CLI.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "cron",
+    "title": "Cron",
+    "url": "https://supabase.com/docs/guides/cron",
+    "summary": "Schedule Recurring Jobs with Cron Syntax in Postgres",
+    "tags": [
+      "cron"
+    ],
+    "file": "docs/cron/001_Cron.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "cron",
+    "title": "Install",
+    "url": "https://supabase.com/docs/guides/cron/install",
+    "summary": "Searchdocs...",
+    "tags": [
+      "cron",
+      "install"
+    ],
+    "file": "docs/cron/002_Install.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "cron",
+    "title": "Quickstart",
+    "url": "https://supabase.com/docs/guides/cron/quickstart",
+    "summary": "Searchdocs...",
+    "tags": [
+      "cron",
+      "quickstart"
+    ],
+    "file": "docs/cron/003_Quickstart.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "Working With Arrays",
+    "url": "https://supabase.com/docs/guides/database/arrays",
+    "summary": "How to use arrays in Postgres and the Supabase API.",
+    "tags": [
+      "arrays",
+      "database",
+      "with",
+      "working"
+    ],
+    "file": "docs/database/001_Working_With_Arrays.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "Connecting with Beekeeper Studio",
+    "url": "https://supabase.com/docs/guides/database/beekeeper-studio",
+    "summary": "Searchdocs...",
+    "tags": [
+      "beekeeper",
+      "beekeeper-studio",
+      "connecting",
+      "database",
+      "studio",
+      "with"
+    ],
+    "file": "docs/database/002_Connecting_with_Beekeeper_Studio.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Connect to your database",
+    "url": "https://supabase.com/docs/guides/database/connecting-to-postgres",
+    "summary": "Connect to Postgres from your frontend, backend, or serverless environment",
+    "tags": [
+      "connect",
+      "connecting-to-postgres",
+      "database",
+      "postgres",
+      "your"
+    ],
+    "file": "docs/database/003_Connect_to_your_database.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "database",
+    "title": "Connect to your database",
+    "url": "https://supabase.com/docs/guides/database/connecting-to-postgres/serverless-drivers",
+    "summary": "Connect to Postgres from your frontend, backend, or serverless environment",
+    "tags": [
+      "connect",
+      "connecting-to-postgres",
+      "database",
+      "postgres",
+      "serverless-drivers",
+      "your"
+    ],
+    "file": "docs/database/004_Connect_to_your_database.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "database",
+    "title": "Connection management",
+    "url": "https://supabase.com/docs/guides/database/connection-management",
+    "summary": "Managing connections",
+    "tags": [
+      "connection",
+      "connection-management",
+      "database",
+      "management"
+    ],
+    "file": "docs/database/005_Connection_management.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "Customizing Postgres configs",
+    "url": "https://supabase.com/docs/guides/database/custom-postgres-config",
+    "summary": "Configuring Postgres for your Supabase project.",
+    "tags": [
+      "configs",
+      "custom-postgres-config",
+      "customizing",
+      "database",
+      "postgres"
+    ],
+    "file": "docs/database/006_Customizing_Postgres_configs.md",
+    "code_blocks": 15
+  },
+  {
+    "category": "database",
+    "title": "Performance and Security Advisors",
+    "url": "https://supabase.com/docs/guides/database/database-advisors",
+    "summary": "Check your database for performance and security issues",
+    "tags": [
+      "advisors",
+      "database",
+      "database-advisors",
+      "performance",
+      "security"
+    ],
+    "file": "docs/database/007_Performance_and_Security_Advisors.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "database",
+    "title": "Connecting with DBeaver",
+    "url": "https://supabase.com/docs/guides/database/dbeaver",
+    "summary": "Searchdocs...",
+    "tags": [
+      "connecting",
+      "database",
+      "dbeaver",
+      "with"
+    ],
+    "file": "docs/database/008_Connecting_with_DBeaver.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Debugging performance issues",
+    "url": "https://supabase.com/docs/guides/database/debugging-performance",
+    "summary": "Debug slow-running queries using the Postgres execution planner.",
+    "tags": [
+      "database",
+      "debugging",
+      "debugging-performance",
+      "issues",
+      "performance"
+    ],
+    "file": "docs/database/009_Debugging_performance_issues.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "database",
+    "title": "Drizzle",
+    "url": "https://supabase.com/docs/guides/database/drizzle",
+    "summary": "Drizzle Quickstart",
+    "tags": [
+      "database",
+      "drizzle"
+    ],
+    "file": "docs/database/010_Drizzle.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "Postgres Extensions Overview",
+    "url": "https://supabase.com/docs/guides/database/extensions",
+    "summary": "Using Postgres extensions.",
+    "tags": [
+      "database",
+      "extensions",
+      "overview",
+      "postgres"
+    ],
+    "file": "docs/database/011_Postgres_Extensions_Overview.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "http: RESTful Client",
+    "url": "https://supabase.com/docs/guides/database/extensions/http",
+    "summary": "An HTTP Client for Postgres Functions.",
+    "tags": [
+      "cli",
+      "client",
+      "database",
+      "extensions",
+      "http",
+      "rest",
+      "restful"
+    ],
+    "file": "docs/database/012_http_RESTful_Client.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "database",
+    "title": "HypoPG: Hypothetical indexes",
+    "url": "https://supabase.com/docs/guides/database/extensions/hypopg",
+    "summary": "Quickly check if an index can be used without creating it.",
+    "tags": [
+      "database",
+      "extensions",
+      "hypopg",
+      "hypothetical",
+      "indexes"
+    ],
+    "file": "docs/database/013_HypoPG_Hypothetical_indexes.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "database",
+    "title": "index_advisor: query optimization",
+    "url": "https://supabase.com/docs/guides/database/extensions/index_advisor",
+    "summary": "Automatically optimize SQL queries",
+    "tags": [
+      "database",
+      "extensions",
+      "index_advisor",
+      "optimization",
+      "query"
+    ],
+    "file": "docs/database/014_index_advisor_query_optimization.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "pg_cron: Schedule Recurring Jobs with Cron Syntax in Postgres",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_cron",
+    "summary": "pg_cron: schedule recurring Jobs with cron syntax in Postgres.",
+    "tags": [
+      "cron",
+      "database",
+      "extensions",
+      "jobs",
+      "pg_cron",
+      "postgres",
+      "recurring",
+      "schedule",
+      "syntax",
+      "with"
+    ],
+    "file": "docs/database/015_pg_cron_Schedule_Recurring_Jobs_with_Cron_Syntax_in_Postgres.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "pg_graphql: GraphQL for Postgres",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_graphql",
+    "summary": "A GraphQL Interface for Postgres",
+    "tags": [
+      "database",
+      "extensions",
+      "graphql",
+      "pg_graphql",
+      "postgres"
+    ],
+    "file": "docs/database/016_pg_graphql_GraphQL_for_Postgres.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "database",
+    "title": "pg_hashids: Short UIDs",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_hashids",
+    "summary": "Generate Short UIDs from Numbers",
+    "tags": [
+      "database",
+      "extensions",
+      "pg_hashids",
+      "short",
+      "uids"
+    ],
+    "file": "docs/database/017_pg_hashids_Short_UIDs.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "pg_jsonschema: JSON Schema Validation",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_jsonschema",
+    "summary": "Validate json/jsonb with JSON Schema in Postgres.",
+    "tags": [
+      "database",
+      "extensions",
+      "json",
+      "pg_jsonschema",
+      "schema",
+      "validation"
+    ],
+    "file": "docs/database/018_pg_jsonschema_JSON_Schema_Validation.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "database",
+    "title": "pg_net: Async Networking",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_net",
+    "summary": "pg_net: an async networking extension for Postgres.",
+    "tags": [
+      "async",
+      "database",
+      "extensions",
+      "networking",
+      "pg_net"
+    ],
+    "file": "docs/database/019_pg_net_Async_Networking.md",
+    "code_blocks": 20
+  },
+  {
+    "category": "database",
+    "title": "Postgres Extensions Overview",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_partman",
+    "summary": "Using Postgres extensions.",
+    "tags": [
+      "database",
+      "extensions",
+      "overview",
+      "pg_partman",
+      "postgres"
+    ],
+    "file": "docs/database/020_Postgres_Extensions_Overview.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "pg_plan_filter: Restrict Total Cost",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_plan_filter",
+    "summary": "Block queries over a total cost limit",
+    "tags": [
+      "cost",
+      "database",
+      "extensions",
+      "pg_plan_filter",
+      "rest",
+      "restrict",
+      "total"
+    ],
+    "file": "docs/database/021_pg_plan_filter_Restrict_Total_Cost.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "database",
+    "title": "pg_repack: Physical storage optimization and maintenance",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_repack",
+    "summary": "A tool to remove bloat from tables and indexes and optimize physical data order and physical storage",
+    "tags": [
+      "ai",
+      "database",
+      "extensions",
+      "maintenance",
+      "optimization",
+      "pg_repack",
+      "physical",
+      "storage"
+    ],
+    "file": "docs/database/022_pg_repack_Physical_storage_optimization_and_maintenance.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "pg_stat_statements: Query Performance Monitoring",
+    "url": "https://supabase.com/docs/guides/database/extensions/pg_stat_statements",
+    "summary": "Track planning and execution statistics of all SQL statements executed on the database.",
+    "tags": [
+      "database",
+      "extensions",
+      "monitoring",
+      "performance",
+      "pg_stat_statements",
+      "query"
+    ],
+    "file": "docs/database/023_pg_stat_statements_Query_Performance_Monitoring.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "PGAudit: Postgres Auditing",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgaudit",
+    "summary": "Session and object auditing via Postgres standard logging",
+    "tags": [
+      "auditing",
+      "database",
+      "extensions",
+      "pgaudit",
+      "postgres"
+    ],
+    "file": "docs/database/024_PGAudit_Postgres_Auditing.md",
+    "code_blocks": 21
+  },
+  {
+    "category": "database",
+    "title": "pgjwt: JSON Web Tokens",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgjwt",
+    "summary": "Encode and decode JWTs in Postgres",
+    "tags": [
+      "database",
+      "extensions",
+      "json",
+      "pgjwt",
+      "tokens"
+    ],
+    "file": "docs/database/025_pgjwt_JSON_Web_Tokens.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "database",
+    "title": "pgmq: Queues",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgmq",
+    "summary": "pgmq: Managed queues in Postgres",
+    "tags": [
+      "database",
+      "extensions",
+      "pgmq",
+      "queue",
+      "queues"
+    ],
+    "file": "docs/database/026_pgmq_Queues.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "PGroonga: Multilingual Full Text Search",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgroonga",
+    "summary": "Full Text Search for multiple languages in Postgres",
+    "tags": [
+      "database",
+      "extensions",
+      "full",
+      "multilingual",
+      "pgroonga",
+      "search",
+      "text"
+    ],
+    "file": "docs/database/027_PGroonga_Multilingual_Full_Text_Search.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "database",
+    "title": "pgrouting: Geospatial Routing",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgrouting",
+    "summary": "Extends PostGIS with Geospatial Routing",
+    "tags": [
+      "database",
+      "extensions",
+      "geospatial",
+      "pgrouting",
+      "routing"
+    ],
+    "file": "docs/database/028_pgrouting_Geospatial_Routing.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "pgsodium (pending deprecation): Encryption Features",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgsodium",
+    "summary": "Encryption library for Postgres",
+    "tags": [
+      "database",
+      "deprecation",
+      "encryption",
+      "extensions",
+      "features",
+      "pending",
+      "pgsodium"
+    ],
+    "file": "docs/database/029_pgsodium_(pending_deprecation)_Encryption_Features.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "pgTAP: Unit Testing",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgtap",
+    "summary": "Unit testing in Postgres.",
+    "tags": [
+      "database",
+      "extensions",
+      "pgtap",
+      "testing",
+      "unit"
+    ],
+    "file": "docs/database/030_pgTAP_Unit_Testing.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "pgvector: Embeddings and vector similarity",
+    "url": "https://supabase.com/docs/guides/database/extensions/pgvector",
+    "summary": "pgvector: a Postgres extension for storing embeddings and performing vector similarity search.",
+    "tags": [
+      "database",
+      "embedding",
+      "embeddings",
+      "extensions",
+      "pgvector",
+      "similarity",
+      "vector"
+    ],
+    "file": "docs/database/031_pgvector_Embeddings_and_vector_similarity.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "plpgsql_check: PL/pgSQL Linter",
+    "url": "https://supabase.com/docs/guides/database/extensions/plpgsql_check",
+    "summary": "Lint PL/pgSQL code",
+    "tags": [
+      "database",
+      "extensions",
+      "linter",
+      "pgsql",
+      "plpgsql_check",
+      "sql"
+    ],
+    "file": "docs/database/032_plpgsql_check_PLpgSQL_Linter.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "plv8: JavaScript Language",
+    "url": "https://supabase.com/docs/guides/database/extensions/plv8",
+    "summary": "JavaScript language for Postgres.",
+    "tags": [
+      "database",
+      "extensions",
+      "javascript",
+      "language",
+      "plv8"
+    ],
+    "file": "docs/database/033_plv8_JavaScript_Language.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "PostGIS: Geo queries",
+    "url": "https://supabase.com/docs/guides/database/extensions/postgis",
+    "summary": "Working with geo-spatial data in Postgres",
+    "tags": [
+      "database",
+      "extensions",
+      "postgis",
+      "queries"
+    ],
+    "file": "docs/database/034_PostGIS_Geo_queries.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "database",
+    "title": "postgres_fdw",
+    "url": "https://supabase.com/docs/guides/database/extensions/postgres_fdw",
+    "summary": "Query Postgres server from another",
+    "tags": [
+      "database",
+      "extensions",
+      "postgres",
+      "postgres_fdw"
+    ],
+    "file": "docs/database/035_postgres_fdw.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "database",
+    "title": "RUM: improved inverted index for full-text search based on GIN index",
+    "url": "https://supabase.com/docs/guides/database/extensions/rum",
+    "summary": "A GIN-like index with additional tree-organized data for each index entry",
+    "tags": [
+      "based",
+      "database",
+      "extensions",
+      "full",
+      "improved",
+      "index",
+      "inverted",
+      "rum",
+      "search",
+      "text"
+    ],
+    "file": "docs/database/036_RUM_improved_inverted_index_for_full-text_search_based_on_GIN_index.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "database",
+    "title": "timescaledb: Time-Series data",
+    "url": "https://supabase.com/docs/guides/database/extensions/timescaledb",
+    "summary": "Scalable time-series data storage and analysis",
+    "tags": [
+      "data",
+      "database",
+      "extensions",
+      "series",
+      "time",
+      "timescaledb"
+    ],
+    "file": "docs/database/037_timescaledb_Time-Series_data.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "uuid-ossp: Unique Identifiers",
+    "url": "https://supabase.com/docs/guides/database/extensions/uuid-ossp",
+    "summary": "A UUID generator for Postgres.",
+    "tags": [
+      "database",
+      "extensions",
+      "identifiers",
+      "ossp",
+      "unique",
+      "uuid",
+      "uuid-ossp"
+    ],
+    "file": "docs/database/038_uuid-ossp_Unique_Identifiers.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "database",
+    "title": "Airtable",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/airtable",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "airtable",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/039_Airtable.md",
+    "code_blocks": 20
+  },
+  {
+    "category": "database",
+    "title": "Auth0",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/auth0",
+    "summary": "Searchdocs...",
+    "tags": [
+      "auth",
+      "auth0",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/040_Auth0.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "database",
+    "title": "BigQuery",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/bigquery",
+    "summary": "Searchdocs...",
+    "tags": [
+      "bigquery",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/041_BigQuery.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "database",
+    "title": "Cal.com",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/cal",
+    "summary": "Searchdocs...",
+    "tags": [
+      "cal",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/042_Cal.com.md",
+    "code_blocks": 17
+  },
+  {
+    "category": "database",
+    "title": "Calendly",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/calendly",
+    "summary": "Searchdocs...",
+    "tags": [
+      "calendly",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/043_Calendly.md",
+    "code_blocks": 16
+  },
+  {
+    "category": "database",
+    "title": "Clerk",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/clerk",
+    "summary": "Searchdocs...",
+    "tags": [
+      "clerk",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/044_Clerk.md",
+    "code_blocks": 31
+  },
+  {
+    "category": "database",
+    "title": "ClickHouse",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/clickhouse",
+    "summary": "Searchdocs...",
+    "tags": [
+      "cli",
+      "clickhouse",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/045_ClickHouse.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "database",
+    "title": "Cloudflare D1",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/cloudflare-d1",
+    "summary": "Searchdocs...",
+    "tags": [
+      "cloudflare",
+      "cloudflare-d1",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/046_Cloudflare_D1.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "database",
+    "title": "AWS Cognito",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/cognito",
+    "summary": "Searchdocs...",
+    "tags": [
+      "cognito",
+      "database",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/047_AWS_Cognito.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "DuckDB",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/duckdb",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "duckdb",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/048_DuckDB.md",
+    "code_blocks": 29
+  },
+  {
+    "category": "database",
+    "title": "AWS DynamoDB",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/dynamodb",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "dynamodb",
+      "extensions",
+      "wrappers"
+    ],
+    "file": "docs/database/049_AWS_DynamoDB.md",
+    "code_blocks": 23
+  },
+  {
+    "category": "database",
+    "title": "Firebase",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/firebase",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "firebase",
+      "wrappers"
+    ],
+    "file": "docs/database/050_Firebase.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Gravatar",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/gravatar",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "gravatar",
+      "wrappers"
+    ],
+    "file": "docs/database/051_Gravatar.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "database",
+    "title": "HubSpot",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/hubspot",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "hubspot",
+      "wrappers"
+    ],
+    "file": "docs/database/052_HubSpot.md",
+    "code_blocks": 25
+  },
+  {
+    "category": "database",
+    "title": "Iceberg",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/iceberg",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "iceberg",
+      "wrappers"
+    ],
+    "file": "docs/database/053_Iceberg.md",
+    "code_blocks": 23
+  },
+  {
+    "category": "database",
+    "title": "Infura",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/infura",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "database",
+      "extensions",
+      "infura",
+      "wrappers"
+    ],
+    "file": "docs/database/054_Infura.md",
+    "code_blocks": 17
+  },
+  {
+    "category": "database",
+    "title": "Logflare",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/logflare",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "logflare",
+      "wrappers"
+    ],
+    "file": "docs/database/055_Logflare.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "database",
+    "title": "MongoDB",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/mongodb",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "mongodb",
+      "wrappers"
+    ],
+    "file": "docs/database/056_MongoDB.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "database",
+    "title": "MSSQL",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/mssql",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "mssql",
+      "sql",
+      "wrappers"
+    ],
+    "file": "docs/database/057_MSSQL.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "database",
+    "title": "MySQL",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/mysql",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "mysql",
+      "sql",
+      "wrappers"
+    ],
+    "file": "docs/database/058_MySQL.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "database",
+    "title": "Notion",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/notion",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "notion",
+      "wrappers"
+    ],
+    "file": "docs/database/059_Notion.md",
+    "code_blocks": 16
+  },
+  {
+    "category": "database",
+    "title": "OpenAPI",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/openapi",
+    "summary": "Searchdocs...",
+    "tags": [
+      "api",
+      "database",
+      "extensions",
+      "openapi",
+      "wrappers"
+    ],
+    "file": "docs/database/060_OpenAPI.md",
+    "code_blocks": 26
+  },
+  {
+    "category": "database",
+    "title": "Orb",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/orb",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "orb",
+      "wrappers"
+    ],
+    "file": "docs/database/061_Orb.md",
+    "code_blocks": 25
+  },
+  {
+    "category": "database",
+    "title": "Foreign Data Wrappers",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/overview",
+    "summary": "Connecting to external systems using Postgres Foreign Data Wrappers.",
+    "tags": [
+      "data",
+      "database",
+      "extensions",
+      "foreign",
+      "overview",
+      "wrappers"
+    ],
+    "file": "docs/database/062_Foreign_Data_Wrappers.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "database",
+    "title": "Paddle",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/paddle",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "paddle",
+      "wrappers"
+    ],
+    "file": "docs/database/063_Paddle.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "database",
+    "title": "Redis",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/redis",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "redis",
+      "wrappers"
+    ],
+    "file": "docs/database/064_Redis.md",
+    "code_blocks": 31
+  },
+  {
+    "category": "database",
+    "title": "AWS S3",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/s3",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "s3",
+      "wrappers"
+    ],
+    "file": "docs/database/065_AWS_S3.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "database",
+    "title": "AWS S3 Vectors",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/s3_vectors",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "s3_vectors",
+      "vector",
+      "vectors",
+      "wrappers"
+    ],
+    "file": "docs/database/066_AWS_S3_Vectors.md",
+    "code_blocks": 23
+  },
+  {
+    "category": "database",
+    "title": "Shopify",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/shopify",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "shopify",
+      "wrappers"
+    ],
+    "file": "docs/database/067_Shopify.md",
+    "code_blocks": 25
+  },
+  {
+    "category": "database",
+    "title": "Slack",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/slack",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "slack",
+      "wrappers"
+    ],
+    "file": "docs/database/068_Slack.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "database",
+    "title": "Snowflake",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/snowflake",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "snowflake",
+      "wrappers"
+    ],
+    "file": "docs/database/069_Snowflake.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Stripe",
+    "url": "https://supabase.com/docs/guides/database/extensions/wrappers/stripe",
+    "summary": "Searchdocs...",
+    "tags": [
+      "database",
+      "extensions",
+      "stripe",
+      "wrappers"
+    ],
+    "file": "docs/database/070_Stripe.md",
+    "code_blocks": 39
+  },
+  {
+    "category": "database",
+    "title": "Full Text Search",
+    "url": "https://supabase.com/docs/guides/database/full-text-search",
+    "summary": "How to use full text search in Postgres.",
+    "tags": [
+      "database",
+      "full",
+      "full-text-search",
+      "search",
+      "text"
+    ],
+    "file": "docs/database/071_Full_Text_Search.md",
+    "code_blocks": 30
+  },
+  {
+    "category": "database",
+    "title": "Database Functions",
+    "url": "https://supabase.com/docs/guides/database/functions",
+    "summary": "Creating and using Postgres functions.",
+    "tags": [
+      "database",
+      "functions"
+    ],
+    "file": "docs/database/072_Database_Functions.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "database",
+    "title": "Import data into Supabase",
+    "url": "https://supabase.com/docs/guides/database/import-data",
+    "summary": "Searchdocs...",
+    "tags": [
+      "ai",
+      "data",
+      "database",
+      "import",
+      "import-data",
+      "into",
+      "supabase"
+    ],
+    "file": "docs/database/073_Import_data_into_Supabase.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "Debugging and monitoring",
+    "url": "https://supabase.com/docs/guides/database/inspect",
+    "summary": "Inspecting your Postgres database for common issues around disk, query performance, index, locks, and more using the terminal.",
+    "tags": [
+      "database",
+      "debugging",
+      "inspect",
+      "monitoring"
+    ],
+    "file": "docs/database/074_Debugging_and_monitoring.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Querying Joins and Nested tables",
+    "url": "https://supabase.com/docs/guides/database/joins-and-nesting",
+    "summary": "The Data APIs automatically detect relationships between Postgres tables.",
+    "tags": [
+      "database",
+      "joins",
+      "joins-and-nesting",
+      "nested",
+      "querying",
+      "tables"
+    ],
+    "file": "docs/database/075_Querying_Joins_and_Nested_tables.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "database",
+    "title": "Managing JSON and unstructured data",
+    "url": "https://supabase.com/docs/guides/database/json",
+    "summary": "Using the JSON data type in Postgres.",
+    "tags": [
+      "data",
+      "database",
+      "json",
+      "managing",
+      "unstructured"
+    ],
+    "file": "docs/database/076_Managing_JSON_and_unstructured_data.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "database",
+    "title": "Connecting to Metabase",
+    "url": "https://supabase.com/docs/guides/database/metabase",
+    "summary": "Searchdocs...",
+    "tags": [
+      "connecting",
+      "database",
+      "metabase"
+    ],
+    "file": "docs/database/077_Connecting_to_Metabase.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "database",
+    "title": "Migrate from TimescaleDB to pg_partman",
+    "url": "https://supabase.com/docs/guides/database/migrating-to-pg-partman",
+    "summary": "Convert TimescaleDB hypertables to Postgres native partitions managed by pg_partman.",
+    "tags": [
+      "database",
+      "from",
+      "migrate",
+      "migrating-to-pg-partman",
+      "timescaledb"
+    ],
+    "file": "docs/database/078_Migrate_from_TimescaleDB_to_pg_partman.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "database",
+    "title": "OrioleDB Overview",
+    "url": "https://supabase.com/docs/guides/database/orioledb",
+    "summary": "A storage extension for Postgres which uses Postgres's pluggable storage system",
+    "tags": [
+      "database",
+      "orioledb",
+      "overview"
+    ],
+    "file": "docs/database/079_OrioleDB_Overview.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "database",
+    "title": "Database",
+    "url": "https://supabase.com/docs/guides/database/overview",
+    "summary": "Use Supabase to connect, manage, and secure your Postgres database.",
+    "tags": [
+      "database",
+      "overview"
+    ],
+    "file": "docs/database/080_Database.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Partitioning tables",
+    "url": "https://supabase.com/docs/guides/database/partitions",
+    "summary": "Organizing tables into partitions in Postgres.",
+    "tags": [
+      "database",
+      "partitioning",
+      "partitions",
+      "tables"
+    ],
+    "file": "docs/database/081_Partitioning_tables.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "database",
+    "title": "Connecting with pgAdmin",
+    "url": "https://supabase.com/docs/guides/database/pgadmin",
+    "summary": "Searchdocs...",
+    "tags": [
+      "connecting",
+      "database",
+      "pgadmin",
+      "with"
+    ],
+    "file": "docs/database/082_Connecting_with_pgAdmin.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Postgres.js",
+    "url": "https://supabase.com/docs/guides/database/postgres-js",
+    "summary": "Postgres.js Quickstart",
+    "tags": [
+      "database",
+      "postgres",
+      "postgres-js"
+    ],
+    "file": "docs/database/083_Postgres.js.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "Cascade Deletes",
+    "url": "https://supabase.com/docs/guides/database/postgres/cascade-deletes",
+    "summary": "Understand the types of foreign key constraint deletes",
+    "tags": [
+      "cascade",
+      "cascade-deletes",
+      "database",
+      "deletes",
+      "postgres"
+    ],
+    "file": "docs/database/084_Cascade_Deletes.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Column Level Security",
+    "url": "https://supabase.com/docs/guides/database/postgres/column-level-security",
+    "summary": "Secure your data using Postgres Column Level Security.",
+    "tags": [
+      "column",
+      "column-level-security",
+      "database",
+      "level",
+      "postgres",
+      "security"
+    ],
+    "file": "docs/database/085_Column_Level_Security.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "Database configuration",
+    "url": "https://supabase.com/docs/guides/database/postgres/configuration",
+    "summary": "Updating the default configuration for your Postgres database.",
+    "tags": [
+      "configuration",
+      "database",
+      "postgres"
+    ],
+    "file": "docs/database/086_Database_configuration.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "Deleting data and dropping objects safely",
+    "url": "https://supabase.com/docs/guides/database/postgres/data-deletion",
+    "summary": "Strategies for removing data and schema objects while minimising impact.",
+    "tags": [
+      "data",
+      "data-deletion",
+      "database",
+      "deleting",
+      "dropping",
+      "objects",
+      "postgres",
+      "safely"
+    ],
+    "file": "docs/database/087_Deleting_data_and_dropping_objects_safely.md",
+    "code_blocks": 15
+  },
+  {
+    "category": "database",
+    "title": "Drop all tables in a Postgres schema",
+    "url": "https://supabase.com/docs/guides/database/postgres/dropping-all-tables-in-schema",
+    "summary": "Useful snippet for deleting all tables in a given schema",
+    "tags": [
+      "database",
+      "drop",
+      "dropping-all-tables-in-schema",
+      "postgres",
+      "schema",
+      "tables"
+    ],
+    "file": "docs/database/088_Drop_all_tables_in_a_Postgres_schema.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "Managing Enums in Postgres",
+    "url": "https://supabase.com/docs/guides/database/postgres/enums",
+    "summary": "Define a strict set of values that can be used in table and function definitions.",
+    "tags": [
+      "database",
+      "enums",
+      "managing",
+      "postgres"
+    ],
+    "file": "docs/database/089_Managing_Enums_in_Postgres.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "database",
+    "title": "Event Triggers",
+    "url": "https://supabase.com/docs/guides/database/postgres/event-triggers",
+    "summary": "Automatically execute SQL on database events.",
+    "tags": [
+      "database",
+      "event",
+      "event-triggers",
+      "postgres",
+      "triggers"
+    ],
+    "file": "docs/database/090_Event_Triggers.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "database",
+    "title": "Select first row for each group in Postgres",
+    "url": "https://supabase.com/docs/guides/database/postgres/first-row-in-group",
+    "summary": "Postgres snippet for grabbing the first row in each distinct group by group",
+    "tags": [
+      "database",
+      "each",
+      "first",
+      "first-row-in-group",
+      "group",
+      "postgres",
+      "select"
+    ],
+    "file": "docs/database/091_Select_first_row_for_each_group_in_Postgres.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "Managing Indexes in Postgres",
+    "url": "https://supabase.com/docs/guides/database/postgres/indexes",
+    "summary": "Improve query performance using various index types in Postgres",
+    "tags": [
+      "database",
+      "indexes",
+      "managing",
+      "postgres"
+    ],
+    "file": "docs/database/092_Managing_Indexes_in_Postgres.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Postgres Roles",
+    "url": "https://supabase.com/docs/guides/database/postgres/roles",
+    "summary": "Managing access to your Postgres database and configuring permissions.",
+    "tags": [
+      "database",
+      "postgres",
+      "roles"
+    ],
+    "file": "docs/database/093_Postgres_Roles.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "Roles, superuser access and unsupported operations",
+    "url": "https://supabase.com/docs/guides/database/postgres/roles-superuser",
+    "summary": "Searchdocs...",
+    "tags": [
+      "access",
+      "database",
+      "operations",
+      "postgres",
+      "roles",
+      "roles-superuser",
+      "superuser",
+      "unsupported"
+    ],
+    "file": "docs/database/094_Roles,_superuser_access_and_unsupported_operations.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Row Level Security",
+    "url": "https://supabase.com/docs/guides/database/postgres/row-level-security",
+    "summary": "Secure your data using Postgres Row Level Security.",
+    "tags": [
+      "database",
+      "level",
+      "postgres",
+      "row-level-security",
+      "security"
+    ],
+    "file": "docs/database/095_Row_Level_Security.md",
+    "code_blocks": 30
+  },
+  {
+    "category": "database",
+    "title": "Replicate to another Postgres database using Logical Replication",
+    "url": "https://supabase.com/docs/guides/database/postgres/setup-replication-external",
+    "summary": "Example to setup logical replication using publish-subscribe to a Postgres database outside of Supabase",
+    "tags": [
+      "another",
+      "database",
+      "logical",
+      "postgres",
+      "replicate",
+      "replication",
+      "setup-replication-external",
+      "using"
+    ],
+    "file": "docs/database/096_Replicate_to_another_Postgres_database_using_Logical_Replication.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "Timeouts",
+    "url": "https://supabase.com/docs/guides/database/postgres/timeouts",
+    "summary": "Extend database timeouts to execute longer transactions",
+    "tags": [
+      "database",
+      "postgres",
+      "timeouts"
+    ],
+    "file": "docs/database/097_Timeouts.md",
+    "code_blocks": 11
+  },
+  {
+    "category": "database",
+    "title": "Postgres Triggers",
+    "url": "https://supabase.com/docs/guides/database/postgres/triggers",
+    "summary": "Automatically execute SQL on table events.",
+    "tags": [
+      "database",
+      "postgres",
+      "triggers"
+    ],
+    "file": "docs/database/098_Postgres_Triggers.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "database",
+    "title": "Print Postgres version",
+    "url": "https://supabase.com/docs/guides/database/postgres/which-version-of-postgres",
+    "summary": "Useful snippet for finding out which version of postgres you are running",
+    "tags": [
+      "database",
+      "postgres",
+      "print",
+      "version",
+      "which-version-of-postgres"
+    ],
+    "file": "docs/database/099_Print_Postgres_version.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "database",
+    "title": "Prisma",
+    "url": "https://supabase.com/docs/guides/database/prisma",
+    "summary": "Prisma Quickstart",
+    "tags": [
+      "database",
+      "prisma"
+    ],
+    "file": "docs/database/100_Prisma.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "database",
+    "title": "Troubleshooting prisma errors",
+    "url": "https://supabase.com/docs/guides/database/prisma/prisma-troubleshooting",
+    "summary": "Prisma error troubleshooting",
+    "tags": [
+      "database",
+      "errors",
+      "prisma",
+      "prisma-troubleshooting",
+      "troubleshooting"
+    ],
+    "file": "docs/database/101_Troubleshooting_prisma_errors.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Connecting with PSQL",
+    "url": "https://supabase.com/docs/guides/database/psql",
+    "summary": "Searchdocs...",
+    "tags": [
+      "connecting",
+      "database",
+      "psql",
+      "sql",
+      "with"
+    ],
+    "file": "docs/database/102_Connecting_with_PSQL.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "Query Optimization",
+    "url": "https://supabase.com/docs/guides/database/query-optimization",
+    "summary": "Choosing indexes to improve your query performance.",
+    "tags": [
+      "database",
+      "optimization",
+      "query",
+      "query-optimization"
+    ],
+    "file": "docs/database/103_Query_Optimization.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Database replication",
+    "url": "https://supabase.com/docs/guides/database/replication",
+    "summary": "Compare read replicas, Supabase Pipelines, and manual replication.",
+    "tags": [
+      "database",
+      "replication"
+    ],
+    "file": "docs/database/104_Database_replication.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "BigQuery destination",
+    "url": "https://supabase.com/docs/guides/database/replication/bigquery",
+    "summary": "Configure BigQuery as a Supabase Pipelines destination.",
+    "tags": [
+      "bigquery",
+      "database",
+      "destination",
+      "replication"
+    ],
+    "file": "docs/database/105_BigQuery_destination.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "database",
+    "title": "Manual replication FAQ",
+    "url": "https://supabase.com/docs/guides/database/replication/manual-replication-faq",
+    "summary": "Frequently asked questions about manual database replication.",
+    "tags": [
+      "database",
+      "manual",
+      "manual-replication-faq",
+      "replication"
+    ],
+    "file": "docs/database/106_Manual_replication_FAQ.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Manual replication monitoring",
+    "url": "https://supabase.com/docs/guides/database/replication/manual-replication-monitoring",
+    "summary": "Monitor replication lag and status for manual replication setups.",
+    "tags": [
+      "database",
+      "manual",
+      "manual-replication-monitoring",
+      "monitoring",
+      "replication"
+    ],
+    "file": "docs/database/107_Manual_replication_monitoring.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "database",
+    "title": "Set up manual replication",
+    "url": "https://supabase.com/docs/guides/database/replication/manual-replication-setup",
+    "summary": "Configure your own replication using external tools and Postgres logical replication.",
+    "tags": [
+      "database",
+      "manual",
+      "manual-replication-setup",
+      "replication"
+    ],
+    "file": "docs/database/108_Set_up_manual_replication.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Set up Pipelines",
+    "url": "https://supabase.com/docs/guides/database/replication/pipelines",
+    "summary": "Create a Supabase Pipeline using Postgres logical replication.",
+    "tags": [
+      "database",
+      "pipelines",
+      "replication"
+    ],
+    "file": "docs/database/109_Set_up_Pipelines.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "database",
+    "title": "Pipelines FAQ",
+    "url": "https://supabase.com/docs/guides/database/replication/pipelines-faq",
+    "summary": "Frequently asked questions about Supabase Pipelines.",
+    "tags": [
+      "database",
+      "pipelines",
+      "pipelines-faq",
+      "replication"
+    ],
+    "file": "docs/database/110_Pipelines_FAQ.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "database",
+    "title": "Monitor pipeline status",
+    "url": "https://supabase.com/docs/guides/database/replication/pipelines-monitoring",
+    "summary": "Monitor the status and health of pipelines created with Supabase Pipelines.",
+    "tags": [
+      "database",
+      "monitor",
+      "pipeline",
+      "pipelines-monitoring",
+      "replication",
+      "status"
+    ],
+    "file": "docs/database/111_Monitor_pipeline_status.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Securing your data",
+    "url": "https://supabase.com/docs/guides/database/secure-data",
+    "summary": "Searchdocs...",
+    "tags": [
+      "data",
+      "database",
+      "secure-data",
+      "securing",
+      "your"
+    ],
+    "file": "docs/database/112_Securing_your_data.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Supavisor",
+    "url": "https://supabase.com/docs/guides/database/supavisor",
+    "summary": "Troubleshooting Supavisor errors",
+    "tags": [
+      "database",
+      "supavisor"
+    ],
+    "file": "docs/database/113_Supavisor.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "database",
+    "title": "Tables and Data",
+    "url": "https://supabase.com/docs/guides/database/tables",
+    "summary": "Creating and using Postgres tables.",
+    "tags": [
+      "data",
+      "database",
+      "tables"
+    ],
+    "file": "docs/database/114_Tables_and_Data.md",
+    "code_blocks": 18
+  },
+  {
+    "category": "database",
+    "title": "Testing Your Database",
+    "url": "https://supabase.com/docs/guides/database/testing",
+    "summary": "Test your database schema, tables, functions, and policies.",
+    "tags": [
+      "database",
+      "testing",
+      "your"
+    ],
+    "file": "docs/database/115_Testing_Your_Database.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "database",
+    "title": "Vault",
+    "url": "https://supabase.com/docs/guides/database/vault",
+    "summary": "Vault is a Postgres extension and accompanying Supabase UI that makes it safe and easy to store encrypted secrets.",
+    "tags": [
+      "database",
+      "vault"
+    ],
+    "file": "docs/database/116_Vault.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "database",
+    "title": "Database Webhooks",
+    "url": "https://supabase.com/docs/guides/database/webhooks",
+    "summary": "Trigger external payloads on database events.",
+    "tags": [
+      "database",
+      "webhooks"
+    ],
+    "file": "docs/database/117_Database_Webhooks.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "platform",
+    "title": "Deployment & Branching",
+    "url": "https://supabase.com/docs/guides/deployment",
+    "summary": "Searchdocs...",
+    "tags": [
+      "branching",
+      "deployment",
+      "platform"
+    ],
+    "file": "docs/platform/001_Deployment_&_Branching.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "Branching",
+    "url": "https://supabase.com/docs/guides/deployment/branching",
+    "summary": "Use Supabase Branches to test and preview changes",
+    "tags": [
+      "branching",
+      "deployment",
+      "platform"
+    ],
+    "file": "docs/platform/002_Branching.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "Configuration",
+    "url": "https://supabase.com/docs/guides/deployment/branching/configuration",
+    "summary": "Configure your Supabase branches using configuration as code",
+    "tags": [
+      "branching",
+      "configuration",
+      "deployment",
+      "platform"
+    ],
+    "file": "docs/platform/003_Configuration.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "platform",
+    "title": "Branching via the dashboard",
+    "url": "https://supabase.com/docs/guides/deployment/branching/dashboard",
+    "summary": "Create, manage, review, and merge branches directly in the dashboard",
+    "tags": [
+      "branching",
+      "dashboard",
+      "deployment",
+      "platform"
+    ],
+    "file": "docs/platform/004_Branching_via_the_dashboard.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "GitHub integration",
+    "url": "https://supabase.com/docs/guides/deployment/branching/github-integration",
+    "summary": "Connect with GitHub to sync branches with your repository",
+    "tags": [
+      "branching",
+      "deployment",
+      "github",
+      "github-integration",
+      "integration",
+      "platform"
+    ],
+    "file": "docs/platform/005_GitHub_integration.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "platform",
+    "title": "Integrations",
+    "url": "https://supabase.com/docs/guides/deployment/branching/integrations",
+    "summary": "Use Supabase branching with hosting providers and other tools.",
+    "tags": [
+      "branching",
+      "deployment",
+      "integrations",
+      "platform"
+    ],
+    "file": "docs/platform/006_Integrations.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "Troubleshooting",
+    "url": "https://supabase.com/docs/guides/deployment/branching/troubleshooting",
+    "summary": "Common issues and solutions for Supabase branching.",
+    "tags": [
+      "branching",
+      "deployment",
+      "platform",
+      "troubleshooting"
+    ],
+    "file": "docs/platform/007_Troubleshooting.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "platform",
+    "title": "Working with branches",
+    "url": "https://supabase.com/docs/guides/deployment/branching/working-with-branches",
+    "summary": "Learn how to develop and manage your Supabase branches.",
+    "tags": [
+      "branches",
+      "branching",
+      "deployment",
+      "platform",
+      "with",
+      "working",
+      "working-with-branches"
+    ],
+    "file": "docs/platform/008_Working_with_branches.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "platform",
+    "title": "Automated backups using GitHub Actions",
+    "url": "https://supabase.com/docs/guides/deployment/ci/backups",
+    "summary": "Backup your database on a regular basis.",
+    "tags": [
+      "actions",
+      "automated",
+      "backups",
+      "ci",
+      "deployment",
+      "github",
+      "platform",
+      "using"
+    ],
+    "file": "docs/platform/009_Automated_backups_using_GitHub_Actions.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "platform",
+    "title": "Generate types using GitHub Actions",
+    "url": "https://supabase.com/docs/guides/deployment/ci/generating-types",
+    "summary": "End-to-end type safety across client, server, and database.",
+    "tags": [
+      "actions",
+      "ci",
+      "deployment",
+      "generate",
+      "generating-types",
+      "github",
+      "platform",
+      "types",
+      "using"
+    ],
+    "file": "docs/platform/010_Generate_types_using_GitHub_Actions.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "platform",
+    "title": "Automated testing using GitHub Actions",
+    "url": "https://supabase.com/docs/guides/deployment/ci/testing",
+    "summary": "Run your tests when you or your team make changes.",
+    "tags": [
+      "actions",
+      "automated",
+      "ci",
+      "deployment",
+      "github",
+      "platform",
+      "testing",
+      "using"
+    ],
+    "file": "docs/platform/011_Automated_testing_using_GitHub_Actions.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "platform",
+    "title": "Database Migrations",
+    "url": "https://supabase.com/docs/guides/deployment/database-migrations",
+    "summary": "How to manage schema migrations for your Supabase project.",
+    "tags": [
+      "database",
+      "database-migrations",
+      "deployment",
+      "migrations",
+      "platform"
+    ],
+    "file": "docs/platform/012_Database_Migrations.md",
+    "code_blocks": 23
+  },
+  {
+    "category": "platform",
+    "title": "Production Checklist",
+    "url": "https://supabase.com/docs/guides/deployment/going-into-prod",
+    "summary": "Things to do before making your app publicly available",
+    "tags": [
+      "checklist",
+      "deployment",
+      "going-into-prod",
+      "platform",
+      "production"
+    ],
+    "file": "docs/platform/013_Production_Checklist.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "Managing Environments",
+    "url": "https://supabase.com/docs/guides/deployment/managing-environments",
+    "summary": "Manage multiple environments using Database Migrations and GitHub Actions.",
+    "tags": [
+      "deployment",
+      "environments",
+      "managing",
+      "managing-environments",
+      "platform"
+    ],
+    "file": "docs/platform/014_Managing_Environments.md",
+    "code_blocks": 18
+  },
+  {
+    "category": "platform",
+    "title": "Maturity Model",
+    "url": "https://supabase.com/docs/guides/deployment/maturity-model",
+    "summary": "Growing with your application.",
+    "tags": [
+      "deployment",
+      "maturity",
+      "maturity-model",
+      "model",
+      "platform"
+    ],
+    "file": "docs/platform/015_Maturity_Model.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "Shared Responsibility Model",
+    "url": "https://supabase.com/docs/guides/deployment/shared-responsibility-model",
+    "summary": "Running databases is a shared responsibility between you and Supabase.",
+    "tags": [
+      "deployment",
+      "model",
+      "platform",
+      "responsibility",
+      "shared",
+      "shared-responsibility-model"
+    ],
+    "file": "docs/platform/016_Shared_Responsibility_Model.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "platform",
+    "title": "Terraform Provider",
+    "url": "https://supabase.com/docs/guides/deployment/terraform",
+    "summary": "Searchdocs...",
+    "tags": [
+      "deployment",
+      "platform",
+      "provider",
+      "terraform"
+    ],
+    "file": "docs/platform/017_Terraform_Provider.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "platform",
+    "title": "Terraform Provider reference",
+    "url": "https://supabase.com/docs/guides/deployment/terraform/reference",
+    "summary": "Resources and data sources available through the Terraform Provider",
+    "tags": [
+      "deployment",
+      "platform",
+      "provider",
+      "reference",
+      "terraform"
+    ],
+    "file": "docs/platform/018_Terraform_Provider_reference.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "platform",
+    "title": "Using the Supabase Terraform Provider",
+    "url": "https://supabase.com/docs/guides/deployment/terraform/tutorial",
+    "summary": "Searchdocs...",
+    "tags": [
+      "deployment",
+      "platform",
+      "provider",
+      "supabase",
+      "terraform",
+      "tutorial",
+      "using"
+    ],
+    "file": "docs/platform/019_Using_the_Supabase_Terraform_Provider.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions",
+    "summary": "Run TypeScript functions globally at the edge.",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "functions"
+    ],
+    "file": "docs/edge-functions/001_Edge_Functions.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Running AI Models",
+    "url": "https://supabase.com/docs/guides/functions/ai-models",
+    "summary": "How to run AI models in Edge Functions.",
+    "tags": [
+      "ai",
+      "ai-models",
+      "edge-functions",
+      "functions",
+      "models",
+      "running"
+    ],
+    "file": "docs/edge-functions/002_Running_AI_Models.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "edge-functions",
+    "title": "Edge Functions Architecture",
+    "url": "https://supabase.com/docs/guides/functions/architecture",
+    "summary": "Guide to Supabase Edge Functions: Architecture and How They Work",
+    "tags": [
+      "architecture",
+      "edge",
+      "edge-functions",
+      "functions"
+    ],
+    "file": "docs/edge-functions/003_Edge_Functions_Architecture.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Securing Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions/auth",
+    "summary": "Authentication patterns for Supabase Edge Functions.",
+    "tags": [
+      "auth",
+      "edge",
+      "edge-functions",
+      "functions",
+      "securing"
+    ],
+    "file": "docs/edge-functions/004_Securing_Edge_Functions.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "edge-functions",
+    "title": "Authorization headers",
+    "url": "https://supabase.com/docs/guides/functions/auth-headers",
+    "summary": "How the Authorization and apikey request headers and the verify_jwt platform check work for Edge Functions.",
+    "tags": [
+      "auth",
+      "auth-headers",
+      "authorization",
+      "edge-functions",
+      "functions",
+      "headers"
+    ],
+    "file": "docs/edge-functions/005_Authorization_headers.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Integrating With Supabase Auth",
+    "url": "https://supabase.com/docs/guides/functions/auth-legacy-jwt",
+    "summary": "Supabase Edge Functions and Auth.",
+    "tags": [
+      "auth",
+      "auth-legacy-jwt",
+      "edge-functions",
+      "functions",
+      "integrating",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/edge-functions/006_Integrating_With_Supabase_Auth.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Background Tasks",
+    "url": "https://supabase.com/docs/guides/functions/background-tasks",
+    "summary": "How to run background tasks in an Edge Function outside of the request handler",
+    "tags": [
+      "background",
+      "background-tasks",
+      "edge-functions",
+      "functions",
+      "tasks"
+    ],
+    "file": "docs/edge-functions/007_Background_Tasks.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Handling Compressed Requests",
+    "url": "https://supabase.com/docs/guides/functions/compression",
+    "summary": "Handling Gzip compressed requests.",
+    "tags": [
+      "compressed",
+      "compression",
+      "edge-functions",
+      "functions",
+      "handling",
+      "requests"
+    ],
+    "file": "docs/edge-functions/008_Handling_Compressed_Requests.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Integrating with Supabase Database (Postgres)",
+    "url": "https://supabase.com/docs/guides/functions/connect-to-postgres",
+    "summary": "Connecting to Postgres from Edge Functions.",
+    "tags": [
+      "connect-to-postgres",
+      "database",
+      "edge-functions",
+      "functions",
+      "integrating",
+      "postgres",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/edge-functions/009_Integrating_with_Supabase_Database_(Postgres).md",
+    "code_blocks": 7
+  },
+  {
+    "category": "edge-functions",
+    "title": "CORS (Cross-Origin Resource Sharing) support for Invoking from the browser",
+    "url": "https://supabase.com/docs/guides/functions/cors",
+    "summary": "Add CORS headers to invoke Edge Functions from the browser.",
+    "tags": [
+      "browser",
+      "cors",
+      "cross",
+      "edge-functions",
+      "from",
+      "functions",
+      "invoking",
+      "origin",
+      "resource",
+      "sharing",
+      "support"
+    ],
+    "file": "docs/edge-functions/010_CORS_(Cross-Origin_Resource_Sharing)_support_for_Invoking_from_the_browser.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Dart Edge",
+    "url": "https://supabase.com/docs/guides/functions/dart-edge",
+    "summary": "Write your functions using Dart.",
+    "tags": [
+      "dart",
+      "dart-edge",
+      "edge",
+      "edge-functions",
+      "functions"
+    ],
+    "file": "docs/edge-functions/011_Dart_Edge.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Local Debugging",
+    "url": "https://supabase.com/docs/guides/functions/debugging-tools",
+    "summary": "How to use Chrome DevTools to debug Edge Functions.",
+    "tags": [
+      "debugging",
+      "debugging-tools",
+      "edge-functions",
+      "functions",
+      "local"
+    ],
+    "file": "docs/edge-functions/012_Local_Debugging.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Managing dependencies",
+    "url": "https://supabase.com/docs/guides/functions/dependencies",
+    "summary": "Managing packages and dependencies.",
+    "tags": [
+      "dependencies",
+      "edge-functions",
+      "functions",
+      "managing"
+    ],
+    "file": "docs/edge-functions/013_Managing_dependencies.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "edge-functions",
+    "title": "Deploy to Production",
+    "url": "https://supabase.com/docs/guides/functions/deploy",
+    "summary": "Deploy your Edge Functions to your remote Supabase Project.",
+    "tags": [
+      "deploy",
+      "edge-functions",
+      "functions",
+      "production"
+    ],
+    "file": "docs/edge-functions/014_Deploy_to_Production.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "edge-functions",
+    "title": "Development Environment",
+    "url": "https://supabase.com/docs/guides/functions/development-environment",
+    "summary": "Get the best Edge Functions experience with the right local developer environment.",
+    "tags": [
+      "development",
+      "development-environment",
+      "edge-functions",
+      "environment",
+      "functions"
+    ],
+    "file": "docs/edge-functions/015_Development_Environment.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "edge-functions",
+    "title": "Development tips",
+    "url": "https://supabase.com/docs/guides/functions/development-tips",
+    "summary": "Tips for getting started with Edge Functions.",
+    "tags": [
+      "development",
+      "development-tips",
+      "edge-functions",
+      "functions",
+      "tips"
+    ],
+    "file": "docs/edge-functions/016_Development_tips.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "File Storage",
+    "url": "https://supabase.com/docs/guides/functions/ephemeral-storage",
+    "summary": "Use persistent and ephemeral file storage",
+    "tags": [
+      "edge-functions",
+      "ephemeral-storage",
+      "file",
+      "functions",
+      "storage"
+    ],
+    "file": "docs/edge-functions/017_File_Storage.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Error codes",
+    "url": "https://supabase.com/docs/guides/functions/error-codes",
+    "summary": "Edge Functions can return the following error codes.",
+    "tags": [
+      "codes",
+      "edge-functions",
+      "error",
+      "error-codes",
+      "functions"
+    ],
+    "file": "docs/edge-functions/018_Error_codes.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "edge-functions",
+    "title": "Error Handling",
+    "url": "https://supabase.com/docs/guides/functions/error-handling",
+    "summary": "Learn how to handle errors in your Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "error",
+      "error-handling",
+      "functions",
+      "handling"
+    ],
+    "file": "docs/edge-functions/019_Error_Handling.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Generate Images with Amazon Bedrock",
+    "url": "https://supabase.com/docs/guides/functions/examples/amazon-bedrock-image-generator",
+    "summary": "Generate images with Amazon Bedrock and store them in Supabase Storage.",
+    "tags": [
+      "amazon",
+      "amazon-bedrock-image-generator",
+      "bedrock",
+      "edge-functions",
+      "examples",
+      "functions",
+      "generate",
+      "images",
+      "with"
+    ],
+    "file": "docs/edge-functions/020_Generate_Images_with_Amazon_Bedrock.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Custom Auth Emails with React Email and Resend",
+    "url": "https://supabase.com/docs/guides/functions/examples/auth-send-email-hook-react-email-resend",
+    "summary": "Use the send email hook to send custom auth emails with React Email and Resend in Supabase Edge Functions.",
+    "tags": [
+      "ai",
+      "auth",
+      "auth-send-email-hook-react-email-resend",
+      "custom",
+      "edge-functions",
+      "email",
+      "emails",
+      "examples",
+      "functions",
+      "react",
+      "resend",
+      "with"
+    ],
+    "file": "docs/edge-functions/021_Custom_Auth_Emails_with_React_Email_and_Resend.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "edge-functions",
+    "title": "CAPTCHA support with Cloudflare Turnstile",
+    "url": "https://supabase.com/docs/guides/functions/examples/cloudflare-turnstile",
+    "summary": "Protecting Forms with Cloudflare Turnstile.",
+    "tags": [
+      "captcha",
+      "cloudflare",
+      "cloudflare-turnstile",
+      "edge-functions",
+      "examples",
+      "functions",
+      "support",
+      "turnstile",
+      "with"
+    ],
+    "file": "docs/edge-functions/022_CAPTCHA_support_with_Cloudflare_Turnstile.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Building a Discord Bot",
+    "url": "https://supabase.com/docs/guides/functions/examples/discord-bot",
+    "summary": "Building a Slash Command Discord Bot with Edge Functions.",
+    "tags": [
+      "building",
+      "discord",
+      "discord-bot",
+      "edge-functions",
+      "examples",
+      "functions"
+    ],
+    "file": "docs/edge-functions/023_Building_a_Discord_Bot.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Streaming Speech with ElevenLabs",
+    "url": "https://supabase.com/docs/guides/functions/examples/elevenlabs-generate-speech-stream",
+    "summary": "Generate and stream speech through Supabase Edge Functions. Store speech in Supabase Storage and cache responses via built-in CDN.",
+    "tags": [
+      "edge-functions",
+      "elevenlabs",
+      "elevenlabs-generate-speech-stream",
+      "examples",
+      "functions",
+      "speech",
+      "streaming",
+      "with"
+    ],
+    "file": "docs/edge-functions/024_Streaming_Speech_with_ElevenLabs.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "edge-functions",
+    "title": "Transcription Telegram Bot",
+    "url": "https://supabase.com/docs/guides/functions/examples/elevenlabs-transcribe-speech",
+    "summary": "Build a Telegram bot that transcribes audio and video messages in 99 languages using TypeScript with Deno in Supabase Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "elevenlabs-transcribe-speech",
+      "examples",
+      "functions",
+      "telegram",
+      "transcription"
+    ],
+    "file": "docs/edge-functions/025_Transcription_Telegram_Bot.md",
+    "code_blocks": 11
+  },
+  {
+    "category": "edge-functions",
+    "title": "GitHub Actions",
+    "url": "https://supabase.com/docs/guides/functions/examples/github-actions",
+    "summary": "Deploying Edge Functions with GitHub Actions.",
+    "tags": [
+      "actions",
+      "edge-functions",
+      "examples",
+      "functions",
+      "github",
+      "github-actions"
+    ],
+    "file": "docs/edge-functions/026_GitHub_Actions.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Image Manipulation",
+    "url": "https://supabase.com/docs/guides/functions/examples/image-manipulation",
+    "summary": "How to optimize and transform images using Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "image",
+      "image-manipulation",
+      "manipulation"
+    ],
+    "file": "docs/edge-functions/027_Image_Manipulation.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Building an MCP Server with mcp-lite",
+    "url": "https://supabase.com/docs/guides/functions/examples/mcp-server-mcp-lite",
+    "summary": "Build and deploy a Model Context Protocol (MCP) server on Supabase Edge Functions using mcp-lite.",
+    "tags": [
+      "building",
+      "edge-functions",
+      "examples",
+      "functions",
+      "lite",
+      "mcp-server-mcp-lite",
+      "server",
+      "with"
+    ],
+    "file": "docs/edge-functions/028_Building_an_MCP_Server_with_mcp-lite.md",
+    "code_blocks": 16
+  },
+  {
+    "category": "edge-functions",
+    "title": "Generating OG Images",
+    "url": "https://supabase.com/docs/guides/functions/examples/og-image",
+    "summary": "Generate Open Graph images with Deno and Supabase Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "generating",
+      "images",
+      "og-image"
+    ],
+    "file": "docs/edge-functions/029_Generating_OG_Images.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Sending Push Notifications",
+    "url": "https://supabase.com/docs/guides/functions/examples/push-notifications",
+    "summary": "Send Push Notifications to your React Native iOS and Android apps using Expo.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "notifications",
+      "push",
+      "push-notifications",
+      "sending"
+    ],
+    "file": "docs/edge-functions/030_Sending_Push_Notifications.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Rate Limiting Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions/examples/rate-limiting",
+    "summary": "Rate Limiting Edge Functions with Upstash Redis.",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "examples",
+      "functions",
+      "limiting",
+      "rate",
+      "rate-limiting"
+    ],
+    "file": "docs/edge-functions/031_Rate_Limiting_Edge_Functions.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Resumable WebSockets with Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions/examples/resumable-websockets",
+    "summary": "Build reconnect-safe WebSockets with event replay, idempotency keys, and graceful restarts.",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "examples",
+      "functions",
+      "resumable",
+      "resumable-websockets",
+      "websockets",
+      "with"
+    ],
+    "file": "docs/edge-functions/032_Resumable_WebSockets_with_Edge_Functions.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "edge-functions",
+    "title": "Taking Screenshots with Puppeteer",
+    "url": "https://supabase.com/docs/guides/functions/examples/screenshots",
+    "summary": "Take screenshots in Edge Functions with Puppeteer and Browserless.io.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "puppeteer",
+      "screenshots",
+      "taking",
+      "with"
+    ],
+    "file": "docs/edge-functions/033_Taking_Screenshots_with_Puppeteer.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Semantic Search",
+    "url": "https://supabase.com/docs/guides/functions/examples/semantic-search",
+    "summary": "Semantic Search with pgvector and Supabase Edge Functions",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "search",
+      "semantic",
+      "semantic-search"
+    ],
+    "file": "docs/edge-functions/034_Semantic_Search.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Sending Emails",
+    "url": "https://supabase.com/docs/guides/functions/examples/send-emails",
+    "summary": "Sending emails from Edge Functions using the Resend API.",
+    "tags": [
+      "ai",
+      "edge-functions",
+      "emails",
+      "examples",
+      "functions",
+      "send-emails",
+      "sending"
+    ],
+    "file": "docs/edge-functions/035_Sending_Emails.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Monitoring with Sentry",
+    "url": "https://supabase.com/docs/guides/functions/examples/sentry-monitoring",
+    "summary": "Monitor Edge Functions with the Sentry Deno SDK.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "monitoring",
+      "sentry",
+      "sentry-monitoring",
+      "with"
+    ],
+    "file": "docs/edge-functions/036_Monitoring_with_Sentry.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Slack Bot Mention Edge Function",
+    "url": "https://supabase.com/docs/guides/functions/examples/slack-bot-mention",
+    "summary": "Building a Slack Bot that Handles Mentions.",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "examples",
+      "function",
+      "functions",
+      "mention",
+      "slack",
+      "slack-bot-mention"
+    ],
+    "file": "docs/edge-functions/037_Slack_Bot_Mention_Edge_Function.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Handling Stripe Webhooks",
+    "url": "https://supabase.com/docs/guides/functions/examples/stripe-webhooks",
+    "summary": "Handling signed Stripe Webhooks with Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "handling",
+      "stripe",
+      "stripe-webhooks",
+      "webhooks"
+    ],
+    "file": "docs/edge-functions/038_Handling_Stripe_Webhooks.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Building a Telegram Bot",
+    "url": "https://supabase.com/docs/guides/functions/examples/telegram-bot",
+    "summary": "Building a Telegram Bot with Edge Functions.",
+    "tags": [
+      "building",
+      "edge-functions",
+      "examples",
+      "functions",
+      "telegram",
+      "telegram-bot"
+    ],
+    "file": "docs/edge-functions/039_Building_a_Telegram_Bot.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Upstash Redis",
+    "url": "https://supabase.com/docs/guides/functions/examples/upstash-redis",
+    "summary": "Build an Edge Functions Counter with Upstash Redis.",
+    "tags": [
+      "edge-functions",
+      "examples",
+      "functions",
+      "redis",
+      "upstash",
+      "upstash-redis"
+    ],
+    "file": "docs/edge-functions/040_Upstash_Redis.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "edge-functions",
+    "title": "Function Configuration",
+    "url": "https://supabase.com/docs/guides/functions/function-configuration",
+    "summary": "Learn how to configure your functions in Supabase.",
+    "tags": [
+      "configuration",
+      "edge-functions",
+      "function",
+      "function-configuration",
+      "functions"
+    ],
+    "file": "docs/edge-functions/041_Function_Configuration.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Routing",
+    "url": "https://supabase.com/docs/guides/functions/http-methods",
+    "summary": "Build complete REST APIs with Edge Functions using all standard HTTP methods.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "http-methods",
+      "routing"
+    ],
+    "file": "docs/edge-functions/042_Routing.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Type-Safe SQL with Kysely",
+    "url": "https://supabase.com/docs/guides/functions/kysely-postgres",
+    "summary": "Combining Kysely with Deno Postgres gives you a convenient developer experience for interacting directly with your Postgres database.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "kysely",
+      "kysely-postgres",
+      "postgres",
+      "rest",
+      "safe",
+      "sql",
+      "type",
+      "with"
+    ],
+    "file": "docs/edge-functions/043_Type-Safe_SQL_with_Kysely.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "edge-functions",
+    "title": "Limits",
+    "url": "https://supabase.com/docs/guides/functions/limits",
+    "summary": "Limits applied Edge Functions in Supabase's hosted platform.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "limits"
+    ],
+    "file": "docs/edge-functions/044_Limits.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Logging",
+    "url": "https://supabase.com/docs/guides/functions/logging",
+    "summary": "How to access logs for your Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "logging"
+    ],
+    "file": "docs/edge-functions/045_Logging.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Pricing",
+    "url": "https://supabase.com/docs/guides/functions/pricing",
+    "summary": "Searchdocs...",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "pricing"
+    ],
+    "file": "docs/edge-functions/046_Pricing.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "edge-functions",
+    "title": "Getting Started with Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions/quickstart",
+    "summary": "Get started with Supabase Edge Functions.",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "functions",
+      "getting",
+      "quickstart",
+      "started",
+      "with"
+    ],
+    "file": "docs/edge-functions/047_Getting_Started_with_Edge_Functions.md",
+    "code_blocks": 16
+  },
+  {
+    "category": "edge-functions",
+    "title": "Getting Started with Edge Functions (Dashboard)",
+    "url": "https://supabase.com/docs/guides/functions/quickstart-dashboard",
+    "summary": "Get started with Supabase Edge Functions.",
+    "tags": [
+      "dashboard",
+      "edge",
+      "edge-functions",
+      "functions",
+      "getting",
+      "quickstart-dashboard",
+      "started",
+      "with"
+    ],
+    "file": "docs/edge-functions/048_Getting_Started_with_Edge_Functions_(Dashboard).md",
+    "code_blocks": 4
+  },
+  {
+    "category": "edge-functions",
+    "title": "Recursive / Nested Function Calls",
+    "url": "https://supabase.com/docs/guides/functions/recursive-functions",
+    "summary": "Learn about rate limiting for Edge Functions that call other Edge Functions",
+    "tags": [
+      "calls",
+      "edge-functions",
+      "function",
+      "functions",
+      "nested",
+      "recursive",
+      "recursive-functions"
+    ],
+    "file": "docs/edge-functions/049_Recursive_Nested_Function_Calls.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "edge-functions",
+    "title": "Regional Invocations",
+    "url": "https://supabase.com/docs/guides/functions/regional-invocation",
+    "summary": "How to execute an Edge Functions in a particular region.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "invocations",
+      "regional",
+      "regional-invocation"
+    ],
+    "file": "docs/edge-functions/050_Regional_Invocations.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Handling Routing in Functions",
+    "url": "https://supabase.com/docs/guides/functions/routing",
+    "summary": "How to handle custom routing within Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "handling",
+      "routing"
+    ],
+    "file": "docs/edge-functions/051_Handling_Routing_in_Functions.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "edge-functions",
+    "title": "Scheduling Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions/schedule-functions",
+    "summary": "Schedule Edge Functions with pg_cron.",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "functions",
+      "schedule-functions",
+      "scheduling"
+    ],
+    "file": "docs/edge-functions/052_Scheduling_Edge_Functions.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Environment Variables",
+    "url": "https://supabase.com/docs/guides/functions/secrets",
+    "summary": "Managing secrets and environment variables.",
+    "tags": [
+      "edge-functions",
+      "environment",
+      "functions",
+      "secrets",
+      "variables"
+    ],
+    "file": "docs/edge-functions/053_Environment_Variables.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "edge-functions",
+    "title": "Status codes",
+    "url": "https://supabase.com/docs/guides/functions/status-codes",
+    "summary": "Edge Functions can return following status codes.",
+    "tags": [
+      "codes",
+      "edge-functions",
+      "functions",
+      "status",
+      "status-codes"
+    ],
+    "file": "docs/edge-functions/054_Status_codes.md",
+    "code_blocks": 1
+  },
+  {
+    "category": "edge-functions",
+    "title": "Integrating with Supabase Storage",
+    "url": "https://supabase.com/docs/guides/functions/storage-caching",
+    "summary": "Integrate Edge Functions with Supabase Storage.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "integrating",
+      "storage",
+      "storage-caching",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/edge-functions/055_Integrating_with_Supabase_Storage.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "edge-functions",
+    "title": "Testing your Edge Functions",
+    "url": "https://supabase.com/docs/guides/functions/unit-test",
+    "summary": "Writing Unit Tests for Edge Functions using Deno Test",
+    "tags": [
+      "edge",
+      "edge-functions",
+      "functions",
+      "testing",
+      "unit-test",
+      "your"
+    ],
+    "file": "docs/edge-functions/056_Testing_your_Edge_Functions.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "edge-functions",
+    "title": "Using Wasm modules",
+    "url": "https://supabase.com/docs/guides/functions/wasm",
+    "summary": "How to use WebAssembly in Edge Functions.",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "modules",
+      "using",
+      "wasm"
+    ],
+    "file": "docs/edge-functions/057_Using_Wasm_modules.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "edge-functions",
+    "title": "Handling WebSockets",
+    "url": "https://supabase.com/docs/guides/functions/websockets",
+    "summary": "How to handle WebSocket connections in Edge Functions",
+    "tags": [
+      "edge-functions",
+      "functions",
+      "handling",
+      "websockets"
+    ],
+    "file": "docs/edge-functions/058_Handling_WebSockets.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "getting-started",
+    "title": "Getting Started",
+    "url": "https://supabase.com/docs/guides/getting-started",
+    "summary": "Resources for getting started with Supabase.",
+    "tags": [
+      "edge",
+      "getting",
+      "getting-started",
+      "started"
+    ],
+    "file": "docs/getting-started/001_Getting_Started.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "getting-started",
+    "title": "Understanding API keys",
+    "url": "https://supabase.com/docs/guides/getting-started/api-keys",
+    "summary": "First-layer protection for your project's data",
+    "tags": [
+      "api",
+      "api-keys",
+      "getting-started",
+      "keys",
+      "understanding"
+    ],
+    "file": "docs/getting-started/002_Understanding_API_keys.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "getting-started",
+    "title": "Architecture",
+    "url": "https://supabase.com/docs/guides/getting-started/architecture",
+    "summary": "Supabase design and architecture",
+    "tags": [
+      "architecture",
+      "getting-started"
+    ],
+    "file": "docs/getting-started/003_Architecture.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "getting-started",
+    "title": "Supabase Features",
+    "url": "https://supabase.com/docs/guides/getting-started/features",
+    "summary": "From authentication to storage, everything you need to build and ship your next project.",
+    "tags": [
+      "features",
+      "getting-started",
+      "supabase"
+    ],
+    "file": "docs/getting-started/004_Supabase_Features.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "getting-started",
+    "title": "Migrating to publishable and secret API keys",
+    "url": "https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys",
+    "summary": "Move from legacy JWT-based anon and service_role keys to publishable and secret keys.",
+    "tags": [
+      "api",
+      "getting-started",
+      "keys",
+      "migrating",
+      "migrating-to-new-api-keys",
+      "publishable",
+      "secret"
+    ],
+    "file": "docs/getting-started/005_Migrating_to_publishable_and_secret_API_keys.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Astro",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/astrojs",
+    "summary": "Learn how to create a Supabase project, add sample data, and query from an Astro app.",
+    "tags": [
+      "astro",
+      "astrojs",
+      "getting-started",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/006_Use_Supabase_with_Astro.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Expo React Native",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/expo-react-native",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from an Expo app.",
+    "tags": [
+      "expo",
+      "expo-react-native",
+      "getting-started",
+      "native",
+      "quickstarts",
+      "react",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/007_Use_Supabase_with_Expo_React_Native.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Python",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/flask",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a Python app.",
+    "tags": [
+      "flask",
+      "getting-started",
+      "python",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/008_Use_Supabase_with_Python.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Flutter",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/flutter",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a Flutter app.",
+    "tags": [
+      "flutter",
+      "getting-started",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/009_Use_Supabase_with_Flutter.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Hono",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/hono",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, secure it with auth, and query the data from a Hono app.",
+    "tags": [
+      "getting-started",
+      "hono",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/010_Use_Supabase_with_Hono.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with iOS and SwiftUI",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/ios-swiftui",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from an iOS app.",
+    "tags": [
+      "getting-started",
+      "ios-swiftui",
+      "quickstarts",
+      "supabase",
+      "swift",
+      "swiftui",
+      "with"
+    ],
+    "file": "docs/getting-started/011_Use_Supabase_with_iOS_and_SwiftUI.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Android Kotlin",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/kotlin",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from an Android Kotlin app.",
+    "tags": [
+      "android",
+      "getting-started",
+      "kotlin",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/012_Use_Supabase_with_Android_Kotlin.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Laravel",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/laravel",
+    "summary": "Learn how to create a PHP Laravel project, connect it to your Supabase Postgres database, and configure user authentication.",
+    "tags": [
+      "getting-started",
+      "laravel",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/013_Use_Supabase_with_Laravel.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Next.js",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/nextjs",
+    "summary": "Learn how to create a Supabase project, add some sample data, and query from a Next.js app.",
+    "tags": [
+      "getting-started",
+      "next",
+      "nextjs",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/014_Use_Supabase_with_Next.js.md",
+    "code_blocks": 6
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Nuxt",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/nuxtjs",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a Nuxt app.",
+    "tags": [
+      "getting-started",
+      "nuxt",
+      "nuxtjs",
+      "quickstarts",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/015_Use_Supabase_with_Nuxt.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with React",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/reactjs",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a React app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "react",
+      "reactjs",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/016_Use_Supabase_with_React.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with RedwoodJS",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/redwoodjs",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database using Prisma migration and seeds, and query the data from a RedwoodJS app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "redwoodjs",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/017_Use_Supabase_with_RedwoodJS.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Refine",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/refine",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a Refine app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "refine",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/018_Use_Supabase_with_Refine.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Ruby on Rails",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/ruby-on-rails",
+    "summary": "Learn how to create a Rails project and connect it to your Supabase Postgres database.",
+    "tags": [
+      "ai",
+      "getting-started",
+      "quickstarts",
+      "rails",
+      "ruby",
+      "ruby-on-rails",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/019_Use_Supabase_with_Ruby_on_Rails.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with SolidJS",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/solidjs",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a SolidJS app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "solidjs",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/020_Use_Supabase_with_SolidJS.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Spring Boot",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/spring-boot",
+    "summary": "Learn how to create a Spring Boot project and connect it to your Supabase project.",
+    "tags": [
+      "boot",
+      "getting-started",
+      "quickstarts",
+      "spring",
+      "spring-boot",
+      "supabase",
+      "with"
+    ],
+    "file": "docs/getting-started/021_Use_Supabase_with_Spring_Boot.md",
+    "code_blocks": 10
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with SvelteKit",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/sveltekit",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a SvelteKit app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "supabase",
+      "sveltekit",
+      "with"
+    ],
+    "file": "docs/getting-started/022_Use_Supabase_with_SvelteKit.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with TanStack Start",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/tanstack",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a TanStack Start app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "start",
+      "supabase",
+      "tanstack",
+      "with"
+    ],
+    "file": "docs/getting-started/023_Use_Supabase_with_TanStack_Start.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "getting-started",
+    "title": "Use Supabase with Vue",
+    "url": "https://supabase.com/docs/guides/getting-started/quickstarts/vue",
+    "summary": "Learn how to create a Supabase project, add some sample data to your database, and query the data from a Vue app.",
+    "tags": [
+      "getting-started",
+      "quickstarts",
+      "supabase",
+      "vue",
+      "with"
+    ],
+    "file": "docs/getting-started/024_Use_Supabase_with_Vue.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Angular",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-angular",
+    "summary": "Learn how to use Supabase in your Angular App.",
+    "tags": [
+      "angular",
+      "build",
+      "getting-started",
+      "management",
+      "tutorials",
+      "user",
+      "with",
+      "with-angular"
+    ],
+    "file": "docs/getting-started/025_Build_a_User_Management_App_with_Angular.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Expo React Native",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-expo-react-native",
+    "summary": "Learn how to use Supabase in your React Native App.",
+    "tags": [
+      "build",
+      "expo",
+      "getting-started",
+      "management",
+      "native",
+      "react",
+      "tutorials",
+      "user",
+      "with",
+      "with-expo-react-native"
+    ],
+    "file": "docs/getting-started/026_Build_a_User_Management_App_with_Expo_React_Native.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Flutter",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-flutter",
+    "summary": "Learn how to use Supabase in your Flutter App.",
+    "tags": [
+      "build",
+      "flutter",
+      "getting-started",
+      "management",
+      "tutorials",
+      "user",
+      "with",
+      "with-flutter"
+    ],
+    "file": "docs/getting-started/027_Build_a_User_Management_App_with_Flutter.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Ionic Angular",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-ionic-angular",
+    "summary": "Learn how to use Supabase in your Ionic Angular App.",
+    "tags": [
+      "angular",
+      "build",
+      "getting-started",
+      "ionic",
+      "management",
+      "tutorials",
+      "user",
+      "with",
+      "with-ionic-angular"
+    ],
+    "file": "docs/getting-started/028_Build_a_User_Management_App_with_Ionic_Angular.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Ionic React",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-ionic-react",
+    "summary": "Learn how to use Supabase in your Ionic React App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "ionic",
+      "management",
+      "react",
+      "tutorials",
+      "user",
+      "with",
+      "with-ionic-react"
+    ],
+    "file": "docs/getting-started/029_Build_a_User_Management_App_with_Ionic_React.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Ionic Vue",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-ionic-vue",
+    "summary": "Learn how to use Supabase in your Ionic Vue App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "ionic",
+      "management",
+      "tutorials",
+      "user",
+      "vue",
+      "with",
+      "with-ionic-vue"
+    ],
+    "file": "docs/getting-started/030_Build_a_User_Management_App_with_Ionic_Vue.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a Product Management Android App with Jetpack Compose",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-kotlin",
+    "summary": "Learn how to use Supabase in your Android Kotlin App.",
+    "tags": [
+      "android",
+      "build",
+      "compose",
+      "getting-started",
+      "jetpack",
+      "kotlin",
+      "management",
+      "product",
+      "tutorials",
+      "with",
+      "with-kotlin"
+    ],
+    "file": "docs/getting-started/031_Build_a_Product_Management_Android_App_with_Jetpack_Compose.md",
+    "code_blocks": 31
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Next.js",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-nextjs",
+    "summary": "Learn how to use Supabase in your Next.js App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "next",
+      "nextjs",
+      "tutorials",
+      "user",
+      "with",
+      "with-nextjs"
+    ],
+    "file": "docs/getting-started/032_Build_a_User_Management_App_with_Next.js.md",
+    "code_blocks": 16
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Nuxt 3",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-nuxt-3",
+    "summary": "Learn how to use Supabase in your Nuxt 3 App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "nuxt",
+      "tutorials",
+      "user",
+      "with",
+      "with-nuxt-3"
+    ],
+    "file": "docs/getting-started/033_Build_a_User_Management_App_with_Nuxt_3.md",
+    "code_blocks": 12
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with React",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-react",
+    "summary": "Learn how to use Supabase in your React App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "react",
+      "tutorials",
+      "user",
+      "with",
+      "with-react"
+    ],
+    "file": "docs/getting-started/034_Build_a_User_Management_App_with_React.md",
+    "code_blocks": 11
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with RedwoodJS",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-redwoodjs",
+    "summary": "Learn how to use Supabase in your RedwoodJS App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "redwoodjs",
+      "tutorials",
+      "user",
+      "with",
+      "with-redwoodjs"
+    ],
+    "file": "docs/getting-started/035_Build_a_User_Management_App_with_RedwoodJS.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Refine",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-refine",
+    "summary": "Learn how to use Supabase in your Refine App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "refine",
+      "tutorials",
+      "user",
+      "with",
+      "with-refine"
+    ],
+    "file": "docs/getting-started/036_Build_a_User_Management_App_with_Refine.md",
+    "code_blocks": 14
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with SolidJS",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-solidjs",
+    "summary": "Learn how to use Supabase in your SolidJS App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "solidjs",
+      "tutorials",
+      "user",
+      "with",
+      "with-solidjs"
+    ],
+    "file": "docs/getting-started/037_Build_a_User_Management_App_with_SolidJS.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Svelte",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-svelte",
+    "summary": "Learn how to use Supabase in your Svelte App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "svelte",
+      "tutorials",
+      "user",
+      "with",
+      "with-svelte"
+    ],
+    "file": "docs/getting-started/038_Build_a_User_Management_App_with_Svelte.md",
+    "code_blocks": 11
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with SvelteKit",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-sveltekit",
+    "summary": "Learn how to use Supabase in your SvelteKit App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "sveltekit",
+      "tutorials",
+      "user",
+      "with",
+      "with-sveltekit"
+    ],
+    "file": "docs/getting-started/039_Build_a_User_Management_App_with_SvelteKit.md",
+    "code_blocks": 19
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Swift and SwiftUI",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-swift",
+    "summary": "Learn how to use Supabase in your SwiftUI App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "swift",
+      "swiftui",
+      "tutorials",
+      "user",
+      "with",
+      "with-swift"
+    ],
+    "file": "docs/getting-started/040_Build_a_User_Management_App_with_Swift_and_SwiftUI.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "getting-started",
+    "title": "Build a User Management App with Vue 3",
+    "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-vue-3",
+    "summary": "Learn how to use Supabase in your Vue 3 App.",
+    "tags": [
+      "build",
+      "getting-started",
+      "management",
+      "tutorials",
+      "user",
+      "vue",
+      "with",
+      "with-vue-3"
+    ],
+    "file": "docs/getting-started/041_Build_a_User_Management_App_with_Vue_3.md",
+    "code_blocks": 11
+  },
+  {
+    "category": "api",
+    "title": "GraphQL",
+    "url": "https://supabase.com/docs/guides/graphql",
+    "summary": "Autogenerated GraphQL APIs with Postgres.",
+    "tags": [
+      "api",
+      "graphql"
+    ],
+    "file": "docs/api/016_GraphQL.md",
+    "code_blocks": 13
+  },
+  {
+    "category": "api",
+    "title": "GraphQL API",
+    "url": "https://supabase.com/docs/guides/graphql/api",
+    "summary": "Understanding the core concepts of the GraphQL API.",
+    "tags": [
+      "api",
+      "graphql"
+    ],
+    "file": "docs/api/017_GraphQL_API.md",
+    "code_blocks": 84
+  },
+  {
+    "category": "api",
+    "title": "Computed Fields",
+    "url": "https://supabase.com/docs/guides/graphql/computed-fields",
+    "summary": "Using Postgres Computed Fields with GraphQL.",
+    "tags": [
+      "api",
+      "computed",
+      "computed-fields",
+      "fields",
+      "graphql"
+    ],
+    "file": "docs/api/018_Computed_Fields.md",
+    "code_blocks": 9
+  },
+  {
+    "category": "api",
+    "title": "Configuration & Customization",
+    "url": "https://supabase.com/docs/guides/graphql/configuration",
+    "summary": "Extra configuration options can be set on SQL entities using comment directives.",
+    "tags": [
+      "api",
+      "configuration",
+      "customization",
+      "graphql"
+    ],
+    "file": "docs/api/019_Configuration_&_Customization.md",
+    "code_blocks": 44
+  },
+  {
+    "category": "api",
+    "title": "Functions",
+    "url": "https://supabase.com/docs/guides/graphql/functions",
+    "summary": "Using Postgres Functions with GraphQL.",
+    "tags": [
+      "api",
+      "functions",
+      "graphql"
+    ],
+    "file": "docs/api/020_Functions.md",
+    "code_blocks": 8
+  },
+  {
+    "category": "api",
+    "title": "Security",
+    "url": "https://supabase.com/docs/guides/graphql/security",
+    "summary": "Securing your GraphQL API.",
+    "tags": [
+      "api",
+      "graphql",
+      "security"
+    ],
+    "file": "docs/api/021_Security.md",
+    "code_blocks": 2
+  },
+  {
+    "category": "api",
+    "title": "Views",
+    "url": "https://supabase.com/docs/guides/graphql/views",
+    "summary": "Using Postgres Views with GraphQL.",
+    "tags": [
+      "api",
+      "graphql",
+      "views"
+    ],
+    "file": "docs/api/022_Views.md",
+    "code_blocks": 7
+  },
+  {
+    "category": "api",
+    "title": "With Apollo",
+    "url": "https://supabase.com/docs/guides/graphql/with-apollo",
+    "summary": "Using pg_grapqhl with Apollo.",
+    "tags": [
+      "api",
+      "apollo",
+      "graphql",
+      "with",
+      "with-apollo"
+    ],
+    "file": "docs/api/023_With_Apollo.md",
+    "code_blocks": 3
+  },
+  {
+    "category": "api",
+    "title": "With Relay",
+    "url": "https://supabase.com/docs/guides/graphql/with-relay",
+    "summary": "Using pg_grapqhl with Relay.",
+    "tags": [
+      "api",
+      "graphql",
+      "relay",
+      "with",
+      "with-relay"
+    ],
+    "file": "docs/api/024_With_Relay.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "integrations",
+    "title": "Integrations",
+    "url": "https://supabase.com/docs/guides/integrations",
+    "summary": "Searchdocs...",
+    "tags": [
+      "integrations"
+    ],
+    "file": "docs/integrations/001_Integrations.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "integrations",
+    "title": "Build a Supabase Integration",
+    "url": "https://supabase.com/docs/guides/integrations/build-a-supabase-integration",
+    "summary": "Build a Supabase Integration using OAuth2 and the Management API.",
+    "tags": [
+      "build",
+      "build-a-supabase-integration",
+      "integration",
+      "integrations",
+      "supabase"
+    ],
+    "file": "docs/integrations/002_Build_a_Supabase_Integration.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "integrations",
+    "title": "Build a Supabase Integration",
+    "url": "https://supabase.com/docs/guides/integrations/build-a-supabase-oauth-integration",
+    "summary": "Build a Supabase Integration using OAuth2 and the Management API.",
+    "tags": [
+      "auth",
+      "build",
+      "build-a-supabase-oauth-integration",
+      "integration",
+      "integrations",
+      "supabase"
+    ],
+    "file": "docs/integrations/003_Build_a_Supabase_Integration.md",
+    "code_blocks": 4
+  },
+  {
+    "category": "integrations",
+    "title": "Scopes for your OAuth App",
+    "url": "https://supabase.com/docs/guides/integrations/build-a-supabase-oauth-integration/oauth-scopes",
+    "summary": "Scopes let you specify the level of access your integration needs",
+    "tags": [
+      "auth",
+      "build-a-supabase-oauth-integration",
+      "integrations",
+      "oauth",
+      "oauth-scopes",
+      "scopes",
+      "your"
+    ],
+    "file": "docs/integrations/004_Scopes_for_your_OAuth_App.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "integrations",
+    "title": "Partner Catalog",
+    "url": "https://supabase.com/docs/guides/integrations/partner-catalog",
+    "summary": "Integrations and Partners",
+    "tags": [
+      "catalog",
+      "integrations",
+      "partner",
+      "partner-catalog"
+    ],
+    "file": "docs/integrations/005_Partner_Catalog.md",
+    "code_blocks": 0
+  },
+  {
+    "category": "integrations",
+    "title": "Supabase Partner Integration Guide",
+    "url": "https://supabase.com/docs/guides/integrations/partner-integration-guide",
+    "summary": "This guide explains how a Supabase partner can integrate with the Supabase platform via OAuth.",
+    "tags": [
+      "guide",
+      "integration",
+      "integrations",
+      "partner",
+      "partner-integration-guide",
+      "supabase"
+    ],
+    "file": "docs/integrations/006_Supabase_Partner_Integration_Guide.md",
+    "code_blocks": 5
+  },
+  {
+    "category": "integrations",
+    "title": "Supabase for Platforms",
+    "url": "https://supabase.com/docs/guides/integrations/supabase-for-platforms",
+    "summary": "Use Supabase as a platform for your own business and tools.",
+    "tags": [
+      "integrations",
+      "platforms",
+      "supabase",
+      "supabase-for-platforms"
+    ],
+    "file": "docs/integrations/007_Supabase_for_Platforms.md",
+    "code_blocks": 18
+  },
+  {
+    "category": "integrations",
+    "title": "Vercel Marketplace",
+    "url": "https://supabase.com/docs/guides/integrations/vercel-marketplace",
+    "summary": "Manage your Supabase projects directly through Vercel",
+    "tags": [
+      "integrations",
+      "marketplace",
+      "vercel",
+      "vercel-marketplace"
+    ],
+    "file": "docs/integrations/008_Vercel_Marketplace.md",
+    "code_blocks": 1
+  }
+]

@@ -1,0 +1,57 @@
+---
+タイトル: Metrics API
+URL: https://supabase.com/docs/guides/monitoring-and-debugging/metrics
+カテゴリ: platform
+更新日: 2026-08-02
+タグ: api, metrics, monitoring-and-debugging, platform
+---
+
+# Metrics API
+
+**URL:** https://supabase.com/docs/guides/monitoring-and-debugging/metrics
+**カテゴリ:** platform
+**更新日:** 2026-08-02
+**タグ:** api, metrics, monitoring-and-debugging, platform
+
+## 目次
+
+- [What you can do with the Metrics API#](#what-you-can-do-with-the-metrics-api)
+  - What you can do with the Metrics API
+- [Choose your monitoring stack#](#choose-your-monitoring-stack)
+- [Additional resources#](#additional-resources)
+
+## 概要
+
+Export Supabase database metrics to any Prometheus-compatible tool
+
+---
+
+Every Supabase project exposes a [Prometheus](<https://prometheus.io/>)-compatible **Metrics API** endpoint that surfaces ~200 Postgres performance and health series. You can scrape it into any observability stack to power custom dashboards, alerting rules, or long-term retention that goes beyond what Supabase Studio provides out of the box.
+
+The Metrics API is currently in beta. Metric names and labels might evolve as we expand the dataset, and the feature is not available in self-hosted Supabase instances.
+
+## What you can do with the Metrics API#
+
+  * Stream database CPU, IO, WAL, connection, and query stats into Prometheus-compatible systems.
+  * Combine Supabase metrics with application signals in Grafana, Datadog, or any other observability vendor.
+  * Reuse our [supabase-grafana dashboard JSON](<https://github.com/supabase/supabase-grafana>) to bootstrap over 200 ready-made charts.
+  * Build your own alerting policies (right-sizing, saturation detection, index regression, and more).
+
+
+### What you can do with the Metrics API
+
+## Choose your monitoring stack#
+
+Pick the workflow that best matches your tooling. Cards link to Supabase-authored guides or vendor integration docs, and some include a “Community” pill when there’s an accompanying vendor reference.
+
+[Grafana Cloud (SaaS)Use Grafana Cloud’s managed Prometheus (works on Free + Pro tiers) and import the Supabase dashboard without running any infrastructure.Supabase guide](</docs/guides/monitoring-and-debugging/metrics/grafana-cloud>)[Grafana + self-hosted PrometheusRun Prometheus yourself following the official installation guidance and pair it with Grafana plus our dashboard JSON and alert pack.Supabase guide](</docs/guides/monitoring-and-debugging/metrics/grafana-self-hosted>)[DatadogScrape the Metrics API with the Datadog Agent or Prometheus remote write and monitor Supabase alongside your app telemetry.Community](<https://docs.datadoghq.com/integrations/supabase/>)[Vendor-agnostic / BYO PrometheusConnect AWS AMP, Grafana Mimir, VictoriaMetrics, or any Prometheus-compatible SaaS with the same scrape job pattern.Supabase guide](</docs/guides/monitoring-and-debugging/metrics/vendor-agnostic>)
+
+![Supabase Grafana dashboard showcasing database metrics](/docs/_next/image?url=%2Fdocs%2Fimg%2Fguides%2Fplatform%2Fsupabase-grafana-prometheus.png&w=3840&q=75)
+
+## Additional resources#
+
+  * [Supabase Grafana repository](<https://github.com/supabase/supabase-grafana>) for dashboard JSON and alert examples.
+  * [Grafana Cloud’s Supabase integration doc](<https://grafana.com/docs/grafana-cloud/monitor-infrastructure/integrations/integration-reference/integration-supabase/>) (community-maintained, built on this Metrics API).
+  * [Datadog’s Supabase integration doc](<https://docs.datadoghq.com/integrations/supabase/>) (community-maintained, built on this Metrics API).
+  * [Log Drains ](</docs/guides/monitoring-and-debugging/log-drains>) for exporting event-based telemetry alongside metrics.
+  * [Query Performance report](</dashboard/project/_/observability/query-performance>) for built-in visualizations based on the same underlying metrics.

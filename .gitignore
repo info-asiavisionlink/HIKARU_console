@@ -22,3 +22,10 @@ out/
 
 # Test
 /playwright-report
+
+# Supabase CLI temp files
+supabase/.temp/
+**/supabase/.temp/
+
+# Duplicate/temp files
+"HIKARU-CONSOLE/next.config 2.ts"

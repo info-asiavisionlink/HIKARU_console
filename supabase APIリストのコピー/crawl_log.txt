@@ -1,0 +1,866 @@
+=================================================================
+Supabase Documentation Crawler
+=================================================================
+Output: /Users/tanakayoshiki/Desktop/supabase APIリスト
+Start:  2026-08-02 09:21:22
+
+── Phase 1: URL Discovery ──────────────────────────────────
+Sitemap https://supabase.com/docs/sitemap.xml: 2726 entries
+Sitemap https://supabase.com/sitemap.xml: 2 entries
+Sitemap total: 2513 docs URLs
+Total URLs after dedup: 2518
+
+── Phase 2: Fetching & Converting Pages ────────────────────
+[   1/2518]   0.0% (general) https://supabase.com/docs
+       OK → 001_Supabase_Documentation.md
+[   2/2518]   0.1% (ai) https://supabase.com/docs/guides/ai
+       OK → 001_AI_&_Vectors.md
+[   3/2518]   0.1% (ai) https://supabase.com/docs/guides/ai-tools
+       OK → 002_AI_Tools.md
+[   4/2518]   0.2% (ai) https://supabase.com/docs/guides/ai-tools/ai-prompts
+       OK → 003_AI_Prompts.md
+[   5/2518]   0.2% (ai) https://supabase.com/docs/guides/ai-tools/ai-skills
+       OK → 004_Agent_Skills.md
+[   6/2518]   0.2% (ai) https://supabase.com/docs/guides/ai-tools/byo-mcp
+       OK → 005_Deploy_MCP_servers.md
+[   7/2518]   0.3% (ai) https://supabase.com/docs/guides/ai-tools/mcp
+       OK → 006_Supabase_MCP_Server.md
+[   8/2518]   0.3% (ai) https://supabase.com/docs/guides/ai-tools/plugins
+       OK → 007_Supabase_Plugin_for_AI_Coding_Agents.md
+[   9/2518]   0.4% (ai) https://supabase.com/docs/guides/ai/automatic-embeddings
+       OK → 008_Automatic_embeddings.md
+[  10/2518]   0.4% (ai) https://supabase.com/docs/guides/ai/choosing-compute-addon
+       OK → 009_Choosing_your_Compute_Add-on.md
+[  11/2518]   0.4% (ai) https://supabase.com/docs/guides/ai/concepts
+       OK → 010_Concepts.md
+[  12/2518]   0.5% (ai) https://supabase.com/docs/guides/ai/engineering-for-scale
+       OK → 011_Engineering_for_Scale.md
+[  13/2518]   0.5% (ai) https://supabase.com/docs/guides/ai/examples/building-chatgpt-plu
+       OK → 012_Building_ChatGPT_plugins.md
+[  14/2518]   0.6% (ai) https://supabase.com/docs/guides/ai/examples/headless-vector-sear
+       OK → 013_Adding_generative_Q&A_for_your_documentation.md
+[  15/2518]   0.6% (ai) https://supabase.com/docs/guides/ai/examples/huggingface-image-ca
+       OK → 014_Generate_image_captions_using_Hugging_Face.md
+[  16/2518]   0.6% (ai) https://supabase.com/docs/guides/ai/examples/image-search-openai-
+       OK → 015_Image_Search_with_OpenAI_CLIP.md
+[  17/2518]   0.7% (ai) https://supabase.com/docs/guides/ai/examples/mixpeek-video-search
+       OK → 016_Video_Search_with_Mixpeek_Multimodal_Embeddings.md
+[  18/2518]   0.7% (ai) https://supabase.com/docs/guides/ai/examples/nextjs-vector-search
+       OK → 017_Vector_search_with_Next.js_and_OpenAI.md
+[  19/2518]   0.8% (ai) https://supabase.com/docs/guides/ai/examples/openai
+       OK → 018_Generating_OpenAI_GPT3_completions.md
+[  20/2518]   0.8% (ai) https://supabase.com/docs/guides/ai/examples/semantic-image-searc
+       OK → 019_Semantic_Image_Search_with_Amazon_Titan.md
+[  21/2518]   0.8% (ai) https://supabase.com/docs/guides/ai/going-to-prod
+       OK → 020_Going_to_Production.md
+[  22/2518]   0.9% (ai) https://supabase.com/docs/guides/ai/google-colab
+       OK → 021_Google_Colab.md
+[  23/2518]   0.9% (ai) https://supabase.com/docs/guides/ai/hugging-face
+       OK → 022_Hugging_Face_Inference_API.md
+[  24/2518]   1.0% (ai) https://supabase.com/docs/guides/ai/hybrid-search
+       OK → 023_Hybrid_search.md
+[  25/2518]   1.0% (ai) https://supabase.com/docs/guides/ai/integrations/amazon-bedrock
+       OK → 024_Amazon_Bedrock.md
+[  26/2518]   1.0% (ai) https://supabase.com/docs/guides/ai/integrations/llamaindex
+       OK → 025_Learn_how_to_integrate_Supabase_with_LlamaIndex,_a_data_framework_for_your_LLM_a.md
+[  27/2518]   1.1% (ai) https://supabase.com/docs/guides/ai/integrations/roboflow
+       OK → 026_Roboflow.md
+[  28/2518]   1.1% (ai) https://supabase.com/docs/guides/ai/keyword-search
+       OK → 027_Keyword_search.md
+[  29/2518]   1.2% (ai) https://supabase.com/docs/guides/ai/langchain
+       OK → 028_LangChain.md
+[  30/2518]   1.2% (ai) https://supabase.com/docs/guides/ai/python-clients
+       OK → 029_Choosing_a_Client.md
+[  31/2518]   1.2% (ai) https://supabase.com/docs/guides/ai/python/api
+       OK → 030_API.md
+[  32/2518]   1.3% (ai) https://supabase.com/docs/guides/ai/python/collections
+       OK → 031_Collections.md
+[  33/2518]   1.3% (ai) https://supabase.com/docs/guides/ai/python/indexes
+       OK → 032_Indexes.md
+[  34/2518]   1.4% (ai) https://supabase.com/docs/guides/ai/python/metadata
+       OK → 033_Metadata.md
+[  35/2518]   1.4% (ai) https://supabase.com/docs/guides/ai/quickstarts/face-similarity
+       OK → 034_Face_similarity_search.md
+[  36/2518]   1.4% (ai) https://supabase.com/docs/guides/ai/quickstarts/generate-text-emb
+       OK → 035_Generate_Embeddings.md
+[  37/2518]   1.5% (ai) https://supabase.com/docs/guides/ai/quickstarts/hello-world
+       OK → 036_Creating_and_managing_collections.md
+[  38/2518]   1.5% (ai) https://supabase.com/docs/guides/ai/quickstarts/text-deduplicatio
+       OK → 037_Semantic_Text_Deduplication.md
+[  39/2518]   1.5% (ai) https://supabase.com/docs/guides/ai/rag-with-permissions
+       OK → 038_RAG_with_Permissions.md
+[  40/2518]   1.6% (ai) https://supabase.com/docs/guides/ai/semantic-search
+       OK → 039_Semantic_search.md
+[  41/2518]   1.6% (ai) https://supabase.com/docs/guides/ai/structured-unstructured
+       OK → 040_Structured_and_Unstructured.md
+[  42/2518]   1.7% (ai) https://supabase.com/docs/guides/ai/vecs-python-client
+       OK → 041_Python_client.md
+[  43/2518]   1.7% (ai) https://supabase.com/docs/guides/ai/vector-columns
+       OK → 042_Vector_columns.md
+[  44/2518]   1.7% (ai) https://supabase.com/docs/guides/ai/vector-indexes
+       OK → 043_Vector_indexes.md
+[  45/2518]   1.8% (ai) https://supabase.com/docs/guides/ai/vector-indexes/hnsw-indexes
+       OK → 044_HNSW_indexes.md
+[  46/2518]   1.8% (ai) https://supabase.com/docs/guides/ai/vector-indexes/ivf-indexes
+       OK → 045_IVFFlat_indexes.md
+[  47/2518]   1.9% (api) https://supabase.com/docs/guides/api
+       OK → 001_Data_REST_API.md
+[  48/2518]   1.9% (api) https://supabase.com/docs/guides/api/automatic-retries-in-supabas
+       OK → 002_How_to_do_automatic_retries_withsupabase-js.md
+[  49/2518]   1.9% (api) https://supabase.com/docs/guides/api/creating-routes
+       OK → 003_Creating_API_Routes.md
+[  50/2518]   2.0% (api) https://supabase.com/docs/guides/api/custom-claims-and-role-based
+       OK → 004_Custom_Claims_&_Role-based_Access_Control_(RBAC).md
+[  51/2518]   2.0% (api) https://supabase.com/docs/guides/api/handling-errors-in-supabase-
+       OK → 005_Handling_errors_insupabase-js.md
+[  52/2518]   2.1% (api) https://supabase.com/docs/guides/api/quickstart
+       OK → 006_Build_an_API_route_in_less_than_2_minutes..md
+[  53/2518]   2.1% (api) https://supabase.com/docs/guides/api/rest/auto-generated-docs
+       OK → 007_Auto-generated_documentation.md
+[  54/2518]   2.1% (api) https://supabase.com/docs/guides/api/rest/client-libs
+       OK → 008_Client_Libraries.md
+[  55/2518]   2.2% (api) https://supabase.com/docs/guides/api/rest/generating-python-types
+       OK → 009_Generating_Python_Types.md
+[  56/2518]   2.2% (api) https://supabase.com/docs/guides/api/rest/generating-types
+       OK → 010_Generating_TypeScript_Types.md
+[  57/2518]   2.3% (api) https://supabase.com/docs/guides/api/rest/postgrest-error-codes
+       OK → 011_Error_Codes.md
+[  58/2518]   2.3% (api) https://supabase.com/docs/guides/api/securing-your-api
+       OK → 012_Securing_your_API.md
+[  59/2518]   2.3% (api) https://supabase.com/docs/guides/api/sql-to-api
+       OK → 013_Converting_SQL_to_JavaScript_API.md
+[  60/2518]   2.4% (api) https://supabase.com/docs/guides/api/sql-to-rest
+       OK → 014_SQL_to_REST_API_Translator.md
+[  61/2518]   2.4% (api) https://supabase.com/docs/guides/api/using-custom-schemas
+       OK → 015_Using_Custom_Schemas.md
+[  62/2518]   2.5% (auth) https://supabase.com/docs/guides/auth
+       OK → 001_Auth.md
+[  63/2518]   2.5% (auth) https://supabase.com/docs/guides/auth/architecture
+       OK → 002_Auth_architecture.md
+[  64/2518]   2.5% (auth) https://supabase.com/docs/guides/auth/audit-logs
+       OK → 003_Auth_Audit_Logs.md
+[  65/2518]   2.6% (auth) https://supabase.com/docs/guides/auth/auth-anonymous
+       OK → 004_Anonymous_Sign-Ins.md
+[  66/2518]   2.6% (auth) https://supabase.com/docs/guides/auth/auth-captcha
+       OK → 005_Enable_CAPTCHA_Protection.md
+[  67/2518]   2.7% (auth) https://supabase.com/docs/guides/auth/auth-email-passwordless
+       OK → 006_Passwordless_email_logins.md
+[  68/2518]   2.7% (auth) https://supabase.com/docs/guides/auth/auth-email-templates
+       OK → 007_Email_Templates.md
+[  69/2518]   2.7% (auth) https://supabase.com/docs/guides/auth/auth-hooks
+       OK → 008_Auth_Hooks.md
+[  70/2518]   2.8% (auth) https://supabase.com/docs/guides/auth/auth-hooks/before-user-crea
+       OK → 009_Before_User_Created_Hook.md
+[  71/2518]   2.8% (auth) https://supabase.com/docs/guides/auth/auth-hooks/custom-access-to
+       OK → 010_Custom_Access_Token_Hook.md
+[  72/2518]   2.9% (auth) https://supabase.com/docs/guides/auth/auth-hooks/mfa-verification
+       OK → 011_MFA_Verification_Hook.md
+[  73/2518]   2.9% (auth) https://supabase.com/docs/guides/auth/auth-hooks/password-verific
+       OK → 012_Password_Verification_Hook.md
+[  74/2518]   2.9% (auth) https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook
+       OK → 013_Send_Email_Hook.md
+[  75/2518]   3.0% (auth) https://supabase.com/docs/guides/auth/auth-hooks/send-sms-hook
+       OK → 014_Send_SMS_Hook.md
+[  76/2518]   3.0% (auth) https://supabase.com/docs/guides/auth/auth-identity-linking
+       OK → 015_Identity_Linking.md
+[  77/2518]   3.1% (auth) https://supabase.com/docs/guides/auth/auth-mfa
+       OK → 016_Multi-Factor_Authentication.md
+[  78/2518]   3.1% (auth) https://supabase.com/docs/guides/auth/auth-mfa/phone
+       OK → 017_Multi-Factor_Authentication_(Phone).md
+[  79/2518]   3.1% (auth) https://supabase.com/docs/guides/auth/auth-mfa/totp
+       OK → 018_Multi-Factor_Authentication_(TOTP).md
+[  80/2518]   3.2% (auth) https://supabase.com/docs/guides/auth/auth-smtp
+       OK → 019_Send_emails_with_custom_SMTP.md
+[  81/2518]   3.2% (auth) https://supabase.com/docs/guides/auth/auth-web3
+       OK → 020_Sign_in_with_Web3.md
+[  82/2518]   3.3% (auth) https://supabase.com/docs/guides/auth/choosing-a-server-package
+       OK → 021_Which_package_to_use.md
+[  83/2518]   3.3% (auth) https://supabase.com/docs/guides/auth/custom-oauth-providers
+       OK → 022_Custom_OAuthOIDC_Providers.md
+[  84/2518]   3.3% (auth) https://supabase.com/docs/guides/auth/debugging/error-codes
+       OK → 023_Error_Codes.md
+[  85/2518]   3.4% (auth) https://supabase.com/docs/guides/auth/enterprise-sso
+       OK → 024_Enterprise_Single_Sign-On.md
+[  86/2518]   3.4% (auth) https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-sam
+       OK → 025_Single_Sign-On_with_SAML_2.0_for_Projects.md
+[  87/2518]   3.5% (auth) https://supabase.com/docs/guides/auth/general-configuration
+       OK → 026_General_configuration.md
+[  88/2518]   3.5% (auth) https://supabase.com/docs/guides/auth/identities
+       OK → 027_Identities.md
+[  89/2518]   3.5% (auth) https://supabase.com/docs/guides/auth/jwt-fields
+       OK → 028_JWT_Claims_Reference.md
+[  90/2518]   3.6% (auth) https://supabase.com/docs/guides/auth/jwts
+       OK → 029_JSON_Web_Token_(JWT).md
+[  91/2518]   3.6% (auth) https://supabase.com/docs/guides/auth/managing-user-data
+       OK → 030_User_Management.md
+[  92/2518]   3.7% (auth) https://supabase.com/docs/guides/auth/native-mobile-deep-linking
+       OK → 031_Native_Mobile_Deep_Linking.md
+[  93/2518]   3.7% (auth) https://supabase.com/docs/guides/auth/oauth-server
+       OK → 032_OAuth_2.1_Server.md
+[  94/2518]   3.7% (auth) https://supabase.com/docs/guides/auth/oauth-server/getting-starte
+       OK → 033_Getting_Started_with_OAuth_2.1_Server.md
+[  95/2518]   3.8% (auth) https://supabase.com/docs/guides/auth/oauth-server/mcp-authentica
+       OK → 034_Model_Context_Protocol_(MCP)_Authentication.md
+[  96/2518]   3.8% (auth) https://supabase.com/docs/guides/auth/oauth-server/oauth-flows
+       OK → 035_OAuth_2.1_Flows.md
+[  97/2518]   3.9% (auth) https://supabase.com/docs/guides/auth/oauth-server/token-security
+       OK → 036_Token_Security_and_Row_Level_Security.md
+[  98/2518]   3.9% (auth) https://supabase.com/docs/guides/auth/passkeys
+       OK → 037_Passkey_authentication.md
+[  99/2518]   3.9% (auth) https://supabase.com/docs/guides/auth/password-security
+       OK → 038_Password_security.md
+[ 100/2518]   4.0% (auth) https://supabase.com/docs/guides/auth/passwords
+       OK → 039_Password-based_Auth.md
+
+  >>> checkpoint saved (100/2518) <<<
+
+[ 101/2518]   4.0% (auth) https://supabase.com/docs/guides/auth/phone-login
+       OK → 040_Phone_Login.md
+[ 102/2518]   4.1% (auth) https://supabase.com/docs/guides/auth/quickstarts/astrojs
+       OK → 041_Use_Supabase_Auth_with_Astro.md
+[ 103/2518]   4.1% (auth) https://supabase.com/docs/guides/auth/quickstarts/nextjs
+       OK → 042_Use_Supabase_Auth_with_Next.js.md
+[ 104/2518]   4.1% (auth) https://supabase.com/docs/guides/auth/quickstarts/react
+       OK → 043_Use_Supabase_Auth_with_React.md
+[ 105/2518]   4.2% (auth) https://supabase.com/docs/guides/auth/quickstarts/react-native
+       OK → 044_Use_Supabase_Auth_with_React_Native.md
+[ 106/2518]   4.2% (auth) https://supabase.com/docs/guides/auth/quickstarts/with-expo-react
+       OK → 045_Build_a_Social_Auth_App_with_Expo_React_Native.md
+[ 107/2518]   4.2% (auth) https://supabase.com/docs/guides/auth/rate-limits
+       OK → 046_Rate_limits.md
+[ 108/2518]   4.3% (auth) https://supabase.com/docs/guides/auth/redirect-urls
+       OK → 047_Redirect_URLs.md
+[ 109/2518]   4.3% (auth) https://supabase.com/docs/guides/auth/server-side
+       OK → 048_Server-Side_Rendering.md
+[ 110/2518]   4.4% (auth) https://supabase.com/docs/guides/auth/server-side/advanced-guide
+       OK → 049_Advanced_guide.md
+[ 111/2518]   4.4% (auth) https://supabase.com/docs/guides/auth/server-side/creating-a-clie
+       OK → 050_Creating_a_Supabase_client_for_SSR.md
+[ 112/2518]   4.4% (auth) https://supabase.com/docs/guides/auth/server-side/migrating-to-ss
+       OK → 051_Migrating_to_the_SSR_package_from_Auth_Helpers.md
+[ 113/2518]   4.5% (auth) https://supabase.com/docs/guides/auth/sessions
+       OK → 052_User_sessions.md
+[ 114/2518]   4.5% (auth) https://supabase.com/docs/guides/auth/sessions/implicit-flow
+       OK → 053_Implicit_flow.md
+[ 115/2518]   4.6% (auth) https://supabase.com/docs/guides/auth/sessions/pkce-flow
+       OK → 054_PKCE_flow.md
+[ 116/2518]   4.6% (auth) https://supabase.com/docs/guides/auth/signing-keys
+       OK → 055_JWT_Signing_Keys.md
+[ 117/2518]   4.6% (auth) https://supabase.com/docs/guides/auth/signout
+       OK → 056_Signing_out.md
+[ 118/2518]   4.7% (auth) https://supabase.com/docs/guides/auth/social-login
+       OK → 057_Social_Login.md
+[ 119/2518]   4.7% (auth) https://supabase.com/docs/guides/auth/social-login/auth-apple
+       OK → 058_Login_with_Apple.md
+[ 120/2518]   4.8% (auth) https://supabase.com/docs/guides/auth/social-login/auth-azure
+       OK → 059_Login_with_Azure_(Microsoft).md
+[ 121/2518]   4.8% (auth) https://supabase.com/docs/guides/auth/social-login/auth-bitbucket
+       OK → 060_Login_with_Bitbucket.md
+[ 122/2518]   4.8% (auth) https://supabase.com/docs/guides/auth/social-login/auth-discord
+       OK → 061_Login_with_Discord.md
+[ 123/2518]   4.9% (auth) https://supabase.com/docs/guides/auth/social-login/auth-facebook
+       OK → 062_Login_with_Facebook.md
+[ 124/2518]   4.9% (auth) https://supabase.com/docs/guides/auth/social-login/auth-figma
+       OK → 063_Login_with_Figma.md
+[ 125/2518]   5.0% (auth) https://supabase.com/docs/guides/auth/social-login/auth-github
+       OK → 064_Login_with_GitHub.md
+[ 126/2518]   5.0% (auth) https://supabase.com/docs/guides/auth/social-login/auth-gitlab
+       OK → 065_Login_with_GitLab.md
+[ 127/2518]   5.0% (auth) https://supabase.com/docs/guides/auth/social-login/auth-google
+       OK → 066_Login_with_Google.md
+[ 128/2518]   5.1% (auth) https://supabase.com/docs/guides/auth/social-login/auth-kakao
+       OK → 067_Login_with_Kakao.md
+[ 129/2518]   5.1% (auth) https://supabase.com/docs/guides/auth/social-login/auth-keycloak
+       OK → 068_Login_with_Keycloak.md
+[ 130/2518]   5.2% (auth) https://supabase.com/docs/guides/auth/social-login/auth-linkedin
+       OK → 069_Login_with_LinkedIn.md
+[ 131/2518]   5.2% (auth) https://supabase.com/docs/guides/auth/social-login/auth-notion
+       OK → 070_Login_with_Notion.md
+[ 132/2518]   5.2% (auth) https://supabase.com/docs/guides/auth/social-login/auth-slack
+       OK → 071_Login_with_Slack.md
+[ 133/2518]   5.3% (auth) https://supabase.com/docs/guides/auth/social-login/auth-spotify
+       OK → 072_Login_with_Spotify.md
+[ 134/2518]   5.3% (auth) https://supabase.com/docs/guides/auth/social-login/auth-twitch
+       OK → 073_Login_with_Twitch.md
+[ 135/2518]   5.4% (auth) https://supabase.com/docs/guides/auth/social-login/auth-twitter
+       OK → 074_Login_with_X_Twitter.md
+[ 136/2518]   5.4% (auth) https://supabase.com/docs/guides/auth/social-login/auth-workos
+       OK → 075_SSO_and_Social_Login_with_WorkOS.md
+[ 137/2518]   5.4% (auth) https://supabase.com/docs/guides/auth/social-login/auth-zoom
+       OK → 076_Login_with_Zoom.md
+[ 138/2518]   5.5% (auth) https://supabase.com/docs/guides/auth/third-party/auth0
+       OK → 077_Auth0.md
+[ 139/2518]   5.5% (auth) https://supabase.com/docs/guides/auth/third-party/aws-cognito
+       OK → 078_Amazon_Cognito_(Amplify).md
+[ 140/2518]   5.6% (auth) https://supabase.com/docs/guides/auth/third-party/clerk
+       OK → 079_Clerk.md
+[ 141/2518]   5.6% (auth) https://supabase.com/docs/guides/auth/third-party/firebase-auth
+       OK → 080_Firebase_Auth.md
+[ 142/2518]   5.6% (auth) https://supabase.com/docs/guides/auth/third-party/overview
+       OK → 081_Third-party_auth.md
+[ 143/2518]   5.7% (auth) https://supabase.com/docs/guides/auth/third-party/workos
+       OK → 082_WorkOS.md
+[ 144/2518]   5.7% (auth) https://supabase.com/docs/guides/auth/users
+       OK → 083_Users.md
+[ 145/2518]   5.8% (cli) https://supabase.com/docs/guides/cli
+       OK → 001_Local_Development_&_CLI.md
+[ 146/2518]   5.8% (cron) https://supabase.com/docs/guides/cron
+       OK → 001_Cron.md
+[ 147/2518]   5.8% (cron) https://supabase.com/docs/guides/cron/install
+       OK → 002_Install.md
+[ 148/2518]   5.9% (cron) https://supabase.com/docs/guides/cron/quickstart
+       OK → 003_Quickstart.md
+[ 149/2518]   5.9% (database) https://supabase.com/docs/guides/database/arrays
+       OK → 001_Working_With_Arrays.md
+[ 150/2518]   6.0% (database) https://supabase.com/docs/guides/database/beekeeper-studio
+       OK → 002_Connecting_with_Beekeeper_Studio.md
+[ 151/2518]   6.0% (database) https://supabase.com/docs/guides/database/connecting-to-postgres
+       OK → 003_Connect_to_your_database.md
+[ 152/2518]   6.0% (database) https://supabase.com/docs/guides/database/connecting-to-postgres/
+       OK → 004_Connect_to_your_database.md
+[ 153/2518]   6.1% (database) https://supabase.com/docs/guides/database/connection-management
+       OK → 005_Connection_management.md
+[ 154/2518]   6.1% (database) https://supabase.com/docs/guides/database/custom-postgres-config
+       OK → 006_Customizing_Postgres_configs.md
+[ 155/2518]   6.2% (database) https://supabase.com/docs/guides/database/database-advisors
+       OK → 007_Performance_and_Security_Advisors.md
+[ 156/2518]   6.2% (database) https://supabase.com/docs/guides/database/dbeaver
+       OK → 008_Connecting_with_DBeaver.md
+[ 157/2518]   6.2% (database) https://supabase.com/docs/guides/database/debugging-performance
+       OK → 009_Debugging_performance_issues.md
+[ 158/2518]   6.3% (database) https://supabase.com/docs/guides/database/drizzle
+       OK → 010_Drizzle.md
+[ 159/2518]   6.3% (database) https://supabase.com/docs/guides/database/extensions
+       OK → 011_Postgres_Extensions_Overview.md
+[ 160/2518]   6.4% (database) https://supabase.com/docs/guides/database/extensions/http
+       OK → 012_http_RESTful_Client.md
+[ 161/2518]   6.4% (database) https://supabase.com/docs/guides/database/extensions/hypopg
+       OK → 013_HypoPG_Hypothetical_indexes.md
+[ 162/2518]   6.4% (database) https://supabase.com/docs/guides/database/extensions/index_adviso
+       OK → 014_index_advisor_query_optimization.md
+[ 163/2518]   6.5% (database) https://supabase.com/docs/guides/database/extensions/pg_cron
+       OK → 015_pg_cron_Schedule_Recurring_Jobs_with_Cron_Syntax_in_Postgres.md
+[ 164/2518]   6.5% (database) https://supabase.com/docs/guides/database/extensions/pg_graphql
+       OK → 016_pg_graphql_GraphQL_for_Postgres.md
+[ 165/2518]   6.6% (database) https://supabase.com/docs/guides/database/extensions/pg_hashids
+       OK → 017_pg_hashids_Short_UIDs.md
+[ 166/2518]   6.6% (database) https://supabase.com/docs/guides/database/extensions/pg_jsonschem
+       OK → 018_pg_jsonschema_JSON_Schema_Validation.md
+[ 167/2518]   6.6% (database) https://supabase.com/docs/guides/database/extensions/pg_net
+       OK → 019_pg_net_Async_Networking.md
+[ 168/2518]   6.7% (database) https://supabase.com/docs/guides/database/extensions/pg_partman
+       OK → 020_Postgres_Extensions_Overview.md
+[ 169/2518]   6.7% (database) https://supabase.com/docs/guides/database/extensions/pg_plan_filt
+       OK → 021_pg_plan_filter_Restrict_Total_Cost.md
+[ 170/2518]   6.8% (database) https://supabase.com/docs/guides/database/extensions/pg_repack
+       OK → 022_pg_repack_Physical_storage_optimization_and_maintenance.md
+[ 171/2518]   6.8% (database) https://supabase.com/docs/guides/database/extensions/pg_stat_stat
+       OK → 023_pg_stat_statements_Query_Performance_Monitoring.md
+[ 172/2518]   6.8% (database) https://supabase.com/docs/guides/database/extensions/pgaudit
+       OK → 024_PGAudit_Postgres_Auditing.md
+[ 173/2518]   6.9% (database) https://supabase.com/docs/guides/database/extensions/pgjwt
+       OK → 025_pgjwt_JSON_Web_Tokens.md
+[ 174/2518]   6.9% (database) https://supabase.com/docs/guides/database/extensions/pgmq
+       OK → 026_pgmq_Queues.md
+[ 175/2518]   6.9% (database) https://supabase.com/docs/guides/database/extensions/pgroonga
+       OK → 027_PGroonga_Multilingual_Full_Text_Search.md
+[ 176/2518]   7.0% (database) https://supabase.com/docs/guides/database/extensions/pgrouting
+       OK → 028_pgrouting_Geospatial_Routing.md
+[ 177/2518]   7.0% (database) https://supabase.com/docs/guides/database/extensions/pgsodium
+       OK → 029_pgsodium_(pending_deprecation)_Encryption_Features.md
+[ 178/2518]   7.1% (database) https://supabase.com/docs/guides/database/extensions/pgtap
+       OK → 030_pgTAP_Unit_Testing.md
+[ 179/2518]   7.1% (database) https://supabase.com/docs/guides/database/extensions/pgvector
+       OK → 031_pgvector_Embeddings_and_vector_similarity.md
+[ 180/2518]   7.1% (database) https://supabase.com/docs/guides/database/extensions/plpgsql_chec
+       OK → 032_plpgsql_check_PLpgSQL_Linter.md
+[ 181/2518]   7.2% (database) https://supabase.com/docs/guides/database/extensions/plv8
+       OK → 033_plv8_JavaScript_Language.md
+[ 182/2518]   7.2% (database) https://supabase.com/docs/guides/database/extensions/postgis
+       OK → 034_PostGIS_Geo_queries.md
+[ 183/2518]   7.3% (database) https://supabase.com/docs/guides/database/extensions/postgres_fdw
+       OK → 035_postgres_fdw.md
+[ 184/2518]   7.3% (database) https://supabase.com/docs/guides/database/extensions/rum
+       OK → 036_RUM_improved_inverted_index_for_full-text_search_based_on_GIN_index.md
+[ 185/2518]   7.3% (database) https://supabase.com/docs/guides/database/extensions/timescaledb
+       OK → 037_timescaledb_Time-Series_data.md
+[ 186/2518]   7.4% (database) https://supabase.com/docs/guides/database/extensions/uuid-ossp
+       OK → 038_uuid-ossp_Unique_Identifiers.md
+[ 187/2518]   7.4% (database) https://supabase.com/docs/guides/database/extensions/wrappers/air
+       OK → 039_Airtable.md
+[ 188/2518]   7.5% (database) https://supabase.com/docs/guides/database/extensions/wrappers/aut
+       OK → 040_Auth0.md
+[ 189/2518]   7.5% (database) https://supabase.com/docs/guides/database/extensions/wrappers/big
+       OK → 041_BigQuery.md
+[ 190/2518]   7.5% (database) https://supabase.com/docs/guides/database/extensions/wrappers/cal
+       OK → 042_Cal.com.md
+[ 191/2518]   7.6% (database) https://supabase.com/docs/guides/database/extensions/wrappers/cal
+       OK → 043_Calendly.md
+[ 192/2518]   7.6% (database) https://supabase.com/docs/guides/database/extensions/wrappers/cle
+       OK → 044_Clerk.md
+[ 193/2518]   7.7% (database) https://supabase.com/docs/guides/database/extensions/wrappers/cli
+       OK → 045_ClickHouse.md
+[ 194/2518]   7.7% (database) https://supabase.com/docs/guides/database/extensions/wrappers/clo
+       OK → 046_Cloudflare_D1.md
+[ 195/2518]   7.7% (database) https://supabase.com/docs/guides/database/extensions/wrappers/cog
+       OK → 047_AWS_Cognito.md
+[ 196/2518]   7.8% (database) https://supabase.com/docs/guides/database/extensions/wrappers/duc
+       OK → 048_DuckDB.md
+[ 197/2518]   7.8% (database) https://supabase.com/docs/guides/database/extensions/wrappers/dyn
+       OK → 049_AWS_DynamoDB.md
+[ 198/2518]   7.9% (database) https://supabase.com/docs/guides/database/extensions/wrappers/fir
+       OK → 050_Firebase.md
+[ 199/2518]   7.9% (database) https://supabase.com/docs/guides/database/extensions/wrappers/gra
+       OK → 051_Gravatar.md
+[ 200/2518]   7.9% (database) https://supabase.com/docs/guides/database/extensions/wrappers/hub
+       OK → 052_HubSpot.md
+
+  >>> checkpoint saved (200/2518) <<<
+
+[ 201/2518]   8.0% (database) https://supabase.com/docs/guides/database/extensions/wrappers/ice
+       OK → 053_Iceberg.md
+[ 202/2518]   8.0% (database) https://supabase.com/docs/guides/database/extensions/wrappers/inf
+       OK → 054_Infura.md
+[ 203/2518]   8.1% (database) https://supabase.com/docs/guides/database/extensions/wrappers/log
+       OK → 055_Logflare.md
+[ 204/2518]   8.1% (database) https://supabase.com/docs/guides/database/extensions/wrappers/mon
+       OK → 056_MongoDB.md
+[ 205/2518]   8.1% (database) https://supabase.com/docs/guides/database/extensions/wrappers/mss
+       OK → 057_MSSQL.md
+[ 206/2518]   8.2% (database) https://supabase.com/docs/guides/database/extensions/wrappers/mys
+       OK → 058_MySQL.md
+[ 207/2518]   8.2% (database) https://supabase.com/docs/guides/database/extensions/wrappers/not
+       OK → 059_Notion.md
+[ 208/2518]   8.3% (database) https://supabase.com/docs/guides/database/extensions/wrappers/ope
+       OK → 060_OpenAPI.md
+[ 209/2518]   8.3% (database) https://supabase.com/docs/guides/database/extensions/wrappers/orb
+       OK → 061_Orb.md
+[ 210/2518]   8.3% (database) https://supabase.com/docs/guides/database/extensions/wrappers/ove
+       OK → 062_Foreign_Data_Wrappers.md
+[ 211/2518]   8.4% (database) https://supabase.com/docs/guides/database/extensions/wrappers/pad
+       OK → 063_Paddle.md
+[ 212/2518]   8.4% (database) https://supabase.com/docs/guides/database/extensions/wrappers/red
+       OK → 064_Redis.md
+[ 213/2518]   8.5% (database) https://supabase.com/docs/guides/database/extensions/wrappers/s3
+       OK → 065_AWS_S3.md
+[ 214/2518]   8.5% (database) https://supabase.com/docs/guides/database/extensions/wrappers/s3_
+       OK → 066_AWS_S3_Vectors.md
+[ 215/2518]   8.5% (database) https://supabase.com/docs/guides/database/extensions/wrappers/sho
+       OK → 067_Shopify.md
+[ 216/2518]   8.6% (database) https://supabase.com/docs/guides/database/extensions/wrappers/sla
+       OK → 068_Slack.md
+[ 217/2518]   8.6% (database) https://supabase.com/docs/guides/database/extensions/wrappers/sno
+       OK → 069_Snowflake.md
+[ 218/2518]   8.7% (database) https://supabase.com/docs/guides/database/extensions/wrappers/str
+       OK → 070_Stripe.md
+[ 219/2518]   8.7% (database) https://supabase.com/docs/guides/database/full-text-search
+       OK → 071_Full_Text_Search.md
+[ 220/2518]   8.7% (database) https://supabase.com/docs/guides/database/functions
+       OK → 072_Database_Functions.md
+[ 221/2518]   8.8% (database) https://supabase.com/docs/guides/database/import-data
+       OK → 073_Import_data_into_Supabase.md
+[ 222/2518]   8.8% (database) https://supabase.com/docs/guides/database/inspect
+       OK → 074_Debugging_and_monitoring.md
+[ 223/2518]   8.9% (database) https://supabase.com/docs/guides/database/joins-and-nesting
+       OK → 075_Querying_Joins_and_Nested_tables.md
+[ 224/2518]   8.9% (database) https://supabase.com/docs/guides/database/json
+       OK → 076_Managing_JSON_and_unstructured_data.md
+[ 225/2518]   8.9% (database) https://supabase.com/docs/guides/database/metabase
+       OK → 077_Connecting_to_Metabase.md
+[ 226/2518]   9.0% (database) https://supabase.com/docs/guides/database/migrating-to-pg-partman
+       OK → 078_Migrate_from_TimescaleDB_to_pg_partman.md
+[ 227/2518]   9.0% (database) https://supabase.com/docs/guides/database/orioledb
+       OK → 079_OrioleDB_Overview.md
+[ 228/2518]   9.1% (database) https://supabase.com/docs/guides/database/overview
+       OK → 080_Database.md
+[ 229/2518]   9.1% (database) https://supabase.com/docs/guides/database/partitions
+       OK → 081_Partitioning_tables.md
+[ 230/2518]   9.1% (database) https://supabase.com/docs/guides/database/pgadmin
+       OK → 082_Connecting_with_pgAdmin.md
+[ 231/2518]   9.2% (database) https://supabase.com/docs/guides/database/postgres-js
+       OK → 083_Postgres.js.md
+[ 232/2518]   9.2% (database) https://supabase.com/docs/guides/database/postgres/cascade-delete
+       OK → 084_Cascade_Deletes.md
+[ 233/2518]   9.3% (database) https://supabase.com/docs/guides/database/postgres/column-level-s
+       OK → 085_Column_Level_Security.md
+[ 234/2518]   9.3% (database) https://supabase.com/docs/guides/database/postgres/configuration
+       OK → 086_Database_configuration.md
+[ 235/2518]   9.3% (database) https://supabase.com/docs/guides/database/postgres/data-deletion
+       OK → 087_Deleting_data_and_dropping_objects_safely.md
+[ 236/2518]   9.4% (database) https://supabase.com/docs/guides/database/postgres/dropping-all-t
+       OK → 088_Drop_all_tables_in_a_Postgres_schema.md
+[ 237/2518]   9.4% (database) https://supabase.com/docs/guides/database/postgres/enums
+       OK → 089_Managing_Enums_in_Postgres.md
+[ 238/2518]   9.5% (database) https://supabase.com/docs/guides/database/postgres/event-triggers
+       OK → 090_Event_Triggers.md
+[ 239/2518]   9.5% (database) https://supabase.com/docs/guides/database/postgres/first-row-in-g
+       OK → 091_Select_first_row_for_each_group_in_Postgres.md
+[ 240/2518]   9.5% (database) https://supabase.com/docs/guides/database/postgres/indexes
+       OK → 092_Managing_Indexes_in_Postgres.md
+[ 241/2518]   9.6% (database) https://supabase.com/docs/guides/database/postgres/roles
+       OK → 093_Postgres_Roles.md
+[ 242/2518]   9.6% (database) https://supabase.com/docs/guides/database/postgres/roles-superuse
+       OK → 094_Roles,_superuser_access_and_unsupported_operations.md
+[ 243/2518]   9.7% (database) https://supabase.com/docs/guides/database/postgres/row-level-secu
+       OK → 095_Row_Level_Security.md
+[ 244/2518]   9.7% (database) https://supabase.com/docs/guides/database/postgres/setup-replicat
+       OK → 096_Replicate_to_another_Postgres_database_using_Logical_Replication.md
+[ 245/2518]   9.7% (database) https://supabase.com/docs/guides/database/postgres/timeouts
+       OK → 097_Timeouts.md
+[ 246/2518]   9.8% (database) https://supabase.com/docs/guides/database/postgres/triggers
+       OK → 098_Postgres_Triggers.md
+[ 247/2518]   9.8% (database) https://supabase.com/docs/guides/database/postgres/which-version-
+       OK → 099_Print_Postgres_version.md
+[ 248/2518]   9.8% (database) https://supabase.com/docs/guides/database/prisma
+       OK → 100_Prisma.md
+[ 249/2518]   9.9% (database) https://supabase.com/docs/guides/database/prisma/prisma-troublesh
+       OK → 101_Troubleshooting_prisma_errors.md
+[ 250/2518]   9.9% (database) https://supabase.com/docs/guides/database/psql
+       OK → 102_Connecting_with_PSQL.md
+[ 251/2518]  10.0% (database) https://supabase.com/docs/guides/database/query-optimization
+       OK → 103_Query_Optimization.md
+[ 252/2518]  10.0% (database) https://supabase.com/docs/guides/database/replication
+       OK → 104_Database_replication.md
+[ 253/2518]  10.0% (database) https://supabase.com/docs/guides/database/replication/bigquery
+       OK → 105_BigQuery_destination.md
+[ 254/2518]  10.1% (database) https://supabase.com/docs/guides/database/replication/manual-repl
+       OK → 106_Manual_replication_FAQ.md
+[ 255/2518]  10.1% (database) https://supabase.com/docs/guides/database/replication/manual-repl
+       OK → 107_Manual_replication_monitoring.md
+[ 256/2518]  10.2% (database) https://supabase.com/docs/guides/database/replication/manual-repl
+       OK → 108_Set_up_manual_replication.md
+[ 257/2518]  10.2% (database) https://supabase.com/docs/guides/database/replication/pipelines
+       OK → 109_Set_up_Pipelines.md
+[ 258/2518]  10.2% (database) https://supabase.com/docs/guides/database/replication/pipelines-f
+       OK → 110_Pipelines_FAQ.md
+[ 259/2518]  10.3% (database) https://supabase.com/docs/guides/database/replication/pipelines-m
+       OK → 111_Monitor_pipeline_status.md
+[ 260/2518]  10.3% (database) https://supabase.com/docs/guides/database/secure-data
+       OK → 112_Securing_your_data.md
+[ 261/2518]  10.4% (database) https://supabase.com/docs/guides/database/supavisor
+       OK → 113_Supavisor.md
+[ 262/2518]  10.4% (database) https://supabase.com/docs/guides/database/tables
+       OK → 114_Tables_and_Data.md
+[ 263/2518]  10.4% (database) https://supabase.com/docs/guides/database/testing
+       OK → 115_Testing_Your_Database.md
+[ 264/2518]  10.5% (database) https://supabase.com/docs/guides/database/vault
+       OK → 116_Vault.md
+[ 265/2518]  10.5% (database) https://supabase.com/docs/guides/database/webhooks
+       OK → 117_Database_Webhooks.md
+[ 266/2518]  10.6% (platform) https://supabase.com/docs/guides/deployment
+       OK → 001_Deployment_&_Branching.md
+[ 267/2518]  10.6% (platform) https://supabase.com/docs/guides/deployment/branching
+       OK → 002_Branching.md
+[ 268/2518]  10.6% (platform) https://supabase.com/docs/guides/deployment/branching/configurati
+       OK → 003_Configuration.md
+[ 269/2518]  10.7% (platform) https://supabase.com/docs/guides/deployment/branching/dashboard
+       OK → 004_Branching_via_the_dashboard.md
+[ 270/2518]  10.7% (platform) https://supabase.com/docs/guides/deployment/branching/github-inte
+       OK → 005_GitHub_integration.md
+[ 271/2518]  10.8% (platform) https://supabase.com/docs/guides/deployment/branching/integration
+       OK → 006_Integrations.md
+[ 272/2518]  10.8% (platform) https://supabase.com/docs/guides/deployment/branching/troubleshoo
+       OK → 007_Troubleshooting.md
+[ 273/2518]  10.8% (platform) https://supabase.com/docs/guides/deployment/branching/working-wit
+       OK → 008_Working_with_branches.md
+[ 274/2518]  10.9% (platform) https://supabase.com/docs/guides/deployment/ci/backups
+       OK → 009_Automated_backups_using_GitHub_Actions.md
+[ 275/2518]  10.9% (platform) https://supabase.com/docs/guides/deployment/ci/generating-types
+       OK → 010_Generate_types_using_GitHub_Actions.md
+[ 276/2518]  11.0% (platform) https://supabase.com/docs/guides/deployment/ci/testing
+       OK → 011_Automated_testing_using_GitHub_Actions.md
+[ 277/2518]  11.0% (platform) https://supabase.com/docs/guides/deployment/database-migrations
+       OK → 012_Database_Migrations.md
+[ 278/2518]  11.0% (platform) https://supabase.com/docs/guides/deployment/going-into-prod
+       OK → 013_Production_Checklist.md
+[ 279/2518]  11.1% (platform) https://supabase.com/docs/guides/deployment/managing-environments
+       OK → 014_Managing_Environments.md
+[ 280/2518]  11.1% (platform) https://supabase.com/docs/guides/deployment/maturity-model
+       OK → 015_Maturity_Model.md
+[ 281/2518]  11.2% (platform) https://supabase.com/docs/guides/deployment/shared-responsibility
+       OK → 016_Shared_Responsibility_Model.md
+[ 282/2518]  11.2% (platform) https://supabase.com/docs/guides/deployment/terraform
+       OK → 017_Terraform_Provider.md
+[ 283/2518]  11.2% (platform) https://supabase.com/docs/guides/deployment/terraform/reference
+       OK → 018_Terraform_Provider_reference.md
+[ 284/2518]  11.3% (platform) https://supabase.com/docs/guides/deployment/terraform/tutorial
+       OK → 019_Using_the_Supabase_Terraform_Provider.md
+[ 285/2518]  11.3% (edge-functions) https://supabase.com/docs/guides/functions
+       OK → 001_Edge_Functions.md
+[ 286/2518]  11.4% (edge-functions) https://supabase.com/docs/guides/functions/ai-models
+       OK → 002_Running_AI_Models.md
+[ 287/2518]  11.4% (edge-functions) https://supabase.com/docs/guides/functions/architecture
+       OK → 003_Edge_Functions_Architecture.md
+[ 288/2518]  11.4% (edge-functions) https://supabase.com/docs/guides/functions/auth
+       OK → 004_Securing_Edge_Functions.md
+[ 289/2518]  11.5% (edge-functions) https://supabase.com/docs/guides/functions/auth-headers
+       OK → 005_Authorization_headers.md
+[ 290/2518]  11.5% (edge-functions) https://supabase.com/docs/guides/functions/auth-legacy-jwt
+       OK → 006_Integrating_With_Supabase_Auth.md
+[ 291/2518]  11.6% (edge-functions) https://supabase.com/docs/guides/functions/background-tasks
+       OK → 007_Background_Tasks.md
+[ 292/2518]  11.6% (edge-functions) https://supabase.com/docs/guides/functions/compression
+       OK → 008_Handling_Compressed_Requests.md
+[ 293/2518]  11.6% (edge-functions) https://supabase.com/docs/guides/functions/connect-to-postgres
+       OK → 009_Integrating_with_Supabase_Database_(Postgres).md
+[ 294/2518]  11.7% (edge-functions) https://supabase.com/docs/guides/functions/cors
+       OK → 010_CORS_(Cross-Origin_Resource_Sharing)_support_for_Invoking_from_the_browser.md
+[ 295/2518]  11.7% (edge-functions) https://supabase.com/docs/guides/functions/dart-edge
+       OK → 011_Dart_Edge.md
+[ 296/2518]  11.8% (edge-functions) https://supabase.com/docs/guides/functions/debugging-tools
+       OK → 012_Local_Debugging.md
+[ 297/2518]  11.8% (edge-functions) https://supabase.com/docs/guides/functions/dependencies
+       OK → 013_Managing_dependencies.md
+[ 298/2518]  11.8% (edge-functions) https://supabase.com/docs/guides/functions/deploy
+       OK → 014_Deploy_to_Production.md
+[ 299/2518]  11.9% (edge-functions) https://supabase.com/docs/guides/functions/development-environmen
+       OK → 015_Development_Environment.md
+[ 300/2518]  11.9% (edge-functions) https://supabase.com/docs/guides/functions/development-tips
+       OK → 016_Development_tips.md
+
+  >>> checkpoint saved (300/2518) <<<
+
+[ 301/2518]  12.0% (edge-functions) https://supabase.com/docs/guides/functions/ephemeral-storage
+       OK → 017_File_Storage.md
+[ 302/2518]  12.0% (edge-functions) https://supabase.com/docs/guides/functions/error-codes
+       OK → 018_Error_codes.md
+[ 303/2518]  12.0% (edge-functions) https://supabase.com/docs/guides/functions/error-handling
+       OK → 019_Error_Handling.md
+[ 304/2518]  12.1% (edge-functions) https://supabase.com/docs/guides/functions/examples/amazon-bedroc
+       OK → 020_Generate_Images_with_Amazon_Bedrock.md
+[ 305/2518]  12.1% (edge-functions) https://supabase.com/docs/guides/functions/examples/auth-send-ema
+       OK → 021_Custom_Auth_Emails_with_React_Email_and_Resend.md
+[ 306/2518]  12.2% (edge-functions) https://supabase.com/docs/guides/functions/examples/cloudflare-tu
+       OK → 022_CAPTCHA_support_with_Cloudflare_Turnstile.md
+[ 307/2518]  12.2% (edge-functions) https://supabase.com/docs/guides/functions/examples/discord-bot
+       OK → 023_Building_a_Discord_Bot.md
+[ 308/2518]  12.2% (edge-functions) https://supabase.com/docs/guides/functions/examples/elevenlabs-ge
+       OK → 024_Streaming_Speech_with_ElevenLabs.md
+[ 309/2518]  12.3% (edge-functions) https://supabase.com/docs/guides/functions/examples/elevenlabs-tr
+       OK → 025_Transcription_Telegram_Bot.md
+[ 310/2518]  12.3% (edge-functions) https://supabase.com/docs/guides/functions/examples/github-action
+       OK → 026_GitHub_Actions.md
+[ 311/2518]  12.4% (edge-functions) https://supabase.com/docs/guides/functions/examples/image-manipul
+       OK → 027_Image_Manipulation.md
+[ 312/2518]  12.4% (edge-functions) https://supabase.com/docs/guides/functions/examples/mcp-server-mc
+       OK → 028_Building_an_MCP_Server_with_mcp-lite.md
+[ 313/2518]  12.4% (edge-functions) https://supabase.com/docs/guides/functions/examples/og-image
+       OK → 029_Generating_OG_Images.md
+[ 314/2518]  12.5% (edge-functions) https://supabase.com/docs/guides/functions/examples/push-notifica
+       OK → 030_Sending_Push_Notifications.md
+[ 315/2518]  12.5% (edge-functions) https://supabase.com/docs/guides/functions/examples/rate-limiting
+       OK → 031_Rate_Limiting_Edge_Functions.md
+[ 316/2518]  12.5% (edge-functions) https://supabase.com/docs/guides/functions/examples/resumable-web
+       OK → 032_Resumable_WebSockets_with_Edge_Functions.md
+[ 317/2518]  12.6% (edge-functions) https://supabase.com/docs/guides/functions/examples/screenshots
+       OK → 033_Taking_Screenshots_with_Puppeteer.md
+[ 318/2518]  12.6% (edge-functions) https://supabase.com/docs/guides/functions/examples/semantic-sear
+       OK → 034_Semantic_Search.md
+[ 319/2518]  12.7% (edge-functions) https://supabase.com/docs/guides/functions/examples/send-emails
+       OK → 035_Sending_Emails.md
+[ 320/2518]  12.7% (edge-functions) https://supabase.com/docs/guides/functions/examples/sentry-monito
+       OK → 036_Monitoring_with_Sentry.md
+[ 321/2518]  12.7% (edge-functions) https://supabase.com/docs/guides/functions/examples/slack-bot-men
+       OK → 037_Slack_Bot_Mention_Edge_Function.md
+[ 322/2518]  12.8% (edge-functions) https://supabase.com/docs/guides/functions/examples/stripe-webhoo
+       OK → 038_Handling_Stripe_Webhooks.md
+[ 323/2518]  12.8% (edge-functions) https://supabase.com/docs/guides/functions/examples/telegram-bot
+       OK → 039_Building_a_Telegram_Bot.md
+[ 324/2518]  12.9% (edge-functions) https://supabase.com/docs/guides/functions/examples/upstash-redis
+       OK → 040_Upstash_Redis.md
+[ 325/2518]  12.9% (edge-functions) https://supabase.com/docs/guides/functions/function-configuration
+       OK → 041_Function_Configuration.md
+[ 326/2518]  12.9% (edge-functions) https://supabase.com/docs/guides/functions/http-methods
+       OK → 042_Routing.md
+[ 327/2518]  13.0% (edge-functions) https://supabase.com/docs/guides/functions/kysely-postgres
+       OK → 043_Type-Safe_SQL_with_Kysely.md
+[ 328/2518]  13.0% (edge-functions) https://supabase.com/docs/guides/functions/limits
+       OK → 044_Limits.md
+[ 329/2518]  13.1% (edge-functions) https://supabase.com/docs/guides/functions/logging
+       OK → 045_Logging.md
+[ 330/2518]  13.1% (edge-functions) https://supabase.com/docs/guides/functions/pricing
+       OK → 046_Pricing.md
+[ 331/2518]  13.1% (edge-functions) https://supabase.com/docs/guides/functions/quickstart
+       OK → 047_Getting_Started_with_Edge_Functions.md
+[ 332/2518]  13.2% (edge-functions) https://supabase.com/docs/guides/functions/quickstart-dashboard
+       OK → 048_Getting_Started_with_Edge_Functions_(Dashboard).md
+[ 333/2518]  13.2% (edge-functions) https://supabase.com/docs/guides/functions/recursive-functions
+       OK → 049_Recursive_Nested_Function_Calls.md
+[ 334/2518]  13.3% (edge-functions) https://supabase.com/docs/guides/functions/regional-invocation
+       OK → 050_Regional_Invocations.md
+[ 335/2518]  13.3% (edge-functions) https://supabase.com/docs/guides/functions/routing
+       OK → 051_Handling_Routing_in_Functions.md
+[ 336/2518]  13.3% (edge-functions) https://supabase.com/docs/guides/functions/schedule-functions
+       OK → 052_Scheduling_Edge_Functions.md
+[ 337/2518]  13.4% (edge-functions) https://supabase.com/docs/guides/functions/secrets
+       OK → 053_Environment_Variables.md
+[ 338/2518]  13.4% (edge-functions) https://supabase.com/docs/guides/functions/status-codes
+       OK → 054_Status_codes.md
+[ 339/2518]  13.5% (edge-functions) https://supabase.com/docs/guides/functions/storage-caching
+       OK → 055_Integrating_with_Supabase_Storage.md
+[ 340/2518]  13.5% (edge-functions) https://supabase.com/docs/guides/functions/unit-test
+       OK → 056_Testing_your_Edge_Functions.md
+[ 341/2518]  13.5% (edge-functions) https://supabase.com/docs/guides/functions/wasm
+       OK → 057_Using_Wasm_modules.md
+[ 342/2518]  13.6% (edge-functions) https://supabase.com/docs/guides/functions/websockets
+       OK → 058_Handling_WebSockets.md
+[ 343/2518]  13.6% (getting-started) https://supabase.com/docs/guides/getting-started
+       OK → 001_Getting_Started.md
+[ 344/2518]  13.7% (getting-started) https://supabase.com/docs/guides/getting-started/api-keys
+       OK → 002_Understanding_API_keys.md
+[ 345/2518]  13.7% (getting-started) https://supabase.com/docs/guides/getting-started/architecture
+       OK → 003_Architecture.md
+[ 346/2518]  13.7% (getting-started) https://supabase.com/docs/guides/getting-started/features
+       OK → 004_Supabase_Features.md
+[ 347/2518]  13.8% (getting-started) https://supabase.com/docs/guides/getting-started/migrating-to-new
+       OK → 005_Migrating_to_publishable_and_secret_API_keys.md
+[ 348/2518]  13.8% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/astr
+       OK → 006_Use_Supabase_with_Astro.md
+[ 349/2518]  13.9% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/expo
+       OK → 007_Use_Supabase_with_Expo_React_Native.md
+[ 350/2518]  13.9% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/flas
+       OK → 008_Use_Supabase_with_Python.md
+[ 351/2518]  13.9% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/flut
+       OK → 009_Use_Supabase_with_Flutter.md
+[ 352/2518]  14.0% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/hono
+       OK → 010_Use_Supabase_with_Hono.md
+[ 353/2518]  14.0% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/ios-
+       OK → 011_Use_Supabase_with_iOS_and_SwiftUI.md
+[ 354/2518]  14.1% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/kotl
+       OK → 012_Use_Supabase_with_Android_Kotlin.md
+[ 355/2518]  14.1% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/lara
+       OK → 013_Use_Supabase_with_Laravel.md
+[ 356/2518]  14.1% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/next
+       OK → 014_Use_Supabase_with_Next.js.md
+[ 357/2518]  14.2% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/nuxt
+       OK → 015_Use_Supabase_with_Nuxt.md
+[ 358/2518]  14.2% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/reac
+       OK → 016_Use_Supabase_with_React.md
+[ 359/2518]  14.3% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/redw
+       OK → 017_Use_Supabase_with_RedwoodJS.md
+[ 360/2518]  14.3% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/refi
+       OK → 018_Use_Supabase_with_Refine.md
+[ 361/2518]  14.3% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/ruby
+       OK → 019_Use_Supabase_with_Ruby_on_Rails.md
+[ 362/2518]  14.4% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/soli
+       OK → 020_Use_Supabase_with_SolidJS.md
+[ 363/2518]  14.4% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/spri
+       OK → 021_Use_Supabase_with_Spring_Boot.md
+[ 364/2518]  14.5% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/svel
+       OK → 022_Use_Supabase_with_SvelteKit.md
+[ 365/2518]  14.5% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/tans
+       OK → 023_Use_Supabase_with_TanStack_Start.md
+[ 366/2518]  14.5% (getting-started) https://supabase.com/docs/guides/getting-started/quickstarts/vue
+       OK → 024_Use_Supabase_with_Vue.md
+[ 367/2518]  14.6% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-a
+       OK → 025_Build_a_User_Management_App_with_Angular.md
+[ 368/2518]  14.6% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-e
+       OK → 026_Build_a_User_Management_App_with_Expo_React_Native.md
+[ 369/2518]  14.7% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-f
+       OK → 027_Build_a_User_Management_App_with_Flutter.md
+[ 370/2518]  14.7% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-i
+       OK → 028_Build_a_User_Management_App_with_Ionic_Angular.md
+[ 371/2518]  14.7% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-i
+       OK → 029_Build_a_User_Management_App_with_Ionic_React.md
+[ 372/2518]  14.8% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-i
+       OK → 030_Build_a_User_Management_App_with_Ionic_Vue.md
+[ 373/2518]  14.8% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-k
+       OK → 031_Build_a_Product_Management_Android_App_with_Jetpack_Compose.md
+[ 374/2518]  14.9% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-n
+       OK → 032_Build_a_User_Management_App_with_Next.js.md
+[ 375/2518]  14.9% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-n
+       OK → 033_Build_a_User_Management_App_with_Nuxt_3.md
+[ 376/2518]  14.9% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-r
+       OK → 034_Build_a_User_Management_App_with_React.md
+[ 377/2518]  15.0% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-r
+       OK → 035_Build_a_User_Management_App_with_RedwoodJS.md
+[ 378/2518]  15.0% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-r
+       OK → 036_Build_a_User_Management_App_with_Refine.md
+[ 379/2518]  15.1% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-s
+       OK → 037_Build_a_User_Management_App_with_SolidJS.md
+[ 380/2518]  15.1% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-s
+       OK → 038_Build_a_User_Management_App_with_Svelte.md
+[ 381/2518]  15.1% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-s
+       OK → 039_Build_a_User_Management_App_with_SvelteKit.md
+[ 382/2518]  15.2% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-s
+       OK → 040_Build_a_User_Management_App_with_Swift_and_SwiftUI.md
+[ 383/2518]  15.2% (getting-started) https://supabase.com/docs/guides/getting-started/tutorials/with-v
+       OK → 041_Build_a_User_Management_App_with_Vue_3.md
+[ 384/2518]  15.3% (api) https://supabase.com/docs/guides/graphql
+       OK → 016_GraphQL.md
+[ 385/2518]  15.3% (api) https://supabase.com/docs/guides/graphql/api
+       OK → 017_GraphQL_API.md
+[ 386/2518]  15.3% (api) https://supabase.com/docs/guides/graphql/computed-fields
+       OK → 018_Computed_Fields.md
+[ 387/2518]  15.4% (api) https://supabase.com/docs/guides/graphql/configuration
+       OK → 019_Configuration_&_Customization.md
+[ 388/2518]  15.4% (api) https://supabase.com/docs/guides/graphql/functions
+       OK → 020_Functions.md
+[ 389/2518]  15.4% (api) https://supabase.com/docs/guides/graphql/security
+       OK → 021_Security.md
+[ 390/2518]  15.5% (api) https://supabase.com/docs/guides/graphql/views
+       OK → 022_Views.md
+[ 391/2518]  15.5% (api) https://supabase.com/docs/guides/graphql/with-apollo
+       OK → 023_With_Apollo.md
+[ 392/2518]  15.6% (api) https://supabase.com/docs/guides/graphql/with-relay
+       OK → 024_With_Relay.md
+[ 393/2518]  15.6% (integrations) https://supabase.com/docs/guides/integrations
+       OK → 001_Integrations.md
+[ 394/2518]  15.6% (integrations) https://supabase.com/docs/guides/integrations/build-a-supabase-in
+       OK → 002_Build_a_Supabase_Integration.md
+[ 395/2518]  15.7% (integrations) https://supabase.com/docs/guides/integrations/build-a-supabase-oa
+       OK → 003_Build_a_Supabase_Integration.md
+[ 396/2518]  15.7% (integrations) https://supabase.com/docs/guides/integrations/build-a-supabase-oa
+       OK → 004_Scopes_for_your_OAuth_App.md
+[ 397/2518]  15.8% (integrations) https://supabase.com/docs/guides/integrations/partner-catalog
+       OK → 005_Partner_Catalog.md
+[ 398/2518]  15.8% (integrations) https://supabase.com/docs/guides/integrations/partner-integration
+       OK → 006_Supabase_Partner_Integration_Guide.md
+[ 399/2518]  15.8% (integrations) https://supabase.com/docs/guides/integrations/supabase-for-platfo
+       OK → 007_Supabase_for_Platforms.md
+[ 400/2518]  15.9% (integrations) https://supabase.com/docs/guides/integrations/vercel-marketplace
+       OK → 008_Vercel_Marketplace.md
+
+  >>> checkpoint saved (400/2518) <<<
+
+[ 401/2518]  15.9% (cli) https://supabase.com/docs/guides/local-development
+       OK → 002_Local_Development_&_CLI.md
+[ 402/2518]  16.0% (cli) https://supabase.com/docs/guides/local-development/cli-workflows
+       OK → 003_Local_development_workflow.md
+[ 403/2518]  16.0% (cli) https://supabase.com/docs/guides/local-development/cli/getting-st
+       OK → 004_Supabase_CLI.md
+[ 404/2518]  16.0% (cli) https://supabase.com/docs/guides/local-development/cli/testing-an
+       OK → 005_Testing_and_linting.md
+[ 405/2518]  16.1% (cli) https://supabase.com/docs/guides/local-development/customizing-em
+       OK → 006_Customizing_email_templates.md
+[ 406/2518]  16.1% (cli) https://supabase.com/docs/guides/local-development/database-migra
+       OK → 007_Database_migrations.md
+[ 407/2518]  16.2% (cli) https://supabase.com/docs/guides/local-development/declarative-da
+       OK → 008_Declarative_database_schemas.md
+[ 408/2518]  16.2% (cli) https://supabase.com/docs/guides/local-development/managing-confi
+       OK → 009_Managing_config_and_secrets.md
+[ 409/2518]  16.2% (cli) https://supabase.com/docs/guides/local-development/restoring-down
+       OK → 010_Restoring_a_downloaded_backup_locally.md
+[ 410/2518]  16.3% (cli) https://supabase.com/docs/guides/local-development/seeding-your-d
+       OK → 011_Seeding_your_database.md
+[ 411/2518]  16.3% (cli) https://supabase.com/docs/guides/local-development/testing/overvi
+       OK → 012_Testing_Overview.md
+[ 412/2518]  16.4% (cli) https://supabase.com/docs/guides/local-development/testing/pgtap-
+       OK → 013_Advanced_pgTAP_Testing.md
+[ 413/2518]  16.4% (platform) https://supabase.com/docs/guides/monitoring-and-debugging
+       OK → 020_Monitoring_and_Debugging.md
+[ 414/2518]  16.4% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/advance
+       OK → 021_Advanced_Log_Querying_and_Filtering.md
+[ 415/2518]  16.5% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/client-
+       OK → 022_Tracing_with_the_JS_SDK.md
+[ 416/2518]  16.5% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/debuggi
+       OK → 023_Debugging_guide.md
+[ 417/2518]  16.6% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/log-dra
+       OK → 024_Log_Drains.md
+[ 418/2518]  16.6% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/log-fie
+       OK → 025_Logs_field_reference.md
+[ 419/2518]  16.6% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/logs
+       OK → 026_Logging.md
+[ 420/2518]  16.7% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/metrics
+       OK → 027_Metrics_API.md
+[ 421/2518]  16.7% (platform) https://supabase.com/docs/guides/monitoring-and-debugging/metrics
