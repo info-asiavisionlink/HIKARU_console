@@ -8,7 +8,8 @@ import {
   PageHeader, Button, Card, CardContent, Badge, Skeleton, Breadcrumb, toast,
 } from '@hikaru/ui'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
-import { Trash2, BookOpen, MapPin, Users, Zap, DollarSign, Building2, CheckCircle2, TrendingUp, Loader2 } from 'lucide-react'
+import { Trash2, BookOpen, MapPin, Users, Zap, DollarSign, Building2, CheckCircle2, TrendingUp, Loader2, FileSignature } from 'lucide-react'
+import { CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, calculateDeadlineInfo, URGENCY_CONFIG, formatContractDate } from '@/lib/contracts/service'
 import {
   BILLING_STATUSES, type PriceEntry, type BillingEntry, emptyPrice, emptyBilling,
 } from '@/components/console/PricingCard'
@@ -42,6 +43,7 @@ export default function ProjectDetailPage() {
   const [payMonth,   setPayMonth]   = React.useState('')
   const [paying,     setPaying]     = React.useState(false)
   const [acquiredBy, setAcquiredBy] = React.useState<{ id: string; name: string } | null>(null)
+  const [contracts, setContracts] = React.useState<any[]>([])
 
   React.useEffect(() => {
     async function load() {
@@ -74,6 +76,10 @@ export default function ProjectDetailPage() {
       setLoading(false)
     }
     load()
+    fetch(`/api/contracts?`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(r => setContracts((r.contracts ?? []).filter((c: any) => c.projects?.id === id)))
+      .catch(() => {})
     Promise.all([
       fetch('/api/employees?pageSize=200&status=active', { credentials: 'include' }).then(r => r.json()),
       fetch('/api/partners?pageSize=200&status=active',  { credentials: 'include' }).then(r => r.json()),
@@ -351,6 +357,39 @@ export default function ProjectDetailPage() {
               <Badge variant={statusVariant[project.status] as any}>{statusLabel[project.status] ?? project.status}</Badge>
             </CardContent>
           </Card>
+
+          {/* 契約 */}
+          {contracts.length > 0 && (
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileSignature className="h-4 w-4 text-[var(--color-primary)]" />
+                  <span className="text-sm font-medium">契約 ({contracts.length})</span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {contracts.map((c: any) => {
+                    const dl = calculateDeadlineInfo(c.end_date)
+                    const cfg = URGENCY_CONFIG[dl.urgency]
+                    return (
+                      <Link key={c.id} href={`/contracts/${c.id}`}
+                        className="flex items-center justify-between p-2 rounded-[var(--radius)] hover:bg-[var(--color-muted)] transition-colors">
+                        <div>
+                          <p className="text-xs font-medium">{c.title}</p>
+                          <p className="text-[10px] text-[var(--color-muted-foreground)]">
+                            {formatContractDate(c.end_date)}まで
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ color: cfg.textColor, background: cfg.bgColor }}>{dl.label}</span>
+                          <Badge variant="secondary" size="sm">{CONTRACT_STATUS_LABELS[c.status as keyof typeof CONTRACT_STATUS_LABELS] ?? c.status}</Badge>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* マニュアル */}
           <Link href={`/projects/${id}/manuals`} className="block">

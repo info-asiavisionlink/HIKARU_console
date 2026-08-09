@@ -10,6 +10,7 @@ import type {
   PaymentNotificationParams,
   AiAlertNotificationParams,
   ReportNotificationParams,
+  ContractExpiryNotificationParams,
 } from './types'
 
 const APP_NAME = 'HIKARU'
@@ -250,5 +251,31 @@ export function invoiceOverdueTemplate(p: {
     '',
     `確認してください。`,
     p.companyBaseUrl ? `${p.companyBaseUrl}/invoices` : '',
+  ].filter(Boolean).join('\n')
+}
+
+// ─── 契約期限 ─────────────────────────────────────────────
+
+export function contractExpiryTemplate(p: ContractExpiryNotificationParams): string {
+  const expiryLabel =
+    p.daysUntilExpiry === 0  ? '本日' :
+    p.daysUntilExpiry === 7  ? '7日後' :
+    p.daysUntilExpiry === 30 ? '30日後' :
+    p.daysUntilExpiry === 60 ? '60日後' :
+    `${p.daysUntilExpiry}日後`
+
+  return [
+    `【${APP_NAME}】契約期限のお知らせ`,
+    '',
+    `契約先：${p.counterpartyName}`,
+    `契約名：${p.contractTitle}`,
+    '',
+    `契約終了まで${expiryLabel === '本日' ? '本日が期限です' : `${expiryLabel}です`}。`,
+    '',
+    `契約終了日：${formatDate(p.endDate)}`,
+    p.autoRenewal ? '（自動更新契約）' : '',
+    '',
+    `更新要否を確認してください。`,
+    p.companyBaseUrl ? `${p.companyBaseUrl}/contracts` : '',
   ].filter(Boolean).join('\n')
 }

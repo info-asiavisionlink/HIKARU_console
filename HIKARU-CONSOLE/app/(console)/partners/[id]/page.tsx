@@ -14,11 +14,12 @@ import {
   type PartnerStatus,
 } from '@/services/partners.service'
 import {
-  PageHeader, Button, Input, Textarea, Card, CardContent, Badge, Skeleton, toast, Breadcrumb,
+  PageHeader, Button, Input, Textarea, Card, CardContent, CardHeader, CardTitle, Badge, Skeleton, toast, Breadcrumb,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter,
 } from '@hikaru/ui'
-import { ArrowLeft, Save, Key, Trash2, FolderOpen, Building2, Lock, Pencil, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Save, Key, Trash2, FolderOpen, Building2, Lock, Pencil, RefreshCw, Eye, EyeOff, FileSignature } from 'lucide-react'
+import { CONTRACT_STATUS_LABELS, CONTRACT_TYPE_LABELS, calculateDeadlineInfo, URGENCY_CONFIG, formatContractDate } from '@/lib/contracts/service'
 import { LineStatusCard } from '@/components/console/LineStatusCard'
 
 const statusVariant: Record<PartnerStatus, string> = {
@@ -53,7 +54,16 @@ export default function PartnerDetailPage() {
   const [showPwText, setShowPwText] = React.useState(false)
   const [pwSaving, setPwSaving] = React.useState(false)
 
-  React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
+  // 契約一覧
+  const [contracts, setContracts] = React.useState<any[]>([])
+
+  React.useEffect(() => {
+    loadData()
+    fetch(`/api/contracts?counterparty_type=partner`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(r => setContracts((r.contracts ?? []).filter((c: any) => c.partners?.id === id)))
+      .catch(() => {})
+  }, [id]) // eslint-disable-line
 
   async function loadData() {
     setLoading(true)
@@ -340,6 +350,44 @@ export default function PartnerDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 契約一覧 */}
+          {contracts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <FileSignature className="h-4 w-4" /> 契約 ({contracts.length})
+                  </span>
+                  <Link href="/contracts/new">
+                    <Button variant="outline" size="sm">+ 新規</Button>
+                  </Link>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {contracts.map((c: any) => {
+                  const deadline = calculateDeadlineInfo(c.end_date)
+                  const cfg = URGENCY_CONFIG[deadline.urgency]
+                  return (
+                    <Link key={c.id} href={`/contracts/${c.id}`}
+                      className="flex items-center justify-between rounded-[var(--radius)] p-2 hover:bg-[var(--color-muted)] transition-colors">
+                      <div>
+                        <div className="text-sm font-medium">{c.title}</div>
+                        <div className="text-[10px] text-[var(--color-muted-foreground)]">
+                          {CONTRACT_TYPE_LABELS[c.contract_type as keyof typeof CONTRACT_TYPE_LABELS] ?? c.contract_type} •{' '}
+                          {formatContractDate(c.start_date)} 〜 {formatContractDate(c.end_date)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: cfg.textColor, background: cfg.bgColor }}>{deadline.label}</span>
+                        <Badge variant="secondary" size="sm">{CONTRACT_STATUS_LABELS[c.status as keyof typeof CONTRACT_STATUS_LABELS] ?? c.status}</Badge>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
 
           <Link href="/partners">
             <Button variant="outline" className="w-full">

@@ -35,19 +35,24 @@ export default function ExpensesPage() {
 
   const fetchExpenses = React.useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (filters.status)    params.set('status',    filters.status)
-    if (filters.category)  params.set('category',  filters.category)
-    if (filters.date_from) params.set('date_from', filters.date_from)
-    if (filters.date_to)   params.set('date_to',   filters.date_to)
+    try {
+      const params = new URLSearchParams()
+      if (filters.status)    params.set('status',    filters.status)
+      if (filters.category)  params.set('category',  filters.category)
+      if (filters.date_from) params.set('date_from', filters.date_from)
+      if (filters.date_to)   params.set('date_to',   filters.date_to)
 
-    const res = await fetch(`/api/expenses?${params}`, { credentials: 'include' })
-    if (res.ok) {
-      const { expenses: data, kpi: kpiData } = await res.json()
-      setExpenses(data ?? [])
-      setKpi(kpiData)
+      const res = await fetch(`/api/expenses?${params}`, { credentials: 'include' })
+      if (res.ok) {
+        const { expenses: data, kpi: kpiData } = await res.json()
+        setExpenses(data ?? [])
+        setKpi(kpiData)
+      }
+    } catch (e) {
+      console.error('fetchExpenses error:', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [filters])
 
   React.useEffect(() => { fetchExpenses() }, [fetchExpenses])

@@ -28,6 +28,11 @@ export type NotificationEventType =
   // 入金
   | 'payment_received'
   | 'invoice_overdue'
+  // 契約
+  | 'contract_expiry_60d'
+  | 'contract_expiry_30d'
+  | 'contract_expiry_7d'
+  | 'contract_expiry_0d'
 
 /** 通知先ロール */
 export type NotificationTarget = 'admin' | 'employee' | 'partner' | 'client'
@@ -109,5 +114,15 @@ export interface AiAlertNotificationParams {
 export interface ReportNotificationParams {
   projectName: string
   workDate: string
+  companyBaseUrl?: string
+}
+
+/** 契約期限通知パラメータ */
+export interface ContractExpiryNotificationParams {
+  contractTitle: string
+  counterpartyName: string
+  endDate: string         // "2027-03-31"
+  daysUntilExpiry: number // 60 / 30 / 7 / 0
+  autoRenewal: boolean
   companyBaseUrl?: string
 }

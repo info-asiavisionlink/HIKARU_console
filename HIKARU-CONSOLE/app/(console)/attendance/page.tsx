@@ -35,6 +35,7 @@ export default function AttendanceDashboardPage() {
     fetch(`/api/attendance?year=${year}&month=${month}`)
       .then(r => r.json())
       .then(json => { setSummary(json.summary ?? []); setLoading(false) })
+      .catch(() => { setLoading(false) })
   }, [year, month])
 
   function prevMonth() {

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
   Bell, FileText, X, UserCog, Inbox, ClockArrowUp, CalendarDays, Receipt,
-  FileSpreadsheet, Star, Package,
+  FileSpreadsheet, Star, Package, FileSignature,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { label: 'マニュアル管理',   href: '/manuals',       icon: BookOpen },
   { label: '報告書管理',       href: '/reports',       icon: FileText },
   { label: '在庫管理',         href: '/inventory',     icon: Package },
+  { label: '契約管理',         href: '/contracts',     icon: FileSignature },
   {
     label: '品質・満足度',
     href: '/quality',
