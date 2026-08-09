@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { fireShiftNotification } from '@/lib/line/shift-notifier'
 
 // GET /api/shifts/[id]
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -48,6 +49,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // LINE通知: ステータスに応じてイベント種別を決定
+  const newStatus = body.status
+  const eventType =
+    newStatus === 'cancelled' ? 'shift_cancelled' as const :
+    newStatus === 'confirmed' ? 'shift_confirmed' as const :
+    'shift_updated' as const
+
+  void fireShiftNotification(data, auth.companyId, eventType)
+
   return NextResponse.json({ shift: data })
 }
 
@@ -57,6 +68,19 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
 
+  // 削除前にシフト情報を取得（通知用）
+  const { data: existing } = await auth.adminClient
+    .from('shifts')
+    .select(`
+      *,
+      projects:project_id (id, name, location_name),
+      employees:employee_id (id, name),
+      partners:partner_id (id, company_name, contact_person_name)
+    `)
+    .eq('id', id)
+    .eq('company_id', auth.companyId)
+    .single()
+
   const { error } = await auth.adminClient
     .from('shifts')
     .delete()
@@ -64,5 +88,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .eq('company_id', auth.companyId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (existing) {
+    void fireShiftNotification(existing, auth.companyId, 'shift_cancelled')
+  }
+
   return NextResponse.json({ ok: true })
 }

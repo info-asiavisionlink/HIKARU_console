@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { sendNotification } from '@/lib/line/notification.service'
+import { paymentReceivedTemplate } from '@/lib/line/templates'
 
 // POST /api/invoices/[id]/payment - 入金記録
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: invoice } = await auth.adminClient
     .from('invoices')
-    .select('total_amount, paid_amount, status, company_id, invoice_type')
+    .select('total_amount, paid_amount, status, company_id, invoice_type, invoice_number')
     .eq('id', id).single()
 
   if (!invoice) return NextResponse.json({ error: '見つかりません' }, { status: 404 })
@@ -45,10 +47,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   if (isPaid) {
     update.paid_at = paid_at
-    // 将来: LINE通知 payment_received イベントをここでキック
   }
 
   await auth.adminClient.from('invoices').update(update).eq('id', id)
+
+  // LINE通知: 全額入金時に管理者へ通知
+  if (isPaid) {
+    void sendNotification({
+      companyId:       auth.companyId,
+      eventType:       'payment_received',
+      notificationKey: `payment_received:${id}`,
+      profileId:       auth.userId,
+      message:         paymentReceivedTemplate({
+        invoiceNumber: invoice.invoice_number ?? id,
+        amount:        Number(amount),
+        paidAt:        paid_at,
+        companyBaseUrl: process.env.HIKARU_CONSOLE_URL,
+      }),
+    })
+  }
 
   return NextResponse.json({ payment, is_fully_paid: isPaid, paid_amount: newPaidAmount }, { status: 201 })
 }

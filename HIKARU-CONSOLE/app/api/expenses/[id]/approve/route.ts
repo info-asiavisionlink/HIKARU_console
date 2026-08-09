@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { sendNotification } from '@/lib/line/notification.service'
+import { expenseApprovedTemplate } from '@/lib/line/templates'
 
 // POST /api/expenses/[id]/approve - submitted → approved
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -8,7 +10,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: existing } = await auth.adminClient
-    .from('expenses').select('status, company_id').eq('id', id).single()
+    .from('expenses')
+    .select('status, company_id, amount, description, worker_id')
+    .eq('id', id).single()
 
   if (!existing) return NextResponse.json({ error: '経費が見つかりません' }, { status: 404 })
   if (existing.company_id !== auth.companyId) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
@@ -28,6 +32,19 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  // 将来: LINE通知 expense_approved イベントをここでキック
+
+  // LINE通知: 申請者へ承認通知（業務処理とは独立）
+  void sendNotification({
+    companyId:       auth.companyId,
+    eventType:       'expense_approved',
+    notificationKey: `expense_approved:${id}`,
+    profileId:       existing.worker_id ?? undefined,
+    message:         expenseApprovedTemplate({
+      applicantName: '',
+      amount:        existing.amount ?? 0,
+      description:   existing.description ?? '',
+    }),
+  })
+
   return NextResponse.json({ expense: data })
 }

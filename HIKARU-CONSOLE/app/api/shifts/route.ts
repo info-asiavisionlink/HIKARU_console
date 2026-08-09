@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { fireShiftNotification } from '@/lib/line/shift-notifier'
 
 // GET /api/shifts
 export async function GET(req: NextRequest) {
@@ -79,5 +80,9 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // LINE通知: 業務処理とは独立して実行。失敗しても業務処理は成功扱い。
+  void fireShiftNotification(data, auth.companyId, 'shift_created')
+
   return NextResponse.json({ shift: data }, { status: 201 })
 }

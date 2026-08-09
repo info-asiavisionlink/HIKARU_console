@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { sendNotification } from '@/lib/line/notification.service'
+import { expenseRejectedTemplate } from '@/lib/line/templates'
 
 // POST /api/expenses/[id]/reject - submitted → rejected（却下理由必須）
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { data: existing } = await auth.adminClient
-    .from('expenses').select('status, company_id').eq('id', id).single()
+    .from('expenses')
+    .select('status, company_id, amount, description, worker_id')
+    .eq('id', id).single()
 
   if (!existing) return NextResponse.json({ error: '経費が見つかりません' }, { status: 404 })
   if (existing.company_id !== auth.companyId) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
@@ -34,6 +38,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  // 将来: LINE通知 expense_rejected イベントをここでキック
+
+  // LINE通知: 申請者へ却下通知（業務処理とは独立）
+  void sendNotification({
+    companyId:       auth.companyId,
+    eventType:       'expense_rejected',
+    notificationKey: `expense_rejected:${id}`,
+    profileId:       existing.worker_id ?? undefined,
+    message:         expenseRejectedTemplate({
+      applicantName: '',
+      amount:        existing.amount ?? 0,
+      description:   existing.description ?? '',
+      rejectReason:  reject_reason.trim(),
+    }),
+  })
+
   return NextResponse.json({ expense: data })
 }

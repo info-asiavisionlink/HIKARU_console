@@ -13,7 +13,8 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter,
 } from '@hikaru/ui'
-import { ArrowLeft, Save, Key, Trash2, FolderOpen, User, Pencil, RefreshCw, Eye, EyeOff, Monitor, Smartphone } from 'lucide-react'
+import { ArrowLeft, Save, Key, Trash2, FolderOpen, User, Pencil, RefreshCw, Eye, EyeOff, Monitor, Smartphone, MessageCircle } from 'lucide-react'
+import { LineStatusCard } from '@/components/console/LineStatusCard'
 
 const statusVariant: Record<EmployeeStatus, string> = {
   active:    'success',
@@ -281,6 +282,11 @@ export default function EmployeeDetailPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* LINE連携 */}
+          {emp.auth_user_id && (
+            <LineStatusCard entityType="employee" entityId={id} />
           )}
 
           {/* 担当案件 */}

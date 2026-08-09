@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter,
 } from '@hikaru/ui'
 import { ArrowLeft, Save, Key, Trash2, FolderOpen, Building2, Lock, Pencil, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { LineStatusCard } from '@/components/console/LineStatusCard'
 
 const statusVariant: Record<PartnerStatus, string> = {
   active:     'success',
@@ -294,6 +295,11 @@ export default function PartnerDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* LINE連携 */}
+          {partner.auth_user_id && (
+            <LineStatusCard entityType="partner" entityId={id} />
+          )}
 
           {/* 担当案件 */}
           <Card>
