@@ -20,24 +20,37 @@ const DOC_LABELS: Record<DocType, string> = {
   contract:  '契約書',
 }
 
-// 画像をリサイズ・JPEG圧縮（最大1280px、品質75%）
+// 画像をリサイズ・JPEG圧縮（最大1280px、品質75%）。失敗したら元ファイルを返す
 async function compressImage(file: File, maxPx = 1280, quality = 0.75): Promise<File> {
   return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(file), 8000) // 8秒タイムアウトで元ファイルにフォールバック
+
     const img = new Image()
     const url = URL.createObjectURL(file)
+
+    img.onerror = () => { URL.revokeObjectURL(url); clearTimeout(timer); resolve(file) }
     img.onload = () => {
       URL.revokeObjectURL(url)
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-      canvas.toBlob(
-        blob => resolve(new File([blob!], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
-        'image/jpeg', quality
-      )
+      try {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+        canvas.toBlob(
+          blob => {
+            clearTimeout(timer)
+            if (!blob) { resolve(file); return }
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+          },
+          'image/jpeg', quality
+        )
+      } catch {
+        clearTimeout(timer)
+        resolve(file)
+      }
     }
     img.src = url
   })
@@ -84,8 +97,25 @@ export function ProposalDocUpload({ value, onChange }: Props) {
       })
     }, 300)
 
-    const { error } = await supabase.storage.from('documents').upload(path, uploadFile, { upsert: true })
+    // 60秒タイムアウト付きアップロード
+    const uploadPromise = supabase.storage.from('documents').upload(path, uploadFile, { upsert: true })
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('タイムアウト（60秒）')), 60000)
+    )
+
+    let uploadResult: Awaited<typeof uploadPromise>
+    try {
+      uploadResult = await Promise.race([uploadPromise, timeoutPromise]) as Awaited<typeof uploadPromise>
+    } catch (e: unknown) {
+      clearInterval(tick)
+      setProgress(null)
+      const msg = e instanceof Error ? e.message : String(e)
+      alert('アップロード失敗: ' + msg)
+      return
+    }
+
     clearInterval(tick)
+    const { error } = uploadResult
 
     if (error) {
       setProgress(null)
