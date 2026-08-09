@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, FolderOpen, FileText, Bell, History, X, FileSpreadsheet,
+  LayoutDashboard, FolderOpen, FileText, Bell, History, X, FileSpreadsheet, Star,
 } from 'lucide-react'
 
 const GOLD = 'oklch(0.73 0.12 78)'
@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { label: '案件一覧',       href: '/projects',       icon: FolderOpen },
   { label: '報告書履歴',     href: '/reports',        icon: FileText },
   { label: '請求・書類',     href: '/invoices',       icon: FileSpreadsheet },
+  { label: '作業評価',       href: '/surveys',        icon: Star },
   { label: '通知',           href: '/notifications',  icon: Bell },
 ]
 

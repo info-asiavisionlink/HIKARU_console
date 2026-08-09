@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
   Bell, FileText, X, UserCog, Inbox, ClockArrowUp, CalendarDays, Receipt,
-  FileSpreadsheet,
+  FileSpreadsheet, Star,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -48,6 +48,16 @@ const navItems: NavItem[] = [
   { label: '協力業者管理',     href: '/partners',      icon: HandshakeIcon },
   { label: 'マニュアル管理',   href: '/manuals',       icon: BookOpen },
   { label: '報告書管理',       href: '/reports',       icon: FileText },
+  {
+    label: '品質・満足度',
+    href: '/quality',
+    icon: Star,
+    children: [
+      { label: 'ダッシュボード', href: '/quality' },
+      { label: 'アンケート一覧', href: '/quality/surveys' },
+      { label: '作業者別',       href: '/quality/workers' },
+    ],
+  },
   { label: '通知管理',         href: '/notifications', icon: Bell },
   { label: 'AI分析',           href: '/analytics',     icon: BarChart3 },
 ]
