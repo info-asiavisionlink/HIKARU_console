@@ -24,9 +24,10 @@ export default function SalesPage() {
   const today = new Date()
   const [year, setYear]   = React.useState(today.getFullYear())
   const [month, setMonth] = React.useState(today.getMonth() + 1)
-  const [stats, setStats]       = React.useState<any>(null)
-  const [proposals, setProposals] = React.useState<any[]>([])
-  const [loading, setLoading]   = React.useState(true)
+  const [stats, setStats]           = React.useState<any>(null)
+  const [proposals, setProposals]   = React.useState<any[]>([])
+  const [commissions, setCommissions] = React.useState<any[]>([])
+  const [loading, setLoading]       = React.useState(true)
 
   React.useEffect(() => {
     setLoading(true)
@@ -35,6 +36,7 @@ export default function SalesPage() {
       .then(json => {
         setStats(json.stats ?? {})
         setProposals(json.proposals ?? [])
+        setCommissions(json.commissions ?? [])
         setLoading(false)
       })
   }, [year, month])
@@ -82,10 +84,10 @@ export default function SalesPage() {
       {/* 今月のサマリーカード */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: '今月の提案数',  value: `${stats?.monthCount ?? 0}件`,          icon: TrendingUp, color: GOLD },
-          { label: '今月の承認数',  value: `${stats?.monthApproved ?? 0}件`,        icon: CheckCircle2, color: GREEN },
-          { label: '今月の成約金額', value: `¥${(stats?.monthAmount ?? 0).toLocaleString()}`, icon: Banknote, color: GOLD },
-          { label: '累計成約率',    value: `${stats?.conversionRate ?? 0}%`,       icon: Target, color: GREEN },
+          { label: '今月の提案数',    value: `${stats?.monthCount ?? 0}件`,                        icon: TrendingUp,   color: GOLD },
+          { label: '今月の承認数',    value: `${stats?.monthApproved ?? 0}件`,                      icon: CheckCircle2, color: GREEN },
+          { label: '今月の確定報酬', value: `¥${(stats?.monthCommission ?? 0).toLocaleString()}`, icon: Banknote,     color: GOLD },
+          { label: '累計成約率',      value: `${stats?.conversionRate ?? 0}%`,                      icon: Target,       color: GREEN },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-2xl p-4" style={{ background: 'oklch(0.09 0.005 255 / 0.85)', border: `1px solid ${GOLD}18` }}>
             <Icon className="h-4 w-4 mb-2" style={{ color: `${color}80` }} />
@@ -133,6 +135,41 @@ export default function SalesPage() {
           )}
         </div>
       </div>
+
+      {/* 確定報酬一覧 */}
+      {commissions.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: `${GOLD}80` }}>
+            確定済み営業報酬
+          </p>
+          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${GOLD}18` }}>
+            {commissions.slice(0, 8).map((c: any, i: number) => (
+              <div key={c.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t' : ''}`}
+                style={{ borderColor: `${GOLD}12`, background: 'oklch(0.09 0.005 255 / 0.85)' }}>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'oklch(0.88 0.008 75)' }}>
+                    {(c.projects as any)?.name ?? c.project_id}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'oklch(0.50 0.007 75)' }}>
+                    ¥{c.payment_amount.toLocaleString()} × {(c.commission_rate * 100).toFixed(0)}%
+                    {c.period_month && ` (${c.period_month})`}
+                    {' · '}{new Date(c.confirmed_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                  </p>
+                </div>
+                <span className="text-sm font-bold ml-3 shrink-0" style={{ color: GOLD }}>
+                  ¥{c.commission_amount.toLocaleString()}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: `${GOLD}12`, background: 'oklch(0.07 0.004 255 / 0.60)' }}>
+              <span className="text-xs" style={{ color: 'oklch(0.50 0.007 75)' }}>累計報酬合計</span>
+              <span className="text-base font-bold" style={{ color: GOLD }}>
+                ¥{(stats?.totalCommission ?? 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 全提案履歴リンク */}
       {proposals.length > monthProposals.length && (

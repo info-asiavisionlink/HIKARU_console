@@ -8,7 +8,7 @@ import {
   PageHeader, Button, Card, CardContent, Badge, Skeleton, Breadcrumb, toast,
 } from '@hikaru/ui'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
-import { Trash2, BookOpen, MapPin, Users, Zap, DollarSign, Building2 } from 'lucide-react'
+import { Trash2, BookOpen, MapPin, Users, Zap, DollarSign, Building2, CheckCircle2, TrendingUp, Loader2 } from 'lucide-react'
 import {
   BILLING_STATUSES, type PriceEntry, type BillingEntry, emptyPrice, emptyBilling,
 } from '@/components/console/PricingCard'
@@ -37,6 +37,11 @@ export default function ProjectDetailPage() {
   const [clients,    setClients]    = React.useState<{ id: string; name: string }[]>([])
   const [empMap,     setEmpMap]     = React.useState<Record<string, string>>({})
   const [parMap,     setParMap]     = React.useState<Record<string, string>>({})
+  const [commissions, setCommissions] = React.useState<any[]>([])
+  const [payAmount,  setPayAmount]  = React.useState('')
+  const [payMonth,   setPayMonth]   = React.useState('')
+  const [paying,     setPaying]     = React.useState(false)
+  const [acquiredBy, setAcquiredBy] = React.useState<{ id: string; name: string } | null>(null)
 
   React.useEffect(() => {
     async function load() {
@@ -57,6 +62,15 @@ export default function ProjectDetailPage() {
         setBilling({ billing_status: b.billing_status ?? 'unbilled', quote_number: b.quote_number ?? '', contract_date: b.contract_date ?? '', billing_date: b.billing_date ?? '', payment_due_date: b.payment_due_date ?? '', actual_payment_date: b.actual_payment_date ?? '', notes: b.notes ?? '' })
       }
       setClients(clientsRes.clients ?? [])
+
+      // 獲得者・報酬履歴を取得
+      if (projRes.project?.acquired_by) {
+        const empRes = await fetch(`/api/employees/${projRes.project.acquired_by}`, { credentials: 'include' }).then(r => r.json()).catch(() => null)
+        if (empRes?.data?.name) setAcquiredBy({ id: projRes.project.acquired_by, name: empRes.data.name })
+      }
+      const billingRes = await fetch(`/api/billing?project_id=${id}`, { credentials: 'include' }).then(r => r.json()).catch(() => null)
+      if (billingRes?.commissions) setCommissions(billingRes.commissions)
+
       setLoading(false)
     }
     load()
@@ -73,6 +87,32 @@ export default function ProjectDetailPage() {
     const { error } = await deleteProject(id)
     if (error) toast.error('削除に失敗しました')
     else { toast.success('案件を削除しました'); router.push('/projects') }
+  }
+
+  async function handlePaymentComplete() {
+    if (!payAmount || Number(payAmount) <= 0) { toast.error('入金額を入力してください'); return }
+    setPaying(true)
+    const res = await fetch('/api/billing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        project_id: id,
+        payment_amount: Number(payAmount),
+        period_month: payMonth || null,
+      }),
+    })
+    const json = await res.json()
+    if (res.ok) {
+      toast.success(json.message ?? '入金完了を記録しました')
+      setPayAmount('')
+      // 報酬リストを更新
+      const billingRes = await fetch(`/api/billing?project_id=${id}`, { credentials: 'include' }).then(r => r.json()).catch(() => null)
+      if (billingRes?.commissions) setCommissions(billingRes.commissions)
+    } else {
+      toast.error(json.error ?? '処理に失敗しました')
+    }
+    setPaying(false)
   }
 
   if (loading) return (
@@ -217,6 +257,74 @@ export default function ProjectDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* 入金完了・営業報酬 */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" /> 入金完了・営業報酬
+              </h2>
+
+              {/* 獲得者 */}
+              {acquiredBy && (
+                <div className="flex items-center gap-2 text-sm">
+                  <TrendingUp className="h-3.5 w-3.5 text-[var(--color-primary)]" />
+                  <span className="text-[var(--color-muted-foreground)] text-xs">営業獲得者:</span>
+                  <span className="font-medium">{acquiredBy.name}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    ({project.project_type === 'spot' ? '8%' : '3%'})
+                  </span>
+                </div>
+              )}
+
+              {/* 入金完了フォーム */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={payAmount}
+                    onChange={e => setPayAmount(e.target.value)}
+                    placeholder="入金額（円）"
+                    className="flex-1 h-9 rounded-lg px-3 text-sm border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-foreground)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                  />
+                  {(project.project_type === 'recurring' || project.project_type === 'hotel') && (
+                    <input
+                      type="month"
+                      value={payMonth}
+                      onChange={e => setPayMonth(e.target.value)}
+                      className="h-9 rounded-lg px-3 text-sm border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-foreground)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                    />
+                  )}
+                  <Button size="sm" onClick={handlePaymentComplete} disabled={paying}>
+                    {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    入金完了
+                  </Button>
+                </div>
+                {(project.project_type === 'recurring' || project.project_type === 'hotel') && (
+                  <p className="text-xs text-[var(--color-muted-foreground)]">定期・ホテル案件は対象月を選択してください</p>
+                )}
+              </div>
+
+              {/* 報酬履歴 */}
+              {commissions.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)]">確定済み報酬</p>
+                  {commissions.map((c: any) => (
+                    <div key={c.id} className="flex items-center justify-between text-xs bg-[var(--color-bg-elevated)] rounded-lg px-3 py-2">
+                      <div>
+                        <span className="font-medium">{(c.profiles as any)?.name ?? '—'}</span>
+                        {c.period_month && <span className="ml-2 text-[var(--color-muted-foreground)]">{c.period_month}</span>}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[var(--color-muted-foreground)]">入金 ¥{c.payment_amount.toLocaleString()} × {(c.commission_rate * 100).toFixed(0)}%</span>
+                        <span className="ml-2 font-bold text-[var(--color-primary)]">= ¥{c.commission_amount.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* 右カラム */}

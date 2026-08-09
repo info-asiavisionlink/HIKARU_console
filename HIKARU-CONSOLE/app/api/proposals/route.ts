@@ -79,6 +79,10 @@ export async function PATCH(req: NextRequest) {
       await admin.from('project_documents')
         .update({ project_id: project.id })
         .eq('proposal_id', id)
+      // 案件の獲得者（営業担当者）をセット
+      await admin.from('projects')
+        .update({ acquired_by: proposal.worker_id })
+        .eq('id', project.id)
     }
   }
 
