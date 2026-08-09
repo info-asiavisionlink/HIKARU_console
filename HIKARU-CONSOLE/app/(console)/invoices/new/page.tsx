@@ -31,7 +31,7 @@ interface ProjectOption {
 
 interface ClientOption { id: string; name: string }
 
-export default function NewInvoicePage() {
+function NewInvoiceContent() {
   const router     = useRouter()
   const sp         = useSearchParams()
   const initType   = (sp.get('type') ?? 'quote') as 'quote' | 'invoice'
@@ -179,7 +179,7 @@ export default function NewInvoicePage() {
   }, [prices, periodMonth])
 
   return (
-    <div>
+    <div className="p-6">
       <Breadcrumb items={[
         { label: invoiceType === 'quote' ? '見積書' : '請求書', href: invoiceType === 'quote' ? '/invoices/quotes' : '/invoices/bills' },
         { label: '新規作成' },
@@ -448,5 +448,13 @@ export default function NewInvoicePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NewInvoicePage() {
+  return (
+    <React.Suspense fallback={<div className="p-6 text-sm text-[var(--color-muted-foreground)]">読み込み中...</div>}>
+      <NewInvoiceContent />
+    </React.Suspense>
   )
 }
