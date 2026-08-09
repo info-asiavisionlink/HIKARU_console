@@ -74,10 +74,15 @@ export function ProposalDocUpload({ value, onChange }: Props) {
     const ext  = uploadFile.name.split('.').pop()?.toLowerCase() ?? 'bin'
     const path = `proposals/${Date.now()}_${docType}.${ext}`
 
-    // 進捗アニメーション（40→85% をアップロード中に流す）
+    // 進捗アニメーション（40→95% をゆっくり流す。完了時に100%へジャンプ）
     const tick = setInterval(() => {
-      setProgress(p => p && p.pct < 85 ? { ...p, pct: p.pct + 5 } : p)
-    }, 200)
+      setProgress(p => {
+        if (!p || p.pct >= 95) return p
+        // 残り距離の10%ずつ近づく（95%に漸近、止まらない）
+        const next = p.pct + (95 - p.pct) * 0.08
+        return { ...p, pct: Math.round(next) }
+      })
+    }, 300)
 
     const { error } = await supabase.storage.from('documents').upload(path, uploadFile, { upsert: true })
     clearInterval(tick)
