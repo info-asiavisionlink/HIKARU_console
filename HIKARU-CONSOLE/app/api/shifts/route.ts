@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getAuthContext } from '@/lib/supabase/server-admin'
+
+// GET /api/shifts
+export async function GET(req: NextRequest) {
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const p = req.nextUrl.searchParams
+  const dateFrom  = p.get('date_from')
+  const dateTo    = p.get('date_to')
+  const projectId = p.get('project_id')
+  const status    = p.get('status')
+
+  let query = auth.adminClient
+    .from('shifts')
+    .select(`
+      *,
+      projects:project_id (id, name, location_name, address, project_type),
+      employees:employee_id (id, name, name_kana, phone),
+      partners:partner_id (id, company_name, contact_person_name, phone)
+    `)
+    .eq('company_id', auth.companyId)
+    .order('shift_date', { ascending: true })
+    .order('start_time', { ascending: true })
+
+  if (dateFrom) query = query.gte('shift_date', dateFrom)
+  if (dateTo)   query = query.lte('shift_date', dateTo)
+  if (projectId) query = query.eq('project_id', projectId)
+  if (status)    query = query.eq('status', status)
+
+  const { data, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ shifts: data ?? [] })
+}
+
+// POST /api/shifts
+export async function POST(req: NextRequest) {
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json()
+  const {
+    project_id, assignee_type, employee_id, partner_id,
+    shift_date, start_time, end_time, notes, status = 'scheduled',
+  } = body
+
+  if (!project_id || !assignee_type || !shift_date || !start_time || !end_time) {
+    return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
+  }
+  if (assignee_type === 'employee' && !employee_id) {
+    return NextResponse.json({ error: '従業員を選択してください' }, { status: 400 })
+  }
+  if (assignee_type === 'partner' && !partner_id) {
+    return NextResponse.json({ error: '協力業者を選択してください' }, { status: 400 })
+  }
+
+  const { data, error } = await auth.adminClient
+    .from('shifts')
+    .insert({
+      company_id: auth.companyId,
+      project_id,
+      assignee_type,
+      employee_id:  assignee_type === 'employee' ? employee_id : null,
+      partner_id:   assignee_type === 'partner'  ? partner_id  : null,
+      shift_date,
+      start_time,
+      end_time,
+      notes,
+      status,
+      created_by: auth.userId,
+    })
+    .select(`
+      *,
+      projects:project_id (id, name, location_name, address, project_type),
+      employees:employee_id (id, name, name_kana, phone),
+      partners:partner_id (id, company_name, contact_person_name, phone)
+    `)
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ shift: data }, { status: 201 })
+}
