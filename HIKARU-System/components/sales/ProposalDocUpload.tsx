@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { X, FileText, ImageIcon, Plus } from 'lucide-react'
 
 export type DocType = 'exterior' | 'work_area' | 'brochure' | 'contract'
@@ -20,39 +19,65 @@ const DOC_LABELS: Record<DocType, string> = {
   contract:  '契約書',
 }
 
-// 画像をリサイズ・JPEG圧縮（最大1280px、品質75%）。失敗したら元ファイルを返す
+// 画像を Canvas でリサイズ圧縮。失敗したら元ファイルを返す
 async function compressImage(file: File, maxPx = 1280, quality = 0.75): Promise<File> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(file), 8000) // 8秒タイムアウトで元ファイルにフォールバック
-
+    const timer = setTimeout(() => resolve(file), 8000)
     const img = new Image()
     const url = URL.createObjectURL(file)
-
     img.onerror = () => { URL.revokeObjectURL(url); clearTimeout(timer); resolve(file) }
     img.onload = () => {
       URL.revokeObjectURL(url)
       try {
         const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
-        const w = Math.round(img.width * scale)
-        const h = Math.round(img.height * scale)
         const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-        canvas.toBlob(
-          blob => {
-            clearTimeout(timer)
-            if (!blob) { resolve(file); return }
-            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
-          },
-          'image/jpeg', quality
-        )
-      } catch {
-        clearTimeout(timer)
-        resolve(file)
-      }
+        canvas.width  = Math.round(img.width  * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(blob => {
+          clearTimeout(timer)
+          if (!blob) { resolve(file); return }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+        }, 'image/jpeg', quality)
+      } catch { clearTimeout(timer); resolve(file) }
     }
     img.src = url
+  })
+}
+
+// XHR でアップロード → 本物の進捗%を取得
+function uploadWithProgress(
+  file: File,
+  path: string,
+  onProgress: (pct: number) => void,
+): Promise<{ publicUrl: string; path: string }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('path', path)
+
+    const xhr = new XMLHttpRequest()
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)) }
+        catch { reject(new Error('レスポンス解析エラー')) }
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText)
+          reject(new Error(body.error ?? `HTTP ${xhr.status}`))
+        } catch { reject(new Error(`HTTP ${xhr.status}`)) }
+      }
+    }
+    xhr.onerror   = () => reject(new Error('ネットワークエラー'))
+    xhr.ontimeout = () => reject(new Error('タイムアウト'))
+    xhr.timeout   = 120_000 // 2分
+
+    xhr.open('POST', '/api/upload')
+    xhr.send(form)
   })
 }
 
@@ -62,7 +87,7 @@ interface Props {
 }
 
 export function ProposalDocUpload({ value, onChange }: Props) {
-  const [progress, setProgress] = React.useState<{ type: DocType; pct: number } | null>(null)
+  const [progress, setProgress] = React.useState<{ type: DocType; pct: number; label: string } | null>(null)
   const [areaLabel, setAreaLabel] = React.useState('')
   const refs = {
     exterior:  React.useRef<HTMLInputElement>(null),
@@ -72,77 +97,43 @@ export function ProposalDocUpload({ value, onChange }: Props) {
   }
 
   async function upload(file: File, docType: DocType, spotName?: string) {
-    setProgress({ type: docType, pct: 0 })
+    setProgress({ type: docType, pct: 0, label: '準備中...' })
 
     // 画像なら圧縮
     let uploadFile = file
     if (file.type.startsWith('image/')) {
-      setProgress({ type: docType, pct: 10 })
+      setProgress({ type: docType, pct: 5, label: '圧縮中...' })
       uploadFile = await compressImage(file)
     }
 
-    setProgress({ type: docType, pct: 40 })
-
-    const supabase = createClient()
     const ext  = uploadFile.name.split('.').pop()?.toLowerCase() ?? 'bin'
     const path = `proposals/${Date.now()}_${docType}.${ext}`
 
-    // 進捗アニメーション（40→95% をゆっくり流す。完了時に100%へジャンプ）
-    const tick = setInterval(() => {
-      setProgress(p => {
-        if (!p || p.pct >= 95) return p
-        // 残り距離の10%ずつ近づく（95%に漸近、止まらない）
-        const next = p.pct + (95 - p.pct) * 0.08
-        return { ...p, pct: Math.round(next) }
-      })
-    }, 300)
-
-    // 60秒タイムアウト付きアップロード
-    const uploadPromise = supabase.storage.from('documents').upload(path, uploadFile, { upsert: true })
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('タイムアウト（60秒）')), 60000)
-    )
-
-    let uploadResult: Awaited<typeof uploadPromise>
     try {
-      uploadResult = await Promise.race([uploadPromise, timeoutPromise]) as Awaited<typeof uploadPromise>
+      const { publicUrl } = await uploadWithProgress(uploadFile, path, (pct) => {
+        setProgress({ type: docType, pct: Math.round(10 + pct * 0.9), label: 'アップロード中...' })
+      })
+
+      setProgress({ type: docType, pct: 100, label: '完了！' })
+      onChange([...value, { doc_type: docType, name: file.name, url: publicUrl, storage_path: path, spot_name: spotName }])
+      setTimeout(() => setProgress(null), 600)
     } catch (e: unknown) {
-      clearInterval(tick)
       setProgress(null)
-      const msg = e instanceof Error ? e.message : String(e)
-      alert('アップロード失敗: ' + msg)
-      return
+      alert('アップロード失敗: ' + (e instanceof Error ? e.message : String(e)))
     }
-
-    clearInterval(tick)
-    const { error } = uploadResult
-
-    if (error) {
-      setProgress(null)
-      alert('アップロード失敗: ' + error.message)
-      return
-    }
-
-    setProgress({ type: docType, pct: 100 })
-    const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(path)
-    onChange([...value, { doc_type: docType, name: file.name, url: publicUrl, storage_path: path, spot_name: spotName }])
-
-    setTimeout(() => setProgress(null), 400)
   }
 
   function remove(idx: number) { onChange(value.filter((_, i) => i !== idx)) }
 
   return (
     <div className="space-y-4">
-      {/* アップロード済み */}
       {value.length > 0 && (
         <div className="space-y-2">
           {value.map((d, i) => (
             <div key={i} className="flex items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2">
               {d.doc_type === 'exterior' || d.doc_type === 'work_area'
                 ? <ImageIcon className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-                : <FileText  className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
-              }
+                : <FileText  className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{d.name}</p>
                 <p className="text-[10px] text-[var(--color-muted-foreground)]">
@@ -157,51 +148,18 @@ export function ProposalDocUpload({ value, onChange }: Props) {
         </div>
       )}
 
-      {/* 外観写真 */}
-      <UploadBtn
-        label="外観写真を追加"
-        accept="image/*"
-        progress={progress?.type === 'exterior' ? progress.pct : null}
-        inputRef={refs.exterior}
-        onSelect={f => upload(f, 'exterior')}
-      />
+      <UploadBtn label="外観写真を追加"        accept="image/*"                    progress={progress?.type === 'exterior'  ? progress : null} inputRef={refs.exterior}  onSelect={f => upload(f, 'exterior')} />
 
-      {/* 作業箇所写真 */}
       <div className="space-y-2">
         <label className="text-xs font-medium text-[var(--color-foreground)]">作業箇所写真（複数可）</label>
-        <input
-          value={areaLabel}
-          onChange={e => setAreaLabel(e.target.value)}
+        <input value={areaLabel} onChange={e => setAreaLabel(e.target.value)}
           placeholder="箇所名（例：浴室、トイレ）"
-          className="w-full h-9 rounded-[var(--radius)] px-3 text-xs border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-foreground)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-        />
-        <UploadBtn
-          label={`作業箇所写真を追加${areaLabel ? ` (${areaLabel})` : ''}`}
-          accept="image/*"
-          progress={progress?.type === 'work_area' ? progress.pct : null}
-          inputRef={refs.work_area}
-          onSelect={f => upload(f, 'work_area', areaLabel || undefined)}
-          small
-        />
+          className="w-full h-9 rounded-[var(--radius)] px-3 text-xs border border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[var(--color-foreground)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]" />
+        <UploadBtn label={`作業箇所写真を追加${areaLabel ? ` (${areaLabel})` : ''}`} accept="image/*" progress={progress?.type === 'work_area' ? progress : null} inputRef={refs.work_area} onSelect={f => upload(f, 'work_area', areaLabel || undefined)} small />
       </div>
 
-      {/* パンフレット */}
-      <UploadBtn
-        label="パンフレット (PDF/画像)"
-        accept="application/pdf,image/*"
-        progress={progress?.type === 'brochure' ? progress.pct : null}
-        inputRef={refs.brochure}
-        onSelect={f => upload(f, 'brochure')}
-      />
-
-      {/* 契約書 */}
-      <UploadBtn
-        label="契約書 (PDF)"
-        accept="application/pdf"
-        progress={progress?.type === 'contract' ? progress.pct : null}
-        inputRef={refs.contract}
-        onSelect={f => upload(f, 'contract')}
-      />
+      <UploadBtn label="パンフレット (PDF/画像)" accept="application/pdf,image/*"   progress={progress?.type === 'brochure'  ? progress : null} inputRef={refs.brochure}  onSelect={f => upload(f, 'brochure')} />
+      <UploadBtn label="契約書 (PDF)"            accept="application/pdf"           progress={progress?.type === 'contract'  ? progress : null} inputRef={refs.contract}  onSelect={f => upload(f, 'contract')} />
     </div>
   )
 }
@@ -209,7 +167,7 @@ export function ProposalDocUpload({ value, onChange }: Props) {
 function UploadBtn({ label, accept, progress, inputRef, onSelect, small }: {
   label: string
   accept: string
-  progress: number | null
+  progress: { pct: number; label: string } | null
   inputRef: React.RefObject<HTMLInputElement>
   onSelect: (f: File) => void
   small?: boolean
@@ -221,31 +179,20 @@ function UploadBtn({ label, accept, progress, inputRef, onSelect, small }: {
     <div>
       <input ref={inputRef} type="file" accept={accept} className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) onSelect(f); e.target.value = '' }} />
-      <button
-        type="button"
-        onClick={() => !loading && inputRef.current?.click()}
-        disabled={loading}
-        className={`w-full rounded-[var(--radius-lg)] border-dashed transition-all disabled:opacity-60 overflow-hidden ${small ? 'py-2' : 'py-3'}`}
-        style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)', position: 'relative' }}
+      <button type="button" onClick={() => !loading && inputRef.current?.click()} disabled={loading}
+        className={`w-full rounded-[var(--radius-lg)] border-dashed transition-all disabled:opacity-60 overflow-hidden relative ${small ? 'py-2' : 'py-3'}`}
+        style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}
       >
-        {/* プログレスバー背景 */}
+        {/* 本物の進捗バー */}
         {loading && (
-          <div
-            className="absolute inset-0 transition-all duration-200"
-            style={{
-              width: `${progress}%`,
-              background: `${GOLD}18`,
-              borderRight: progress! < 100 ? `1px solid ${GOLD}40` : 'none',
-            }}
-          />
+          <div className="absolute inset-0 transition-all duration-150"
+            style={{ width: `${progress!.pct}%`, background: `${GOLD}18`, borderRight: `1px solid ${GOLD}40` }} />
         )}
         <span className="relative flex items-center justify-center gap-2 text-xs">
           {loading ? (
             <>
-              <span style={{ color: GOLD }}>
-                {progress! < 20 ? '圧縮中...' : progress! < 90 ? 'アップロード中...' : '完了'}
-              </span>
-              <span className="font-bold tabular-nums" style={{ color: GOLD }}>{progress}%</span>
+              <span style={{ color: GOLD }}>{progress!.label}</span>
+              <span className="font-bold tabular-nums" style={{ color: GOLD }}>{progress!.pct}%</span>
             </>
           ) : (
             <><Plus className="h-4 w-4" />{label}</>
