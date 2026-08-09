@@ -3,17 +3,29 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Briefcase, Calendar, Bell, User, X, LogOut, Link2, ClockArrowUp, TrendingUp } from 'lucide-react'
+import { Home, Briefcase, Calendar, Bell, User, X, LogOut, Link2, ClockArrowUp, TrendingUp, Zap, RefreshCw, Hotel } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
 const GOLD = 'oklch(0.73 0.12 78)'
 
-const navItems = [
+type NavChild = { label: string; href: string }
+type NavItem  = { label: string; href: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; children?: NavChild[] }
+
+const navItems: NavItem[] = [
   { label: 'ホーム',       href: '/home',          icon: Home },
   { label: '案件',         href: '/jobs',           icon: Briefcase },
   { label: 'スケジュール', href: '/schedule',       icon: Calendar },
   { label: '勤怠管理',     href: '/attendance',     icon: ClockArrowUp },
-  { label: '営業成績',     href: '/sales',          icon: TrendingUp },
+  {
+    label: '営業成績',
+    href: '/sales',
+    icon: TrendingUp,
+    children: [
+      { label: '単発案件', href: '/sales/new/spot' },
+      { label: '定期案件', href: '/sales/new/recurring' },
+      { label: 'ホテル案件', href: '/sales/new/hotel' },
+    ],
+  },
   { label: '通知',         href: '/notifications',  icon: Bell },
   { label: 'Google連携',   href: '/google',         icon: Link2 },
   { label: 'プロフィール', href: '/profile',        icon: User },
@@ -27,10 +39,17 @@ interface WorkerSidebarProps {
 export function WorkerSidebar({ mobileOpen = false, onMobileClose }: WorkerSidebarProps) {
   const pathname = usePathname()
 
-  // ページ遷移時にモバイルドロワーを閉じる
   React.useEffect(() => {
     onMobileClose?.()
   }, [pathname]) // eslint-disable-line
+
+  function isGroupActive(item: NavItem) {
+    return pathname.startsWith(item.href)
+  }
+
+  function isChildActive(href: string) {
+    return pathname === href || pathname.startsWith(href + '/')
+  }
 
   const sidebar = (
     <aside
@@ -92,8 +111,54 @@ export function WorkerSidebar({ mobileOpen = false, onMobileClose }: WorkerSideb
         </p>
         <ul className="flex flex-col gap-0.5 px-2">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href)
+            const groupActive = isGroupActive(item)
             const Icon = item.icon
+
+            if (item.children) {
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className="flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-all duration-200"
+                    style={groupActive ? {
+                      background: `linear-gradient(90deg, ${GOLD}1f, transparent)`,
+                      color: 'oklch(0.82 0.13 78)',
+                      borderLeft: `2px solid ${GOLD}cc`,
+                      marginLeft: -2,
+                    } : { color: 'oklch(0.55 0.008 75)' }}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" style={groupActive ? { filter: `drop-shadow(0 0 4px ${GOLD}cc)` } : {}} />
+                    <span className="truncate">{item.label}</span>
+                    {groupActive && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full"
+                        style={{ background: GOLD, boxShadow: `0 0 6px ${GOLD}` }} />
+                    )}
+                  </Link>
+                  <ul className="ml-7 mt-0.5 flex flex-col gap-0.5 border-l pl-3"
+                    style={{ borderColor: `${GOLD}22` }}>
+                    {item.children.map((child) => {
+                      const childActive = isChildActive(child.href)
+                      return (
+                        <li key={child.href}>
+                          <Link
+                            href={child.href}
+                            className="block rounded-[var(--radius)] px-3 py-1.5 text-xs font-medium transition-all duration-150"
+                            style={childActive ? {
+                              background: `${GOLD}18`,
+                              color: 'oklch(0.82 0.13 78)',
+                            } : { color: 'oklch(0.50 0.007 75)' }}
+                          >
+                            {child.label}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </li>
+              )
+            }
+
+            const isActive = pathname.startsWith(item.href)
             return (
               <li key={item.href}>
                 <Link

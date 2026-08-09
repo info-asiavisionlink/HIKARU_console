@@ -5,13 +5,17 @@
   "workspaces": [
     "HIKARU-System",
     "HIKARU-CONSOLE",
+    "HIKARU-customer portal",
+    "HIKARU-Partner",
     "packages/*"
   ],
   "scripts": {
     "dev:system": "npm run dev --workspace=HIKARU-System",
     "dev:console": "npm run dev --workspace=HIKARU-CONSOLE",
+    "dev:portal": "npm run dev --workspace=hikaru-customer-portal",
     "build:system": "npm run build --workspace=HIKARU-System",
     "build:console": "npm run build --workspace=HIKARU-CONSOLE",
+    "build:portal": "npm run build --workspace=hikaru-customer-portal",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present"
