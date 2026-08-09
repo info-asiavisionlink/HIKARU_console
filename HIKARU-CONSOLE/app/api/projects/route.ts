@@ -8,11 +8,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized', projects: [], count: 0 }, { status: 401 })
   }
 
-  const url    = new URL(req.url)
-  const search = url.searchParams.get('search') ?? ''
-  const status = url.searchParams.get('status') ?? ''
-  const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'))
-  const size   = Math.min(100, parseInt(url.searchParams.get('pageSize') ?? '20'))
+  const url      = new URL(req.url)
+  const search   = url.searchParams.get('search') ?? ''
+  const status   = url.searchParams.get('status') ?? ''
+  const clientId = url.searchParams.get('client_id') ?? ''
+  const page     = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'))
+  const size     = Math.min(100, parseInt(url.searchParams.get('pageSize') ?? '20'))
 
   // service_role + company_id フィルタ（RLS 無限再帰を完全回避）
   let query = auth.adminClient
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
   }
   if (status) {
     query = query.eq('status', status)
+  }
+  if (clientId) {
+    query = query.eq('client_id', clientId)
   }
 
   const { data, count, error } = await query

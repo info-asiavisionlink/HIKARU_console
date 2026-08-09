@@ -131,7 +131,12 @@ export default function ProjectDetailPage() {
         title={project.name}
         breadcrumb={<Breadcrumb items={[{ label: '案件管理', href: '/projects' }, { label: project.name }]} />}
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Link href={`/invoices/new?type=quote&project_id=${id}`}>
+              <Button variant="outline" size="sm">
+                <DollarSign className="h-4 w-4" /> 見積書作成
+              </Button>
+            </Link>
             <Link href={`/projects/${id}/manuals`}>
               <Button variant="outline" size="sm"><BookOpen className="h-4 w-4" /> マニュアル</Button>
             </Link>

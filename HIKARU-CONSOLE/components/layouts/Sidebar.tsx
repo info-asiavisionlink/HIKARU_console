@@ -7,6 +7,7 @@ import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
   Bell, FileText, X, UserCog, Inbox, ClockArrowUp, CalendarDays, Receipt,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -34,6 +35,16 @@ const navItems: NavItem[] = [
   { label: '勤怠管理',         href: '/attendance',    icon: ClockArrowUp },
   { label: 'シフト管理',       href: '/shifts',        icon: CalendarDays },
   { label: '経費管理',         href: '/expenses',      icon: Receipt },
+  {
+    label: '請求・見積',
+    href: '/invoices',
+    icon: FileSpreadsheet,
+    children: [
+      { label: '見積書',   href: '/invoices/quotes' },
+      { label: '請求書',   href: '/invoices/bills' },
+      { label: '入金管理', href: '/invoices/payments' },
+    ],
+  },
   { label: '協力業者管理',     href: '/partners',      icon: HandshakeIcon },
   { label: 'マニュアル管理',   href: '/manuals',       icon: BookOpen },
   { label: '報告書管理',       href: '/reports',       icon: FileText },
