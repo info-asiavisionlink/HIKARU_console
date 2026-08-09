@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
-  Bell, FileText, X, UserCog, Inbox,
+  Bell, FileText, X, UserCog, Inbox, ClockArrowUp,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
   { label: '案件依頼',         href: '/project-requests', icon: Inbox, dynamicBadge: true },
   { label: '顧客管理', href: '/clients', icon: Building2 },
   { label: '従業員管理',       href: '/employees',     icon: UserCheck },
+  { label: '勤怠管理',         href: '/attendance',    icon: ClockArrowUp },
   { label: '協力業者管理',     href: '/partners',      icon: HandshakeIcon },
   { label: 'マニュアル管理',   href: '/manuals',       icon: BookOpen },
   { label: '報告書管理',       href: '/reports',       icon: FileText },

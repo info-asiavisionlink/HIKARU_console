@@ -31,6 +31,8 @@ export default function NewEmployeePage() {
     notes: '',
     loginPassword: '',
     role: 'worker' as 'admin' | 'worker',
+    contract_type: 'part_time',
+    hourly_rate: '',
   })
 
   function update(key: string, value: string) {
@@ -59,6 +61,8 @@ export default function NewEmployeePage() {
       position:           form.position.trim()           || null,
       qualifications:     form.qualifications.split(/[、,\n]/).map((s) => s.trim()).filter(Boolean),
       notes:              form.notes.trim()              || null,
+      contract_type:      form.contract_type             || null,
+      hourly_rate:        form.hourly_rate ? Number(form.hourly_rate) : null,
       ...(hasLogin ? {
         loginPassword: form.loginPassword,
         role:          form.role,
@@ -131,7 +135,30 @@ export default function NewEmployeePage() {
                   <Input label="所属部署" value={form.department} onChange={(e) => update('department', e.target.value)} placeholder="清掃部" />
                   <Input label="役職" value={form.position} onChange={(e) => update('position', e.target.value)} placeholder="チーフ" />
                 </div>
-                <Textarea label="資格（改行・カンマ区切り）" value={form.qualifications} onChange={(e) => update('qualifications', e.target.value)} placeholder="清掃作業主任者&#10;ビルクリーニング技能士" rows={3} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">契約形態</label>
+                    <Select value={form.contract_type} onValueChange={(v) => update('contract_type', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full_time">正社員</SelectItem>
+                        <SelectItem value="contract">契約社員</SelectItem>
+                        <SelectItem value="part_time">パートタイム</SelectItem>
+                        <SelectItem value="hourly">アルバイト</SelectItem>
+                        <SelectItem value="freelance">業務委託</SelectItem>
+                        <SelectItem value="dispatched">派遣社員</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    label="時給（円）"
+                    type="number"
+                    value={form.hourly_rate}
+                    onChange={(e) => update('hourly_rate', e.target.value)}
+                    placeholder="1200"
+                  />
+                </div>
+                <Textarea label="資格（改行・カンマ区切り）" value={form.qualifications} onChange={(e) => update('qualifications', e.target.value)} rows={3} />
                 <Textarea label="備考" value={form.notes} onChange={(e) => update('notes', e.target.value)} rows={3} />
               </CardContent>
             </Card>

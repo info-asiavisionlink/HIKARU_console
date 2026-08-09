@@ -19,6 +19,8 @@ export interface EmployeeRow {
   notes: string | null
   status: EmployeeStatus
   auth_user_id: string | null
+  hourly_rate: number | null
+  contract_type: string | null
   created_at: string
   updated_at: string
 }
@@ -86,6 +88,8 @@ export async function createEmployee(input: {
   position?: string | null
   qualifications?: string[]
   notes?: string | null
+  contract_type?: string | null
+  hourly_rate?: number | null
   loginEmail?: string
   loginPassword?: string
   role?: 'admin' | 'worker'
