@@ -20,7 +20,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { spot_details, assignments, ...projectFields } = await req.json()
+  // company_id / id / created_at はサーバー側で決定し Body を信頼しない
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { spot_details, assignments, company_id: _cid, id: _pid, created_at: _ca, updated_at: _ua, ...projectFields } = await req.json()
   const client = auth.adminClient
 
   const { data, error } = await client

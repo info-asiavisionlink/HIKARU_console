@@ -91,6 +91,40 @@ export async function POST(req: NextRequest) {
 
   if (!client_id) return NextResponse.json({ error: 'client_id は必須です' }, { status: 400 })
 
+  // client_id の所属確認（他社クライアントへの紐付け防止）
+  const { data: clientCheck, error: clientCheckErr } = await auth.adminClient
+    .from('clients')
+    .select('id, company_id')
+    .eq('id', client_id)
+    .single()
+
+  if (clientCheckErr || !clientCheck) {
+    return NextResponse.json({ error: 'クライアントが見つかりません' }, { status: 404 })
+  }
+  if (clientCheck.company_id !== auth.companyId) {
+    return NextResponse.json({ error: '他社のクライアントを指定することはできません' }, { status: 403 })
+  }
+
+  // project_id の所属確認（他社案件への紐付け防止）
+  if (project_id) {
+    const { data: projectCheck, error: projectCheckErr } = await auth.adminClient
+      .from('projects')
+      .select('id, company_id, client_id')
+      .eq('id', project_id)
+      .single()
+
+    if (projectCheckErr || !projectCheck) {
+      return NextResponse.json({ error: '案件が見つかりません' }, { status: 404 })
+    }
+    if (projectCheck.company_id !== auth.companyId) {
+      return NextResponse.json({ error: '他社の案件を指定することはできません' }, { status: 403 })
+    }
+    // project と client の整合性確認
+    if (projectCheck.client_id && projectCheck.client_id !== client_id) {
+      return NextResponse.json({ error: '案件に紐付くクライアントと指定クライアントが一致しません' }, { status: 400 })
+    }
+  }
+
   // 明細計算（サーバーサイドで再計算してSnapshotを作成）
   let lineItems = rawItems
   if (auto_from_project_price_id) {

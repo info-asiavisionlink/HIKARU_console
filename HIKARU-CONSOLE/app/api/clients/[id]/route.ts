@@ -59,15 +59,21 @@ export async function PATCH(
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const body = await req.json()
+  // company_id / id / created_at はサーバー側で決定し、Body から除外してテナント改ざんを防止
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { company_id: _cid, id: _clientId, created_at: _ca, updated_at: _ua, ...safeBody } = await req.json()
+
   const { data, error } = await auth.adminClient
     .from('clients')
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update({ ...safeBody, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('company_id', auth.companyId)
+    .eq('company_id', auth.companyId)  // サーバー側 company_id で対象を限定
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    const status = error.code === 'PGRST116' ? 404 : 500
+    return NextResponse.json({ error: error.message }, { status })
+  }
   return NextResponse.json({ data })
 }

@@ -53,10 +53,27 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
+  // company_id / id / created_at はサーバー側で決定し Body を信頼しない
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { company_id: _cid, id: _id, created_at: _ca, updated_at: _ua, ...safeBody } = await req.json()
+
+  // client_id の所属確認（他社クライアントへの紐付け防止）
+  if (safeBody.client_id) {
+    const { data: clientCheck } = await auth.adminClient
+      .from('clients')
+      .select('id, company_id')
+      .eq('id', safeBody.client_id)
+      .single()
+
+    if (!clientCheck) return NextResponse.json({ error: 'クライアントが見つかりません' }, { status: 404 })
+    if (clientCheck.company_id !== auth.companyId) {
+      return NextResponse.json({ error: '他社のクライアントを指定することはできません' }, { status: 403 })
+    }
+  }
+
   const { data, error } = await auth.adminClient
     .from('projects')
-    .insert({ company_id: auth.companyId, status: 'active', ...body })
+    .insert({ ...safeBody, company_id: auth.companyId, status: 'active' })
     .select()
     .single()
 

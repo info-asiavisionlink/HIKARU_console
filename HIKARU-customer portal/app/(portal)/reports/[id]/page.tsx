@@ -24,7 +24,7 @@ export default async function ReportDetailPage({ params }: Props) {
 
   const { data: account } = await admin
     .from('client_portal_accounts')
-    .select('id')
+    .select('id, company_id')
     .eq('profile_id', uid)
     .single()
 
@@ -39,6 +39,7 @@ export default async function ReportDetailPage({ params }: Props) {
       profiles ( name )
     `)
     .eq('id', id)
+    .eq('company_id', account.company_id)
     .single()
 
   if (!report) notFound()

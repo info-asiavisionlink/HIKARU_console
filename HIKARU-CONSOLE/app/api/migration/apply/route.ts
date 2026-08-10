@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { getAuthContext } from '@/lib/supabase/server-admin'
 
 // Supabase Management API 経由でマイグレーションを実行する
 // 事前に SUPABASE_ACCESS_TOKEN を .env.local に設定してください
@@ -238,7 +239,11 @@ ON CONFLICT DO NOTHING;
 END $$;
 `
 
-export async function POST() {
+export async function POST(_req: NextRequest) {
+  // 認証チェック: Admin のみ実行可能
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const accessToken = process.env.SUPABASE_ACCESS_TOKEN
 
   if (!accessToken) {

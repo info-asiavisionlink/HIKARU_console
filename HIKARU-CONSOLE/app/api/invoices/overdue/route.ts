@@ -7,9 +7,9 @@ import { invoiceOverdueTemplate } from '@/lib/line/templates'
 // Vercel Cron または管理者が手動で実行する。
 // 同一請求書について1日1回のみ通知（notification_key で重複防止）。
 export async function POST(req: NextRequest) {
-  // 内部からのみ呼び出し可能: CRON_SECRET で認証
+  // 内部からのみ呼び出し可能: CRON_SECRET で認証（未設定の場合も拒否）
   const secret = req.headers.get('x-cron-secret')
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

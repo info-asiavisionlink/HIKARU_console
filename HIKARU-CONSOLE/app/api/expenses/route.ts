@@ -14,16 +14,11 @@ export async function GET(req: NextRequest) {
   const dateFrom  = p.get('date_from')
   const dateTo    = p.get('date_to')
 
-  let query = auth.adminClient
+  // expenses.worker_id → profiles のJOINはPostgRESTスキーマキャッシュ未登録のためフラット取得
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (auth.adminClient as any)
     .from('expenses')
-    .select(`
-      *,
-      profiles:worker_id (id, name, entity_type, entity_id),
-      projects:project_id (id, name, location_name),
-      shifts:shift_id (id, shift_date, start_time, end_time),
-      jobs:job_id (id, work_date),
-      expense_receipts (id, file_name, mime_type, storage_path)
-    `)
+    .select('*')
     .eq('company_id', auth.companyId)
     .order('submitted_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })

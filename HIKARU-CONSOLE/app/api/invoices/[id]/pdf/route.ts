@@ -67,7 +67,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   // Storage 保存
   const typeFolder = invoice.invoice_type === 'quote' ? 'quotes' : 'invoices'
-  const pdfPath    = `invoices/${auth.companyId}/${typeFolder}/${invoice.invoice_number}.pdf`
+  const pdfPath    = `invoices/${auth.companyId}/${typeFolder}/${id}.pdf`
 
   const { error: uploadErr } = await auth.adminClient.storage
     .from('documents')

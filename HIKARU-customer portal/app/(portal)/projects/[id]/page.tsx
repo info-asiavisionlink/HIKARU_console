@@ -75,7 +75,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       .select(`
         id, photo_type, url, storage_path, created_at,
         photo_spots ( name ),
-        ai_evaluations ( score, passed, recommendation, comment )
+        ai_evaluations!ai_evaluations_after_photo_id_fkey ( score, passed, recommendation, comment )
       `)
       .eq('job_id', latestJob.id)
       .order('created_at', { ascending: true })

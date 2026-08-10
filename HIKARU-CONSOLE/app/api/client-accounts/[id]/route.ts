@@ -106,6 +106,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // 案件権限の更新（全削除 → 再挿入）
   if (projectIds !== undefined) {
+    // portal accountのclient_idを取得して、project所属を検証
+    const { data: portalAccount } = await admin
+      .from('client_portal_accounts')
+      .select('client_id')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .single()
+
+    if (!portalAccount) return NextResponse.json({ error: 'portal account not found' }, { status: 404 })
+
+    if (projectIds.length > 0) {
+      // 各project_idがcompanyに属し、かつ正しいclientに紐付くことを確認
+      for (const pid of projectIds) {
+        const { data: proj } = await admin
+          .from('projects')
+          .select('id, company_id, client_id')
+          .eq('id', pid)
+          .single()
+
+        if (!proj) return NextResponse.json({ error: `project ${pid} not found` }, { status: 404 })
+        if (proj.company_id !== companyId) {
+          return NextResponse.json({ error: `project ${pid} belongs to another company` }, { status: 403 })
+        }
+        if (proj.client_id !== portalAccount.client_id) {
+          return NextResponse.json({
+            error: `project ${pid} does not belong to this client's portal account`,
+          }, { status: 400 })
+        }
+      }
+    }
+
     await admin.from('client_project_permissions').delete().eq('portal_account_id', id)
 
     if (projectIds.length > 0) {

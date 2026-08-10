@@ -7,8 +7,12 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { getAuthContext } from '@/lib/supabase/server-admin'
 
 export async function GET() {
+  // 認証チェック: Admin のみ実行可能
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const result: Record<string, unknown> = {}
 
   // ① Cookie 確認

@@ -56,6 +56,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '協力業者を選択してください' }, { status: 400 })
   }
 
+  // project_idが現在のcompany_idに属することを確認（cross-tenant防止）
+  const { data: project } = await auth.adminClient
+    .from('projects').select('id').eq('id', project_id).eq('company_id', auth.companyId).single()
+  if (!project) return NextResponse.json({ error: 'project not found in this company' }, { status: 400 })
+
+  // employee_id/partner_idが現在のcompany_idに属することを確認
+  if (assignee_type === 'employee' && employee_id) {
+    const { data: emp } = await auth.adminClient
+      .from('employees').select('id').eq('id', employee_id).eq('company_id', auth.companyId).single()
+    if (!emp) return NextResponse.json({ error: 'employee not found in this company' }, { status: 400 })
+  }
+  if (assignee_type === 'partner' && partner_id) {
+    const { data: ptr } = await auth.adminClient
+      .from('partners').select('id').eq('id', partner_id).eq('company_id', auth.companyId).single()
+    if (!ptr) return NextResponse.json({ error: 'partner not found in this company' }, { status: 400 })
+  }
+
   const { data, error } = await auth.adminClient
     .from('shifts')
     .insert({

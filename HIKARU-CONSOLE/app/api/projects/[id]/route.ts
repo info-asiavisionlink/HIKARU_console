@@ -28,10 +28,12 @@ export async function PATCH(
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
+  // company_id / id / created_at はサーバー側で決定し Body を信頼しない
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { company_id: _cid, id: _pid, created_at: _ca, updated_at: _ua, ...safeBody } = await req.json()
   const { data, error } = await auth.adminClient
     .from('projects')
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update({ ...safeBody, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('company_id', auth.companyId)
     .select()
