@@ -29,7 +29,7 @@ export async function POST(_req: NextRequest) {
     .select(`
       id, title, end_date, auto_renewal, status, company_id,
       clients:client_id   (name),
-      partners:partner_id (name)
+      partners:partner_id (company_name)
     `)
     .eq('company_id', auth.companyId)
     .not('end_date', 'is', null)
@@ -78,7 +78,7 @@ export async function POST(_req: NextRequest) {
       // 契約相手名を解決
       const counterpartyName =
         contract.clients?.name ??
-        contract.partners?.name ??
+        contract.partners?.company_name ??
         '不明'
 
       const message = contractExpiryTemplate({

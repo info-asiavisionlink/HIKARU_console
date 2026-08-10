@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
       published_to_portal, signed_at, sign_provider,
       notes, created_at, updated_at,
       clients:client_id   (id, name),
-      partners:partner_id (id, name),
-      projects:project_id (id, title)
+      partners:partner_id (id, company_name),
+      projects:project_id (id, name)
     `)
     .eq('company_id', auth.companyId)
     .order('created_at', { ascending: false })

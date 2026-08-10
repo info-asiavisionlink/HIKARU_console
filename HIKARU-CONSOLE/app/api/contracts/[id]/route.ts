@@ -16,8 +16,8 @@ export async function GET(
     .select(`
       *,
       clients:client_id   (id, name, email, phone, address, contact_name),
-      partners:partner_id (id, name, email, phone, contact_name),
-      projects:project_id (id, title, project_type, status)
+      partners:partner_id (id, company_name, email, phone, contact_name),
+      projects:project_id (id, name, project_type, status)
     `)
     .eq('id', id)
     .eq('company_id', auth.companyId)

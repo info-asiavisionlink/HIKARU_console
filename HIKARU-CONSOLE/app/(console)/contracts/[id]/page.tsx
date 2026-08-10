@@ -379,7 +379,7 @@ export default function ContractDetailPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">なし</SelectItem>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -410,7 +410,7 @@ export default function ContractDetailPage() {
                   <InfoRow label="契約番号" value={contract.contract_number} />
                   <InfoRow label="契約相手" value={
                     <span>
-                      {contract.clients?.name ?? contract.partners?.name}
+                      {contract.clients?.name ?? contract.partners?.company_name}
                       <span className="text-[10px] ml-1.5 px-1 py-0.5 rounded" style={{ background: `${GOLD}22`, color: GOLD }}>
                         {COUNTERPARTY_LABELS[contract.counterparty_type as 'client' | 'partner']}
                       </span>
@@ -442,7 +442,7 @@ export default function ContractDetailPage() {
                     contract.projects
                       ? <Link href={`/projects/${contract.projects.id}`}
                           className="hover:underline" style={{ color: GOLD }}>
-                          {contract.projects.title}
+                          {contract.projects.name}
                         </Link>
                       : '—'
                   } />
@@ -555,7 +555,7 @@ export default function ContractDetailPage() {
                   className="flex items-center gap-2 p-2 rounded-[var(--radius)] transition-colors hover:bg-[oklch(0.10_0.002_260)]"
                   style={{ border: `1px solid ${GOLD}22` }}>
                   <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${GOLD}22`, color: GOLD }}>協力業者</span>
-                  <span className="text-sm" style={{ color: 'oklch(0.85 0.005 75)' }}>{contract.partners.name}</span>
+                  <span className="text-sm" style={{ color: 'oklch(0.85 0.005 75)' }}>{contract.partners.company_name}</span>
                 </Link>
               )}
               {contract.projects && (
@@ -563,7 +563,7 @@ export default function ContractDetailPage() {
                   className="flex items-center gap-2 p-2 rounded-[var(--radius)] transition-colors hover:bg-[oklch(0.10_0.002_260)]"
                   style={{ border: `1px solid ${GOLD}22` }}>
                   <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${GOLD}22`, color: GOLD }}>案件</span>
-                  <span className="text-sm" style={{ color: 'oklch(0.85 0.005 75)' }}>{contract.projects.title}</span>
+                  <span className="text-sm" style={{ color: 'oklch(0.85 0.005 75)' }}>{contract.projects.name}</span>
                 </Link>
               )}
             </CardContent>

@@ -27,8 +27,8 @@ interface ContractItem {
   renewal_date: string | null
   auto_renewal: boolean
   clients:   { id: string; name: string } | null
-  partners:  { id: string; name: string } | null
-  projects:  { id: string; title: string } | null
+  partners:  { id: string; company_name: string } | null
+  projects:  { id: string; name: string } | null
   deadline:  { daysUntilExpiry: number | null; urgency: DeadlineUrgency; label: string }
 }
 
@@ -138,7 +138,7 @@ export default function ContractsPage() {
   const filtered = contracts.filter(c => {
     if (!search) return true
     const q = search.toLowerCase()
-    const name = (c.clients?.name ?? c.partners?.name ?? '').toLowerCase()
+    const name = (c.clients?.name ?? c.partners?.company_name ?? '').toLowerCase()
     return (
       c.title.toLowerCase().includes(q) ||
       (c.contract_number ?? '').toLowerCase().includes(q) ||
@@ -277,7 +277,7 @@ export default function ContractsPage() {
             </thead>
             <tbody>
               {filtered.map((c, i) => {
-                const counterpartyName = c.clients?.name ?? c.partners?.name ?? '—'
+                const counterpartyName = c.clients?.name ?? c.partners?.company_name ?? '—'
                 return (
                   <tr
                     key={c.id}
@@ -303,7 +303,7 @@ export default function ContractsPage() {
                       {CONTRACT_TYPE_LABELS[c.contract_type as keyof typeof CONTRACT_TYPE_LABELS] ?? c.contract_type}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'oklch(0.65 0.005 75)' }}>
-                      {c.projects?.title ?? '—'}
+                      {c.projects?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-xs tabular-nums" style={{ color: 'oklch(0.65 0.005 75)' }}>
                       {formatContractDate(c.start_date)}
