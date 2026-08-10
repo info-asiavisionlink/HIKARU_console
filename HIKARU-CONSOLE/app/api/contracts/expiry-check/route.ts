@@ -60,16 +60,13 @@ export async function POST(_req: NextRequest) {
 
       // 重複防止: 今年同じ通知が送られていないか確認
       const currentYear = today.getFullYear()
-      const yearStart   = `${currentYear}-01-01T00:00:00.000Z`
-      const yearEnd     = `${currentYear + 1}-01-01T00:00:00.000Z`
 
       const { data: existingNotif } = (await auth.adminClient
         .from('contract_expiry_notifications' as never)
         .select('id')
         .eq('contract_id', contract.id)
         .eq('notification_type', notifType)
-        .gte('notified_at', yearStart)
-        .lt('notified_at', yearEnd)
+        .eq('notification_year', currentYear)
         .limit(1)
         .maybeSingle()) as { data: any }
 
@@ -115,10 +112,11 @@ export async function POST(_req: NextRequest) {
       // 通知記録（重複防止テーブル）- 重複挿入はエラーを無視
       try {
         await auth.adminClient.from('contract_expiry_notifications' as never).insert({
-          contract_id:       contract.id,
-          company_id:        auth.companyId,
-          notification_type: notifType,
-          notified_at:       new Date().toISOString(),
+          contract_id:        contract.id,
+          company_id:         auth.companyId,
+          notification_type:  notifType,
+          notification_year:  currentYear,
+          notified_at:        new Date().toISOString(),
         } as never)
       } catch { /* unique constraint violation を無視 */ }
 
