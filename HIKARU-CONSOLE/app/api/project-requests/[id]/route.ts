@@ -27,23 +27,25 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // 顧客ポータルへ通知送信
-  const notifType = status === 'approved' ? 'info' : 'info'
-  const notifTitle = status === 'approved'
-    ? `案件依頼「${req_.title}」が承認されました`
-    : `案件依頼「${req_.title}」は承認されませんでした`
-  const notifBody = status === 'approved'
-    ? '担当者が案件の詳細を確認し、改めてご連絡いたします。'
-    : adminNote ?? '詳細は担当者よりご連絡いたします。'
+  // 顧客ポータルへ通知送信（portal_account_idがある場合のみ）
+  if (req_.portal_account_id) {
+    const notifType  = 'info'
+    const notifTitle = status === 'approved'
+      ? `案件依頼「${req_.title}」が承認されました`
+      : `案件依頼「${req_.title}」は承認されませんでした`
+    const notifBody = status === 'approved'
+      ? '担当者が案件の詳細を確認し、改めてご連絡いたします。'
+      : adminNote ?? '詳細は担当者よりご連絡いたします。'
 
-  await auth.adminClient
-    .from('client_notifications')
-    .insert({
-      portal_account_id: req_.portal_account_id,
-      type:              notifType,
-      title:             notifTitle,
-      body:              notifBody,
-    })
+    await auth.adminClient
+      .from('client_notifications')
+      .insert({
+        portal_account_id: req_.portal_account_id,
+        type:              notifType,
+        title:             notifTitle,
+        body:              notifBody,
+      })
+  }
 
   return NextResponse.json({ success: true })
 }
