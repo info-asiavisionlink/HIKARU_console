@@ -206,7 +206,7 @@ export default function NewPartnerPage() {
                 }}
               >
                 <p className="font-semibold" style={{ color: 'oklch(0.73 0.12 78)' }}>ログイン情報プレビュー</p>
-                <p style={{ color: 'oklch(0.55 0.008 60)' }}>URL: hikaru-system.vercel.app</p>
+                <p style={{ color: 'oklch(0.55 0.008 60)' }}>URL: hikaru-partner-omega.vercel.app</p>
                 <p style={{ color: 'oklch(0.55 0.008 60)' }}>ID: {form.loginEmail}</p>
               </div>
             )}
