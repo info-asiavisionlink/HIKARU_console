@@ -15,8 +15,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, title, description, desired_date, location, project_type,
       status, admin_note, created_at,
-      clients ( id, name ),
-      client_portal_accounts ( contact_name )
+      clients ( id, name )
     `, { count: 'exact' })
     .eq('company_id', auth.companyId)
     .order('created_at', { ascending: false })

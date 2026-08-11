@@ -34,7 +34,6 @@ interface ProjectRequest {
   admin_note: string | null
   created_at: string
   clients: { id: string; name: string } | null
-  client_portal_accounts: { contact_name: string } | null
 }
 
 export default function ProjectRequestsPage() {
@@ -300,7 +299,7 @@ export default function ProjectRequestsPage() {
                     </div>
                     <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_MUTED }}>
                       <Tag className="h-3.5 w-3.5 shrink-0" style={{ color: GOLD }} />
-                      <span>{(req.client_portal_accounts as any)?.contact_name ?? '—'}</span>
+                      <span>{(req.clients as any)?.name ?? '—'}</span>
                     </div>
                     {req.desired_date && (
                       <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_MUTED }}>
