@@ -5,7 +5,7 @@
   "workspaces": [
     "HIKARU-System",
     "HIKARU-CONSOLE",
-    "HIKARU-customer portal",
+    "HIKARU-customer-portal",
     "HIKARU-Partner",
     "packages/*"
   ],

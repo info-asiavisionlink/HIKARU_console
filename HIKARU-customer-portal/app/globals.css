@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/* ============================================================
+   HIKARU Client Portal — Luxury Edition
+   Black × Gold — 顧客向け高級感ポータル
+   ============================================================ */
+
+@theme {
+  --color-gold:              oklch(0.73 0.12 78);
+  --color-gold-light:        oklch(0.85 0.13 78);
+  --color-gold-dark:         oklch(0.52 0.10 75);
+  --color-gold-muted:        oklch(0.73 0.12 78 / 0.10);
+  --color-gold-border:       oklch(0.73 0.12 78 / 0.28);
+  --color-gold-glow:         oklch(0.73 0.12 78 / 0.30);
+  --color-gold-foreground:   oklch(0.08 0.005 60);
+
+  --color-primary:           oklch(0.73 0.12 78);
+  --color-primary-hover:     oklch(0.82 0.13 78);
+  --color-primary-active:    oklch(0.62 0.11 75);
+  --color-primary-muted:     oklch(0.73 0.12 78 / 0.10);
+  --color-primary-foreground: oklch(0.08 0.005 60);
+  --color-primary-glow:      oklch(0.73 0.12 78 / 0.35);
+
+  --color-background:        oklch(0.06 0.004 260);
+  --color-surface:           oklch(0.10 0.005 255 / 0.88);
+  --color-surface-raised:    oklch(0.13 0.007 255 / 0.92);
+  --color-muted:             oklch(0.12 0.005 255 / 0.70);
+  --color-overlay:           oklch(0 0 0 / 0.78);
+
+  --color-sidebar:           oklch(0.05 0.003 260);
+  --color-sidebar-text:      oklch(0.88 0.006 60);
+  --color-sidebar-text-muted: oklch(0.48 0.008 60);
+  --color-sidebar-active:    oklch(0.73 0.12 78);
+  --color-sidebar-active-bg: oklch(0.73 0.12 78 / 0.10);
+  --color-sidebar-hover:     oklch(1 0 0 / 0.04);
+  --color-sidebar-border:    oklch(0.73 0.12 78 / 0.14);
+
+  --color-border:            oklch(0.73 0.12 78 / 0.16);
+  --color-border-strong:     oklch(0.73 0.12 78 / 0.32);
+  --color-border-focus:      oklch(0.73 0.12 78);
+  --color-border-subtle:     oklch(1 0 0 / 0.05);
+
+  --color-foreground:        oklch(0.95 0.008 75);
+  --color-muted-foreground:  oklch(0.58 0.010 75);
+  --color-subtle:            oklch(0.40 0.007 75);
+  --color-inverted:          oklch(0.06 0.004 260);
+
+  --color-success:           oklch(0.72 0.18 150);
+  --color-success-muted:     oklch(0.72 0.18 150 / 0.12);
+  --color-success-foreground: oklch(0.72 0.18 150);
+
+  --color-warning:           oklch(0.78 0.18 75);
+  --color-warning-muted:     oklch(0.78 0.18 75 / 0.12);
+  --color-warning-foreground: oklch(0.78 0.18 75);
+
+  --color-error:             oklch(0.65 0.25 27);
+  --color-error-muted:       oklch(0.65 0.25 27 / 0.12);
+  --color-error-foreground:  oklch(0.65 0.25 27);
+
+  --color-info:              oklch(0.68 0.20 230);
+  --color-info-muted:        oklch(0.68 0.20 230 / 0.12);
+  --color-info-foreground:   oklch(0.68 0.20 230);
+
+  --font-sans:
+    'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
+    -apple-system, BlinkMacSystemFont,
+    'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:
+    'SF Mono', 'Fira Code', 'Roboto Mono', monospace;
+  --font-display:
+    'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  --radius-xs:   0.25rem;
+  --radius-sm:   0.375rem;
+  --radius:      0.5rem;
+  --radius-md:   0.625rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-2xl:  1.5rem;
+  --radius-full: 9999px;
+
+  --shadow-xs:  0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm:  0 2px 6px 0 rgb(0 0 0 / 0.55), 0 0 14px 0 oklch(0.73 0.12 78 / 0.04);
+  --shadow:     0 3px 12px 0 rgb(0 0 0 / 0.55), 0 0 24px 0 oklch(0.73 0.12 78 / 0.06);
+  --shadow-md:  0 5px 20px -1px rgb(0 0 0 / 0.60), 0 0 40px 0 oklch(0.73 0.12 78 / 0.08);
+  --shadow-lg:  0 10px 35px -3px rgb(0 0 0 / 0.65), 0 0 60px 0 oklch(0.73 0.12 78 / 0.10);
+  --shadow-xl:  0 20px 60px -5px rgb(0 0 0 / 0.70), 0 0 90px 0 oklch(0.73 0.12 78 / 0.12);
+  --shadow-inner: inset 0 1px 4px 0 rgb(0 0 0 / 0.5);
+
+  --glow-gold:  0 0 20px oklch(0.73 0.12 78 / 0.50),  0 0 60px oklch(0.73 0.12 78 / 0.18);
+  --glow-green: 0 0 20px oklch(0.72 0.18 150 / 0.50), 0 0 60px oklch(0.72 0.18 150 / 0.18);
+  --glow-red:   0 0 20px oklch(0.65 0.25 27 / 0.50),  0 0 60px oklch(0.65 0.25 27 / 0.18);
+
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-luxury:  cubic-bezier(0.22, 1, 0.36, 1);
+
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-overlay:  300;
+  --z-modal:    400;
+  --z-toast:    500;
+
+  --sidebar-width:           260px;
+  --header-height:           64px;
+  --content-max-width:       1200px;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    line-height: 1.6;
+    font-size: 1rem;
+    min-height: 100dvh;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, oklch(0.73 0.12 78 / 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 40% at 95% 95%, oklch(0.52 0.10 75 / 0.04) 0%, transparent 45%);
+    background-attachment: fixed;
+  }
+
+  :focus-visible {
+    outline: 1px solid oklch(0.73 0.12 78);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: oklch(0.73 0.12 78 / 0.20);
+    color: oklch(0.95 0.008 75);
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.73 0.12 78 / 0.22);
+    border-radius: var(--radius-full);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.73 0.12 78 / 0.45);
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: oklch(0.10 0.005 255 / 0.80);
+    backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid oklch(0.73 0.12 78 / 0.16);
+  }
+  .glass-gold {
+    background: oklch(0.10 0.006 255 / 0.85);
+    backdrop-filter: blur(24px) saturate(1.5);
+    border: 1px solid oklch(0.73 0.12 78 / 0.30);
+    box-shadow: 0 0 30px oklch(0.73 0.12 78 / 0.07), inset 0 1px 0 oklch(0.85 0.13 78 / 0.12);
+  }
+
+  .text-gold-gradient {
+    background: linear-gradient(135deg, oklch(0.62 0.11 75), oklch(0.88 0.13 78), oklch(0.73 0.12 78));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gold-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, oklch(0.73 0.12 78 / 0.6), transparent);
+  }
+}
+
+@keyframes fade-in   { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slide-up  { from { transform: translateY(12px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1 } 50% { opacity: 0.45 } }
+@keyframes spin      { to { transform: rotate(360deg) } }
+@keyframes shimmer {
+  0%   { background-position: -200% 0 }
+  100% { background-position:  200% 0 }
+}
+
+/* 印刷時スタイル（報告書PDF印刷用） */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    background-image: none !important;
+  }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
