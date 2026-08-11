@@ -1,5 +1,5 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "npm run build --workspace=hikaru-customer-portal",
-  "outputDirectory": "HIKARU-customer-portal/.next"
+  "buildCommand": "npm run build --workspace=hikaru-console",
+  "outputDirectory": "HIKARU-CONSOLE/.next"
 }
