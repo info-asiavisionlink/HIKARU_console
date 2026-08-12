@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { fireProjectAssignedNotifications } from '@/lib/notifications/project-system'
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthContext()
@@ -59,7 +60,15 @@ export async function POST(req: NextRequest) {
     const { error: aErr } = await client.from('project_assignments').insert(
       assignments.map((a: any) => ({ project_id: project.id, assignee_type: a.assignee_type, assignee_id: a.assignee_id }))
     )
-    if (aErr) console.error('assignments insert error:', aErr.message)
+    if (aErr) {
+      console.error('assignments insert error:', aErr.message)
+    } else {
+      // 新規案件 → 全assignmentが新規割当。差分比較不要。
+      void fireProjectAssignedNotifications(
+        client, project.id, project.name ?? '', cid,
+        assignments.map((a: any) => ({ assignee_type: a.assignee_type, assignee_id: a.assignee_id }))
+      )
+    }
   }
 
   return NextResponse.json({ data: project }, { status: 201 })

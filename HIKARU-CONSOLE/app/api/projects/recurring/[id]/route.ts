@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { diffAssignments, fireProjectAssignedNotifications } from '@/lib/notifications/project-system'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -59,12 +60,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (assignments !== undefined) {
+    // 差分比較のため更新前 assignments を取得（二重通知防止）
+    const { data: beforeRows } = await client
+      .from('project_assignments')
+      .select('assignee_type, assignee_id')
+      .eq('project_id', id)
+    const before = (beforeRows ?? []) as { assignee_type: 'employee' | 'partner'; assignee_id: string }[]
+
     await client.from('project_assignments').delete().eq('project_id', id)
     if (assignments.length) {
       const { error: aErr } = await client.from('project_assignments').insert(
         assignments.map((a: any) => ({ project_id: id, assignee_type: a.assignee_type, assignee_id: a.assignee_id }))
       )
-      if (aErr) console.error('assignments insert error:', aErr.message)
+      if (aErr) {
+        console.error('assignments insert error:', aErr.message)
+      } else {
+        // 新規追加されたWorkerのみ通知（既存 assignee への再通知を防ぐ）
+        const newlyAdded = diffAssignments(before, assignments)
+        if (newlyAdded.length > 0) {
+          void fireProjectAssignedNotifications(
+            client, id, (data as any)?.name ?? '', auth.companyId, newlyAdded
+          )
+        }
+      }
     }
   }
 
