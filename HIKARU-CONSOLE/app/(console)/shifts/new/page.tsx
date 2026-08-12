@@ -47,9 +47,9 @@ function NewShiftForm() {
     fetch('/api/projects?pageSize=200&status=active', { credentials: 'include' })
       .then(r => r.json()).then(d => setProjects(d.projects ?? []))
     fetch('/api/employees?pageSize=200', { credentials: 'include' })
-      .then(r => r.json()).then(d => setEmployees(d.employees ?? []))
+      .then(r => r.json()).then(d => setEmployees(d.data ?? []))
     fetch('/api/partners?pageSize=200', { credentials: 'include' })
-      .then(r => r.json()).then(d => setPartners(d.partners ?? []))
+      .then(r => r.json()).then(d => setPartners(d.data ?? []))
   }, [])
 
   // 重複チェック（担当者・日時が揃ったら）
