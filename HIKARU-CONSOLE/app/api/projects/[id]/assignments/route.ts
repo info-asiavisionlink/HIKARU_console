@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
-import { diffAssignments, fireProjectAssignedNotifications } from '@/lib/notifications/project-system'
+import {
+  diffAssignments,
+  diffRemoved,
+  fireProjectAssignedNotifications,
+  fireProjectUnassignedNotifications,
+} from '@/lib/notifications/project-system'
 
 // GET /api/projects/[id]/assignments - 案件の担当者一覧
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -83,11 +88,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { error } = await auth.adminClient.from('project_assignments').insert(rows)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // 新規追加されたWorkerのみ通知（既存 assignee への再通知を防ぐ）
+    // 新規追加 / 解除されたWorkerへそれぞれ通知
     const newlyAdded = diffAssignments(before, assignments)
     if (newlyAdded.length > 0) {
       void fireProjectAssignedNotifications(
         auth.adminClient, id, project.name ?? '', auth.companyId, newlyAdded
+      )
+    }
+    const removed = diffRemoved(before, assignments)
+    if (removed.length > 0) {
+      void fireProjectUnassignedNotifications(
+        auth.adminClient, id, project.name ?? '', auth.companyId, removed
+      )
+    }
+  } else {
+    // assignments が空になった場合（全員解除）
+    const removed = diffRemoved(before, [])
+    if (removed.length > 0) {
+      void fireProjectUnassignedNotifications(
+        auth.adminClient, id, project.name ?? '', auth.companyId, removed
       )
     }
   }

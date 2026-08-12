@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import {
   diffAssignments,
+  diffRemoved,
+  detectDetailChanges,
   fireProjectAssignedNotifications,
+  fireProjectUnassignedNotifications,
   fireProjectStatusNotifications,
+  fireProjectDetailsChangedNotifications,
   type ProjectStatusEventType,
 } from '@/lib/notifications/project-system'
 
@@ -31,9 +35,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { spot_details, assignments, company_id: _cid, id: _pid, created_at: _ca, updated_at: _ua, ...projectFields } = await req.json()
   const client = auth.adminClient
 
-  // status変更通知のため更新前 status を取得
+  // status・詳細変更通知のため更新前データを取得
   const { data: beforeProject } = await client
-    .from('projects').select('status').eq('id', id).eq('company_id', auth.companyId).single()
+    .from('projects')
+    .select('status, location_name, address, start_date, end_date, work_start_time, work_end_time')
+    .eq('id', id).eq('company_id', auth.companyId).single()
   const beforeStatus = beforeProject?.status ?? null
 
   const { data, error } = await client
@@ -49,6 +55,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .upsert({ project_id: id, ...spot_details }, { onConflict: 'project_id' })
   }
 
+  const projectName = (data as any)?.name ?? ''
+
   if (assignments !== undefined) {
     // 差分比較のため更新前 assignments を取得（二重通知防止）
     const { data: beforeRows } = await client
@@ -56,6 +64,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .select('assignee_type, assignee_id')
       .eq('project_id', id)
     const before = (beforeRows ?? []) as { assignee_type: 'employee' | 'partner'; assignee_id: string }[]
+
+    // 解除されるWorkerへ通知（DELETE前に確定しているため、ここで fire）
+    const removed = diffRemoved(before, assignments)
+    if (removed.length > 0) {
+      void fireProjectUnassignedNotifications(client, id, projectName, auth.companyId, removed)
+    }
 
     await client.from('project_assignments').delete().eq('project_id', id)
     if (assignments.length) {
@@ -68,26 +82,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // 新規追加されたWorkerのみ通知（既存 assignee への再通知を防ぐ）
         const newlyAdded = diffAssignments(before, assignments)
         if (newlyAdded.length > 0) {
-          void fireProjectAssignedNotifications(
-            client, id, (data as any)?.name ?? '', auth.companyId, newlyAdded
-          )
+          void fireProjectAssignedNotifications(client, id, projectName, auth.companyId, newlyAdded)
         }
       }
     }
   }
 
-  // status変更通知: before ≠ after かつ cancelled/paused の時のみ全担当Workerへ通知
-  // assignments ブロック完了後に呼ぶことで、最新の担当者リストへ通知できる
+  // status変更通知: before ≠ after かつ cancelled/paused/completed の時のみ全担当Workerへ通知
   const afterStatus = (data as any)?.status
   if (
     (projectFields as any)?.status !== undefined &&
     beforeStatus !== afterStatus &&
-    (afterStatus === 'cancelled' || afterStatus === 'paused')
+    (afterStatus === 'cancelled' || afterStatus === 'paused' || afterStatus === 'completed')
   ) {
     void fireProjectStatusNotifications(
-      client, id, (data as any)?.name ?? '', auth.companyId,
+      client, id, projectName, auth.companyId,
       afterStatus as ProjectStatusEventType
     )
+  }
+
+  // 場所・日時変更通知: 対象フィールドが実際に変わった場合のみ全担当Workerへ通知
+  if (beforeProject && data) {
+    const detailChanges = detectDetailChanges(
+      beforeProject as Record<string, unknown>,
+      data as Record<string, unknown>
+    )
+    if (detailChanges.length > 0) {
+      void fireProjectDetailsChangedNotifications(client, id, projectName, auth.companyId, detailChanges)
+    }
   }
 
   return NextResponse.json({ data })
