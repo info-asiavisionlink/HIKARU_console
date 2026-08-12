@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { fireShiftNotification } from '@/lib/line/shift-notifier'
+import { fireShiftSystemNotification } from '@/lib/notifications/shift-system'
 
 // GET /api/shifts/[id]
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -50,13 +51,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // LINE通知: ステータスに応じてイベント種別を決定
+  // ステータスに応じてイベント種別を決定
   const newStatus = body.status
   const eventType =
     newStatus === 'cancelled' ? 'shift_cancelled' as const :
     newStatus === 'confirmed' ? 'shift_confirmed' as const :
     'shift_updated' as const
 
+  // System内通知 + LINE通知: いずれも業務処理とは独立して実行
+  void fireShiftSystemNotification(auth.adminClient, data, eventType)
   void fireShiftNotification(data, auth.companyId, eventType)
 
   return NextResponse.json({ shift: data })
@@ -90,6 +93,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (existing) {
+    // System内通知 + LINE通知: いずれも業務処理とは独立して実行
+    void fireShiftSystemNotification(auth.adminClient, existing, 'shift_cancelled')
     void fireShiftNotification(existing, auth.companyId, 'shift_cancelled')
   }
 
