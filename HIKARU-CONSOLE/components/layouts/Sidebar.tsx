@@ -32,7 +32,15 @@ const navItems: NavItem[] = [
   { label: '案件依頼',         href: '/project-requests', icon: Inbox, dynamicBadge: true },
   { label: '顧客管理', href: '/clients', icon: Building2 },
   { label: '従業員管理',       href: '/employees',     icon: UserCheck },
-  { label: '勤怠管理',         href: '/attendance',    icon: ClockArrowUp },
+  {
+    label: '勤怠管理',
+    href: '/attendance',
+    icon: ClockArrowUp,
+    children: [
+      { label: '勤怠記録',   href: '/attendance' },
+      { label: '修正申請管理', href: '/attendance/corrections' },
+    ],
+  },
   { label: 'シフト管理',       href: '/shifts',        icon: CalendarDays },
   { label: '経費管理',         href: '/expenses',      icon: Receipt },
   {
