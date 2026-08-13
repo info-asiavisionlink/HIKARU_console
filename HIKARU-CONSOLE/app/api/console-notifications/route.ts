@@ -7,6 +7,8 @@ import { getAuthContext } from '@/lib/supabase/server-admin'
 const ADMIN_NOTIFICATION_TYPES = [
   'attendance_correction_submitted',
   'expense_submitted',
+  'project_report_submitted',
+  'project_proposal_submitted',
 ]
 
 // GET /api/console-notifications
