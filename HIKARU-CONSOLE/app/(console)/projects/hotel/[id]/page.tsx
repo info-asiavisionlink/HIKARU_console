@@ -139,7 +139,7 @@ export default function HotelProjectDetailPage() {
     <div>
       <PageHeader
         title={project.name}
-        breadcrumb={<Breadcrumb items={[{ label: '案件管理', href: '/projects' }, { label: 'ホテル案件', href: '/projects/hotel' }, { label: project.name }]} />}
+        breadcrumb={<Breadcrumb items={[{ label: '案件管理', href: '/projects' }, { label: '日常案件', href: '/projects/hotel' }, { label: project.name }]} />}
         actions={
           <div className="flex gap-2">
             {editing
@@ -389,7 +389,7 @@ export default function HotelProjectDetailPage() {
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="ホテル案件を削除しますか？"
+        title="日常案件を削除しますか？"
         description={`「${project?.name}」を削除します。フロア・スタッフィング・作業エリア情報もすべて削除されます。この操作は取り消せません。`}
       />
     </div>

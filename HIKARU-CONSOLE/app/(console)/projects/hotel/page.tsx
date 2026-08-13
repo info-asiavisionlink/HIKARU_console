@@ -35,9 +35,9 @@ export default function HotelProjectsPage() {
   return (
     <div>
       <PageHeader
-        title="ホテル案件"
-        description={`${total}件 ／ ホテル専用清掃管理`}
-        actions={<Link href="/projects/hotel/new"><Button><Plus className="h-4 w-4" /> ホテル案件を登録</Button></Link>}
+        title="日常案件"
+        description={`${total}件 ／ 日常清掃管理`}
+        actions={<Link href="/projects/hotel/new"><Button><Plus className="h-4 w-4" /> 日常案件を登録</Button></Link>}
       />
       <div className="mb-4">
         <SearchBar value={search} onChange={setSearch} placeholder="ホテル名で検索" className="w-64" />
@@ -57,7 +57,7 @@ export default function HotelProjectsPage() {
               <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}</TableRow>
             )) : items.length === 0 ? (
               <TableRow><TableCell colSpan={7}>
-                <EmptyState icon={<Hotel className="h-12 w-12" />} title="ホテル案件がありません"
+                <EmptyState icon={<Hotel className="h-12 w-12" />} title="日常案件がありません"
                   action={<Link href="/projects/hotel/new"><Button size="sm"><Plus className="h-4 w-4" /> 登録する</Button></Link>} />
               </TableCell></TableRow>
             ) : items.map(item => {

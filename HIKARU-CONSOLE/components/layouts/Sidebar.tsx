@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
       { label: '全案件',       href: '/projects' },
       { label: '単発案件',     href: '/projects/spot' },
       { label: '定期案件',     href: '/projects/recurring' },
-      { label: 'ホテル案件',   href: '/projects/hotel' },
+      { label: '日常案件',     href: '/projects/hotel' },
     ],
   },
   { label: '案件依頼',         href: '/project-requests', icon: Inbox, dynamicBadge: true },

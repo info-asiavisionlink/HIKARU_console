@@ -151,7 +151,7 @@ export default function NewHotelProjectPage() {
       })
     }
 
-    toast.success('ホテル案件を登録しました')
+    toast.success('日常案件を登録しました')
     router.push(`/projects/hotel/${project.id}`)
     setLoading(false)
   }
@@ -159,11 +159,11 @@ export default function NewHotelProjectPage() {
   return (
     <div>
       <PageHeader
-        title="ホテル案件を登録"
+        title="日常案件を登録"
         breadcrumb={
           <Breadcrumb items={[
             { label: '案件管理', href: '/projects' },
-            { label: 'ホテル案件', href: '/projects/hotel' },
+            { label: '日常案件', href: '/projects/hotel' },
             { label: '新規登録' },
           ]} />
         }

@@ -19,7 +19,7 @@ const STATUS_MAP = {
 const TYPE_MAP: Record<string, string> = {
   spot:      '単発案件',
   recurring: '定期案件',
-  hotel:     'ホテル案件',
+  hotel:     '日常案件',
   other:     'その他',
 }
 
