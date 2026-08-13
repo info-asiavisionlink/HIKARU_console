@@ -14,6 +14,9 @@ const ADMIN_NOTIFICATION_TYPES = [
 // GET /api/console-notifications
 // 管理者本人宛 System通知（recipient_profile_id = 自分）
 // 他社・他管理者・Worker向け通知は返さない
+// ADMIN_NOTIFICATION_TYPES と target_app の二重防御:
+//   - type IN ADMIN_NOTIFICATION_TYPES: typeによる第1防御
+//   - target_app='console' OR target_app IS NULL: appによる第2防御 (NULL=legacy互換)
 export async function GET(_req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -24,6 +27,7 @@ export async function GET(_req: NextRequest) {
     .eq('company_id', auth.companyId)
     .eq('recipient_profile_id', auth.userId)
     .in('type', ADMIN_NOTIFICATION_TYPES)
+    .or('target_app.eq.console,target_app.is.null')
     .order('created_at', { ascending: false })
     .limit(30)
 
