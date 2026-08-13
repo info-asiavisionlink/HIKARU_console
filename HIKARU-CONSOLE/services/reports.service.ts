@@ -1,7 +1,6 @@
-import { createClient } from '@/lib/supabase/client'
-
 // ============================================================
 // 報告書サービス — CONSOLE用
+// browser Supabase廃止。GET /api/reports, /api/reports/[id] 経由で取得。
 // ============================================================
 
 export interface ReportListItem {
@@ -93,51 +92,35 @@ export async function listReports(opts?: {
   dateFrom?: string
   dateTo?: string
 }): Promise<{ data: ReportListItem[]; count: number; error: Error | null }> {
-  const supabase = createClient()
-  const page     = opts?.page     ?? 1
-  const pageSize = opts?.pageSize ?? 20
+  try {
+    const params = new URLSearchParams()
+    if (opts?.page)     params.set('page',     String(opts.page))
+    if (opts?.pageSize) params.set('pageSize', String(opts.pageSize))
+    if (opts?.dateFrom) params.set('dateFrom', opts.dateFrom)
+    if (opts?.dateTo)   params.set('dateTo',   opts.dateTo)
 
-  let query = supabase
-    .from('reports')
-    .select(
-      `id, job_id, project_id, worker_id, version, overall_score, created_at,
-       jobs(work_date, started_at, completed_at),
-       projects(name, code, stores(name, address)),
-       profiles(name)`,
-      { count: 'exact' }
-    )
-    .order('created_at', { ascending: false })
-    .range((page - 1) * pageSize, page * pageSize - 1)
-
-  // Note: Supabaseのクライアントライブラリは関連テーブルへのOR検索を未サポート
-  // 将来: Supabase RPC または全文検索 (pg_trgm) を利用して実装予定
-  if (opts?.dateFrom) {
-    query = query.gte('created_at', opts.dateFrom)
-  }
-  if (opts?.dateTo) {
-    query = query.lte('created_at', opts.dateTo + 'T23:59:59Z')
-  }
-
-  const { data, count, error } = await query
-
-  return {
-    data:  (data ?? []) as unknown as ReportListItem[],
-    count: count ?? 0,
-    error: error ? new Error(error.message) : null,
+    const res  = await fetch(`/api/reports?${params}`, { credentials: 'include' })
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}))
+      return { data: [], count: 0, error: new Error(json.error ?? 'fetch failed') }
+    }
+    const json = await res.json()
+    return { data: json.data ?? [], count: json.count ?? 0, error: null }
+  } catch (e) {
+    return { data: [], count: 0, error: e instanceof Error ? e : new Error(String(e)) }
   }
 }
 
 export async function getReport(id: string): Promise<{ data: ReportDetail | null; error: Error | null }> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('reports')
-    .select('*')
-    .eq('id', id)
-    .single()
-
-  return {
-    data:  data as ReportDetail | null,
-    error: error ? new Error(error.message) : null,
+  try {
+    const res  = await fetch(`/api/reports/${id}`, { credentials: 'include' })
+    if (!res.ok) {
+      return { data: null, error: new Error('Not found') }
+    }
+    const json = await res.json()
+    return { data: json.data as ReportDetail, error: null }
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error(String(e)) }
   }
 }
 
@@ -146,23 +129,12 @@ export async function getReportStats(): Promise<{
   avgScore: number | null
   thisMonthCount: number
 }> {
-  const supabase = createClient()
-  const now  = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-
-  const [{ data: all }, { data: monthly }] = await Promise.all([
-    supabase.from('reports').select('overall_score'),
-    supabase.from('reports').select('id').gte('created_at', from),
-  ])
-
-  const scores  = (all ?? []).map((r: any) => r.overall_score).filter((s: any) => s != null) as number[]
-  const avgScore = scores.length > 0
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-    : null
-
-  return {
-    totalReports:   all?.length   ?? 0,
-    avgScore,
-    thisMonthCount: monthly?.length ?? 0,
+  try {
+    const res  = await fetch('/api/reports?page=1&pageSize=1', { credentials: 'include' })
+    if (!res.ok) return { totalReports: 0, avgScore: null, thisMonthCount: 0 }
+    const json = await res.json()
+    return json.stats ?? { totalReports: 0, avgScore: null, thisMonthCount: 0 }
+  } catch {
+    return { totalReports: 0, avgScore: null, thisMonthCount: 0 }
   }
 }
