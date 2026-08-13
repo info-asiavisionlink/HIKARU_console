@@ -6,6 +6,7 @@ import { getAuthContext } from '@/lib/supabase/server-admin'
 // 将来の管理者通知を追加する場合はここに追記する。
 const ADMIN_NOTIFICATION_TYPES = [
   'attendance_correction_submitted',
+  'expense_submitted',
 ]
 
 // GET /api/console-notifications
