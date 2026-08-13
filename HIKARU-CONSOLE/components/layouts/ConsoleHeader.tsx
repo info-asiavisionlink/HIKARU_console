@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Cpu, Menu } from 'lucide-react'
+import { Bell, Cpu, Menu, FilePen, CheckCheck } from 'lucide-react'
 import {
   Avatar, AvatarFallback, AvatarImage,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -11,6 +11,46 @@ import {
 } from '@hikaru/ui'
 import { useAuthStore } from '@/stores/auth.store'
 import { logoutAction } from '@/app/(auth)/login/actions'
+
+type SysNotification = {
+  id: string
+  title: string
+  body: string | null
+  type: string
+  is_read: boolean
+  target_url: string | null
+  created_at: string
+}
+
+function useSysNotifications() {
+  const [notifications, setNotifications] = React.useState<SysNotification[]>([])
+  const [unreadCount, setUnreadCount]     = React.useState(0)
+
+  const fetchNotifs = React.useCallback(async () => {
+    try {
+      const res  = await fetch('/api/console-notifications')
+      const json = await res.json()
+      setNotifications(json.notifications ?? [])
+      setUnreadCount(json.unread_count    ?? 0)
+    } catch { /* ignore */ }
+  }, [])
+
+  React.useEffect(() => {
+    fetchNotifs()
+    const id = setInterval(fetchNotifs, 30000)
+    return () => clearInterval(id)
+  }, [fetchNotifs])
+
+  async function markRead(notifId: string) {
+    try {
+      await fetch(`/api/console-notifications/${notifId}/read`, { method: 'PATCH' })
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    } catch { /* ignore */ }
+  }
+
+  return { notifications, unreadCount, fetchNotifs, markRead }
+}
 
 interface ConsoleHeaderProps {
   sidebarWidth?: string
@@ -23,6 +63,7 @@ export function ConsoleHeader({
 }: ConsoleHeaderProps) {
   const user = useAuthStore((s) => s.user)
   const router = useRouter()
+  const { notifications, unreadCount, fetchNotifs, markRead } = useSysNotifications()
   const [time, setTime] = React.useState('')
   const [date, setDate] = React.useState('')
 
@@ -98,22 +139,90 @@ export function ConsoleHeader({
 
       {/* 右: アクション */}
       <div className="flex items-center gap-2">
-        {/* 通知 */}
-        <button
-          className="relative rounded-[var(--radius)] p-2 transition-all duration-200 focus:outline-none"
-          style={{ color: 'oklch(0.50 0.007 75)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'oklch(0.73 0.12 78)'
-            e.currentTarget.style.background = 'oklch(0.73 0.12 78 / 0.08)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = 'oklch(0.50 0.007 75)'
-            e.currentTarget.style.background = 'transparent'
-          }}
-          aria-label="通知"
-        >
-          <Bell className="h-4 w-4" />
-        </button>
+        {/* System通知 Bell */}
+        <DropdownMenu onOpenChange={(open) => { if (open) fetchNotifs() }}>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="relative rounded-[var(--radius)] p-2 transition-all duration-200 focus:outline-none"
+              style={{ color: 'oklch(0.50 0.007 75)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'oklch(0.73 0.12 78)'
+                e.currentTarget.style.background = 'oklch(0.73 0.12 78 / 0.08)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'oklch(0.50 0.007 75)'
+                e.currentTarget.style.background = 'transparent'
+              }}
+              aria-label="通知"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold"
+                  style={{ background: 'oklch(0.65 0.20 25)', color: 'white' }}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>通知</span>
+              {unreadCount > 0 && (
+                <span className="text-xs font-normal" style={{ color: 'oklch(0.65 0.20 25)' }}>
+                  未読 {unreadCount}件
+                </span>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-xs" style={{ color: 'oklch(0.50 0.007 75)' }}>
+                <Bell className="h-5 w-5 mb-1 opacity-30" />
+                通知はありません
+              </div>
+            ) : (
+              notifications.slice(0, 10).map((n) => (
+                <DropdownMenuItem
+                  key={n.id}
+                  onSelect={async () => {
+                    if (!n.is_read) await markRead(n.id)
+                    if (n.target_url) router.push(n.target_url)
+                  }}
+                  className={cn('flex flex-col items-start gap-0.5 py-2.5 cursor-pointer', !n.is_read && 'font-medium')}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    {!n.is_read && (
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'oklch(0.65 0.20 25)' }} />
+                    )}
+                    {n.is_read && <CheckCheck className="h-3 w-3 shrink-0 opacity-30" />}
+                    <span className="text-xs truncate flex-1">{n.title}</span>
+                  </div>
+                  {n.body && (
+                    <p className="text-[10px] pl-4 line-clamp-2 whitespace-pre-line" style={{ color: 'oklch(0.55 0.007 75)' }}>
+                      {n.body}
+                    </p>
+                  )}
+                  <p className="text-[9px] pl-4" style={{ color: 'oklch(0.45 0.006 75)' }}>
+                    {new Date(n.created_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </DropdownMenuItem>
+              ))
+            )}
+            {notifications.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => router.push('/attendance/corrections')}
+                  className="justify-center text-xs"
+                >
+                  <FilePen className="h-3.5 w-3.5 mr-1.5" />
+                  修正申請一覧を見る
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="h-5 w-px" style={{ background: 'oklch(0.73 0.12 78 / 0.15)' }} />
 
