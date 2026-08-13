@@ -190,6 +190,7 @@ export async function fireProjectStatusNotifications(
           title:                config.title,
           body:                 config.bodyFn(projectName),
           type:                 eventType,
+          target_app:           'worker',
           is_read:              false,
           target_url:           config.targetUrlFn(projectId),
         })
@@ -252,6 +253,7 @@ export async function fireProjectUnassignedNotifications(
         title:                '案件の担当から解除されました',
         body:                 `${projectName} の担当から解除されました。`,
         type:                 'project_unassigned',
+        target_app:           'worker',
         is_read:              false,
         // 解除後は project_assignments が削除されており /jobs/{id} へアクセス不可の可能性あり
         target_url:           '/jobs',
@@ -336,6 +338,7 @@ export async function fireProjectDetailsChangedNotifications(
           title:                '案件情報が変更されました',
           body,
           type:                 'project_details_changed',
+          target_app:           'worker',
           is_read:              false,
           target_url:           `/jobs/${projectId}`,
         })
@@ -401,6 +404,7 @@ export async function fireProjectAssignedNotifications(
           title:                '新しい案件に割り当てられました',
           body:                 `${projectName} の担当に割り当てられました。`,
           type:                 'project_assigned',
+          target_app:           'worker',
           is_read:              false,
           target_url:           `/jobs/${projectId}`,
         })

@@ -15,6 +15,7 @@ async function insertSystemNotification(
       title:                opts.title,
       body:                 opts.body,
       type:                 opts.type,
+      target_app:           'worker',
       is_read:              false,
       target_url:           opts.targetUrl,
     })

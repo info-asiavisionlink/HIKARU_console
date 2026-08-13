@@ -98,6 +98,7 @@ export async function fireShiftSystemNotification(
         title:                EVENT_TITLES[eventType],
         body:                 buildBody(shift),
         type:                 eventType,
+        target_app:           'worker',
         is_read:              false,
         target_url:           '/shifts',
       })
