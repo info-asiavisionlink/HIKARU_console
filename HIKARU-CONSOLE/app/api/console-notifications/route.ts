@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 
+// 管理者向け通知 type のみ表示する。
+// Worker 本人向け通知（expense_approved, shift_created 等）は除外。
+// 将来の管理者通知を追加する場合はここに追記する。
+const ADMIN_NOTIFICATION_TYPES = [
+  'attendance_correction_submitted',
+]
+
 // GET /api/console-notifications
 // 管理者本人宛 System通知（recipient_profile_id = 自分）
-// 他社・他管理者の通知は返さない
+// 他社・他管理者・Worker向け通知は返さない
 export async function GET(_req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -13,6 +20,7 @@ export async function GET(_req: NextRequest) {
     .select('id, title, body, type, is_read, target_url, created_at')
     .eq('company_id', auth.companyId)
     .eq('recipient_profile_id', auth.userId)
+    .in('type', ADMIN_NOTIFICATION_TYPES)
     .order('created_at', { ascending: false })
     .limit(30)
 
