@@ -19,13 +19,14 @@ export async function POST(req: NextRequest) {
   const { companyId, adminClient: admin } = auth as { companyId: string; adminClient: AC }
 
   const body = await req.json()
+  // period_month は sales_commissions 向けに受け取る（project_billing では使わない）
   const { project_id, payment_amount, period_month } = body
 
   if (!project_id || !payment_amount) {
     return NextResponse.json({ error: 'project_id and payment_amount required' }, { status: 400 })
   }
 
-  // 案件情報を取得
+  // 案件情報を取得（company_id でIDOR対策）
   const { data: project, error: pErr } = await admin
     .from('projects')
     .select('id, name, project_type, acquired_by, company_id')
@@ -38,16 +39,25 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString()
 
   // project_billing を upsert（入金完了に更新）
-  await admin.from('project_billing').upsert({
+  // 本番スキーマ（migration 014）に合わせて以下カラムのみ使用:
+  //   project_id, billing_status, actual_payment_date, updated_at
+  // 存在しないカラム（actual_payment_amount, period_month）は一切書き込まない。
+  // project_billing は 1案件=1レコード（PRIMARY KEY: project_id のみ）。
+  const { error: billingErr } = await admin.from('project_billing').upsert({
     project_id,
-    billing_status: 'paid',
+    billing_status:      'paid',
     actual_payment_date: now.split('T')[0],
-    actual_payment_amount: Number(payment_amount),
-    period_month: period_month ?? null,
-    updated_at: now,
-  }, { onConflict: period_month ? 'project_id,period_month' : 'project_id' })
+    updated_at:          now,
+  }, { onConflict: 'project_id' })
+
+  if (billingErr) {
+    console.error('[api/billing] project_billing upsert failed:', billingErr.message)
+    return NextResponse.json({ error: `請求情報の更新に失敗しました: ${billingErr.message}` }, { status: 500 })
+  }
 
   // 獲得者がいる場合は報酬を計算・確定
+  // sales_commissions は project_billing と別テーブル。
+  // period_month / payment_amount はそちらで引き続き管理。
   let commission = null
   if (project.acquired_by) {
     const rate   = COMMISSION_RATES[project.project_type] ?? 0.03
