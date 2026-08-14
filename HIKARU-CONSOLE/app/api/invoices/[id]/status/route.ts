@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!newStatus) return NextResponse.json({ error: 'status は必須です' }, { status: 400 })
 
   const { data: existing } = await auth.adminClient
-    .from('invoices').select('status, company_id, invoice_type').eq('id', id).single()
+    .from('invoices').select('status, company_id, invoice_type, project_id').eq('id', id).single()
 
   if (!existing) return NextResponse.json({ error: '見つかりません' }, { status: 404 })
   if (existing.company_id !== auth.companyId) return NextResponse.json({ error: '権限なし' }, { status: 403 })
@@ -74,5 +74,69 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
+  // project_billing 同期: invoiceの特定status変化を spot 案件の billing_status へ反映。
+  // issued → billed で「未入金」としてDashboardに表示。
+  // awaiting_payment → awaiting_payment、paid → paid。
+  // quote / 他typeは対象外。失敗しても status 変更は取り消さない。
+  if (existing.invoice_type === 'invoice' && existing.project_id) {
+    const billingStatusMap: Record<string, string> = {
+      issued:           'billed',
+      awaiting_payment: 'awaiting_payment',
+      paid:             'paid',
+    }
+    const billingStatus = billingStatusMap[newStatus]
+    if (billingStatus) {
+      void syncSpotProjectBilling(
+        auth.adminClient,
+        auth.companyId,
+        existing.project_id as string,
+        billingStatus,
+        newStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined
+      )
+    }
+  }
+
   return NextResponse.json({ invoice: data })
+}
+
+// ── project_billing 同期ヘルパー ──────────────────────────────────
+// spot案件のみを対象とし、billing_status と actual_payment_date を更新する。
+// 使用カラム: project_id(PK), billing_status, actual_payment_date
+// 非存在カラム: period_month, actual_payment_amount は一切書き込まない。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncSpotProjectBilling(
+  adminClient: any,
+  companyId:   string,
+  projectId:   string,
+  billingStatus: string,
+  paidDate?:   string
+): Promise<void> {
+  try {
+    const { data: project } = await adminClient
+      .from('projects')
+      .select('project_type')
+      .eq('id', projectId)
+      .eq('company_id', companyId)
+      .single()
+
+    if (!project || project.project_type !== 'spot') return
+
+    const upsertPayload: Record<string, unknown> = {
+      project_id:     projectId,
+      billing_status: billingStatus,
+    }
+    if (paidDate && billingStatus === 'paid') {
+      upsertPayload.actual_payment_date = paidDate
+    }
+
+    const { error } = await adminClient
+      .from('project_billing')
+      .upsert(upsertPayload, { onConflict: 'project_id' })
+
+    if (error) {
+      console.error('[project_billing sync] upsert failed:', error.message)
+    }
+  } catch (e) {
+    console.error('[project_billing sync] unexpected error:', e)
+  }
 }
