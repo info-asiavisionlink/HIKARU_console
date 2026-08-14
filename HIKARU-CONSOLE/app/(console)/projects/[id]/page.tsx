@@ -44,6 +44,7 @@ export default function ProjectDetailPage() {
   const [paying,     setPaying]     = React.useState(false)
   const [acquiredBy, setAcquiredBy] = React.useState<{ id: string; name: string } | null>(null)
   const [contracts, setContracts] = React.useState<any[]>([])
+  const [quotingDraft, setQuotingDraft] = React.useState(false)
 
   React.useEffect(() => {
     async function load() {
@@ -95,6 +96,31 @@ export default function ProjectDetailPage() {
     else { toast.success('案件を削除しました'); router.push('/projects') }
   }
 
+  async function handleCreateQuote() {
+    setQuotingDraft(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/quote`, {
+        method:      'POST',
+        credentials: 'include',
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? '見積書の作成に失敗しました')
+        return
+      }
+      if (json.existing) {
+        toast.info(json.message ?? 'この案件には作成途中の見積書があります')
+      } else {
+        toast.success('見積書の下書きを作成しました')
+      }
+      router.push(`/invoices/${json.quote.id}`)
+    } catch {
+      toast.error('通信エラーが発生しました')
+    } finally {
+      setQuotingDraft(false)
+    }
+  }
+
   async function handlePaymentComplete() {
     if (!payAmount || Number(payAmount) <= 0) { toast.error('入金額を入力してください'); return }
     setPaying(true)
@@ -138,11 +164,16 @@ export default function ProjectDetailPage() {
         breadcrumb={<Breadcrumb items={[{ label: '案件管理', href: '/projects' }, { label: project.name }]} />}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Link href={`/invoices/new?type=quote&project_id=${id}`}>
-              <Button variant="outline" size="sm">
-                <DollarSign className="h-4 w-4" /> 見積書作成
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCreateQuote}
+              disabled={quotingDraft}
+            >
+              {quotingDraft
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> 見積書作成中...</>
+                : <><DollarSign className="h-4 w-4" /> 見積書を作成</>}
+            </Button>
             <Link href={`/projects/${id}/manuals`}>
               <Button variant="outline" size="sm"><BookOpen className="h-4 w-4" /> マニュアル</Button>
             </Link>

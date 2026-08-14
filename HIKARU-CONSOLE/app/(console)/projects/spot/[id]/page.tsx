@@ -13,7 +13,7 @@ import {
   SinglePriceCard, BillingInfoCard, emptyBilling, emptyPrice,
   BILLING_STATUSES, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus, DollarSign, Loader2 } from 'lucide-react'
 import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
@@ -25,9 +25,10 @@ export default function SpotProjectDetailPage() {
   const router  = useRouter()
   const [project,    setProject]    = React.useState<any>(null)
   const [loading,    setLoading]    = React.useState(true)
-  const [editing,    setEditing]    = React.useState(false)
-  const [saving,     setSaving]     = React.useState(false)
-  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [editing,      setEditing]      = React.useState(false)
+  const [saving,       setSaving]       = React.useState(false)
+  const [deleteOpen,   setDeleteOpen]   = React.useState(false)
+  const [quotingDraft, setQuotingDraft] = React.useState(false)
   const [form,      setForm]      = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [price,     setPrice]     = React.useState<PriceEntry>(emptyPrice())
@@ -110,6 +111,31 @@ export default function SpotProjectDetailPage() {
       }
     }
     setLoading(false)
+  }
+
+  async function handleCreateQuote() {
+    setQuotingDraft(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/quote`, {
+        method:      'POST',
+        credentials: 'include',
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? '見積書の作成に失敗しました')
+        return
+      }
+      if (json.existing) {
+        toast.info(json.message ?? 'この案件には作成途中の見積書があります')
+      } else {
+        toast.success('見積書の下書きを作成しました')
+      }
+      router.push(`/invoices/${json.quote.id}`)
+    } catch {
+      toast.error('通信エラーが発生しました')
+    } finally {
+      setQuotingDraft(false)
+    }
   }
 
   async function handleDelete() {
@@ -216,6 +242,11 @@ export default function SpotProjectDetailPage() {
               </>
             ) : (
               <>
+                <Button variant="outline" size="sm" onClick={handleCreateQuote} disabled={quotingDraft}>
+                  {quotingDraft
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> 見積書作成中...</>
+                    : <><DollarSign className="h-4 w-4" /> 見積書を作成</>}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4" /> 編集</Button>
                 <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4" /> 削除</Button>
               </>
