@@ -9,6 +9,10 @@ export interface ClientRow {
   contact_name: string | null
   notes: string | null
   is_active: boolean
+  // 請求情報（migration 040）
+  invoice_email: string | null
+  payment_terms: string | null
+  closing_day: number | null
   created_at: string
   updated_at: string
 }
@@ -21,6 +25,10 @@ export interface ClientInsert {
   address?: string | null
   contact_name?: string | null
   notes?: string | null
+  // 請求情報（作成後に設定可）
+  invoice_email?: string | null
+  payment_terms?: string | null
+  closing_day?: number | null
 }
 
 export async function listClients(opts?: {

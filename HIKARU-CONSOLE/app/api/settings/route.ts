@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data: company } = await admin
     .from('companies')
-    .select('id, name, created_at')
+    .select('id, name, address, phone, email, created_at')
     .eq('id', companyId)
     .single()
 
@@ -21,12 +21,17 @@ export async function PATCH(req: NextRequest) {
   const { companyId, adminClient: admin } = auth
 
   const body = await req.json()
-  const { name } = body
+  const { name, address, phone, email } = body
   if (!name?.trim()) return NextResponse.json({ error: '会社名を入力してください' }, { status: 400 })
 
   const { data, error } = await admin
     .from('companies')
-    .update({ name: name.trim() })
+    .update({
+      name:    name.trim(),
+      address: address?.trim() || null,
+      phone:   phone?.trim()   || null,
+      email:   email?.trim()   || null,
+    })
     .eq('id', companyId)
     .select()
     .single()

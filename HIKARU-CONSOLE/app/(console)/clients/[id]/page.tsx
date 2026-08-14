@@ -28,6 +28,7 @@ export default function ClientDetailPage() {
   const [saving, setSaving] = React.useState(false)
   const [form, setForm] = React.useState({
     name: '', code: '', email: '', phone: '', address: '', contact_name: '', notes: '', is_active: true,
+    invoice_email: '', payment_terms: '', closing_day: '',
   })
 
   // ポータルアカウント
@@ -55,14 +56,17 @@ export default function ClientDetailPage() {
       setClient(data)
       if (data) {
         setForm({
-          name:         data.name ?? '',
-          code:         data.code ?? '',
-          email:        data.email ?? '',
-          phone:        data.phone ?? '',
-          address:      data.address ?? '',
-          contact_name: data.contact_name ?? '',
-          notes:        data.notes ?? '',
-          is_active:    data.is_active ?? true,
+          name:          data.name ?? '',
+          code:          data.code ?? '',
+          email:         data.email ?? '',
+          phone:         data.phone ?? '',
+          address:       data.address ?? '',
+          contact_name:  data.contact_name ?? '',
+          notes:         data.notes ?? '',
+          is_active:     data.is_active ?? true,
+          invoice_email: data.invoice_email ?? '',
+          payment_terms: data.payment_terms ?? '',
+          closing_day:   data.closing_day != null ? String(data.closing_day) : '',
         })
         setNewPortal((p) => ({ ...p, contactName: data.contact_name ?? '' }))
       }
@@ -87,15 +91,22 @@ export default function ClientDetailPage() {
   async function handleSave() {
     if (!form.name.trim()) { toast.error('顧客名を入力してください'); return }
     setSaving(true)
+    const closingDayNum = form.closing_day.trim() ? Number(form.closing_day) : null
+    if (closingDayNum !== null && (isNaN(closingDayNum) || closingDayNum < 1 || closingDayNum > 31)) {
+      toast.error('締日は1〜31の数値で入力してください'); setSaving(false); return
+    }
     const { error } = await updateClient(id, {
-      name:         form.name.trim(),
-      code:         form.code.trim()         || null,
-      email:        form.email.trim()        || null,
-      phone:        form.phone.trim()        || null,
-      address:      form.address.trim()      || null,
-      contact_name: form.contact_name.trim() || null,
-      notes:        form.notes.trim()        || null,
-      is_active:    form.is_active,
+      name:          form.name.trim(),
+      code:          form.code.trim()          || null,
+      email:         form.email.trim()         || null,
+      phone:         form.phone.trim()         || null,
+      address:       form.address.trim()       || null,
+      contact_name:  form.contact_name.trim()  || null,
+      notes:         form.notes.trim()         || null,
+      is_active:     form.is_active,
+      invoice_email: form.invoice_email.trim() || null,
+      payment_terms: form.payment_terms.trim() || null,
+      closing_day:   closingDayNum,
     })
     if (error) {
       toast.error('保存に失敗しました')
@@ -244,6 +255,34 @@ export default function ClientDetailPage() {
                     <span className="text-sm font-medium">有効</span>
                     <Switch checked={form.is_active} onCheckedChange={(v) => update('is_active', v)} />
                   </div>
+                  {/* 請求情報 */}
+                  <div className="border-t border-[var(--color-border)] pt-4 space-y-3">
+                    <p className="text-xs font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">請求情報</p>
+                    <Input
+                      label="請求書送付先メール"
+                      type="email"
+                      value={form.invoice_email}
+                      onChange={(e) => update('invoice_email', e.target.value)}
+                      hint="未設定の場合は上記メールアドレスを使用"
+                    />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Input
+                        label="支払条件"
+                        value={form.payment_terms}
+                        onChange={(e) => update('payment_terms', e.target.value)}
+                        placeholder="例: 翌月末払い"
+                      />
+                      <Input
+                        label="締日"
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={form.closing_day}
+                        onChange={(e) => update('closing_day', e.target.value)}
+                        placeholder="例: 20（月末は31）"
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <dl>
@@ -254,6 +293,16 @@ export default function ClientDetailPage() {
                   <InfoRow label="メールアドレス" value={client.email} />
                   <InfoRow label="住所" value={client.address} />
                   <InfoRow label="備考" value={client.notes} />
+                  {(client.invoice_email || client.payment_terms || client.closing_day != null) && (
+                    <>
+                      <div className="border-t border-[var(--color-border)] mt-2 pt-2">
+                        <p className="text-xs font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider mb-2">請求情報</p>
+                      </div>
+                      <InfoRow label="請求書送付先" value={client.invoice_email} />
+                      <InfoRow label="支払条件" value={client.payment_terms} />
+                      <InfoRow label="締日" value={client.closing_day != null ? `${client.closing_day}日${client.closing_day === 31 ? '（月末）' : ''}` : null} />
+                    </>
+                  )}
                 </dl>
               )}
             </CardContent>

@@ -9,13 +9,23 @@ import { Save, Building2, Info } from 'lucide-react'
 export default function SettingsPage() {
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
-  const [form, setForm] = React.useState({ name: '' })
+  const [form, setForm] = React.useState({ name: '', address: '', phone: '', email: '' })
   const [company, setCompany] = React.useState<any>(null)
 
   React.useEffect(() => {
     fetch('/api/settings', { credentials: 'include', cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.data) { setCompany(d.data); setForm({ name: d.data.name ?? '' }) } })
+      .then(d => {
+        if (d?.data) {
+          setCompany(d.data)
+          setForm({
+            name:    d.data.name    ?? '',
+            address: d.data.address ?? '',
+            phone:   d.data.phone   ?? '',
+            email:   d.data.email   ?? '',
+          })
+        }
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -27,7 +37,7 @@ export default function SettingsPage() {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name }),
+      body: JSON.stringify({ name: form.name, address: form.address, phone: form.phone, email: form.email }),
     })
     if (res.ok) {
       toast.success('設定を保存しました')
@@ -59,9 +69,30 @@ export default function SettingsPage() {
                 <Input
                   label="会社名"
                   value={form.name}
-                  onChange={(e) => setForm({ name: e.target.value })}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                   placeholder="株式会社HIKARU"
                 />
+                <Input
+                  label="住所"
+                  value={form.address}
+                  onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="東京都渋谷区..."
+                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input
+                    label="電話番号"
+                    value={form.phone}
+                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="03-xxxx-xxxx"
+                  />
+                  <Input
+                    label="メールアドレス"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="info@example.com"
+                  />
+                </div>
                 {company?.created_at && (
                   <p className="text-xs text-[var(--color-muted-foreground)]">
                     登録日: {new Date(company.created_at).toLocaleDateString('ja-JP')}
