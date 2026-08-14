@@ -13,7 +13,7 @@ import {
   SinglePriceCard, BillingInfoCard, emptyBilling, emptyPrice,
   BILLING_STATUSES, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus, DollarSign, Loader2 } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus, DollarSign, Loader2, FileText } from 'lucide-react'
 import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
@@ -28,7 +28,8 @@ export default function SpotProjectDetailPage() {
   const [editing,      setEditing]      = React.useState(false)
   const [saving,       setSaving]       = React.useState(false)
   const [deleteOpen,   setDeleteOpen]   = React.useState(false)
-  const [quotingDraft, setQuotingDraft] = React.useState(false)
+  const [quotingDraft,    setQuotingDraft]    = React.useState(false)
+  const [generatingInvoice, setGeneratingInvoice] = React.useState(false)
   const [form,      setForm]      = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [price,     setPrice]     = React.useState<PriceEntry>(emptyPrice())
@@ -135,6 +136,31 @@ export default function SpotProjectDetailPage() {
       toast.error('通信エラーが発生しました')
     } finally {
       setQuotingDraft(false)
+    }
+  }
+
+  async function handleGenerateInvoice() {
+    setGeneratingInvoice(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/invoice`, {
+        method:      'POST',
+        credentials: 'include',
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? '請求書の生成に失敗しました')
+        return
+      }
+      if (json.existing) {
+        toast.info(json.message ?? 'この案件には作成途中の請求書があります')
+      } else {
+        toast.success('請求書の下書きを作成しました')
+      }
+      router.push(`/invoices/${json.invoice.id}`)
+    } catch {
+      toast.error('通信エラーが発生しました')
+    } finally {
+      setGeneratingInvoice(false)
     }
   }
 
@@ -246,6 +272,11 @@ export default function SpotProjectDetailPage() {
                   {quotingDraft
                     ? <><Loader2 className="h-4 w-4 animate-spin" /> 見積書作成中...</>
                     : <><DollarSign className="h-4 w-4" /> 見積書を作成</>}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleGenerateInvoice} disabled={generatingInvoice}>
+                  {generatingInvoice
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> 請求書生成中...</>
+                    : <><FileText className="h-4 w-4" /> 請求書を生成</>}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4" /> 編集</Button>
                 <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4" /> 削除</Button>
