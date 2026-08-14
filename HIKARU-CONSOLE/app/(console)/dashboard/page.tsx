@@ -308,7 +308,7 @@ export default function DashboardPage() {
           {[
             { label: '単発売上',   value: stats?.revenue.by_type.spot      ?? 0 },
             { label: '定期売上',   value: stats?.revenue.by_type.recurring ?? 0 },
-            { label: 'ホテル売上', value: stats?.revenue.by_type.hotel     ?? 0 },
+            { label: '日常売上', value: stats?.revenue.by_type.hotel     ?? 0 },
           ].map((item) => (
             <div key={item.label} className="rounded-[var(--radius-lg)] p-3 flex items-center justify-between"
               style={{ background: 'oklch(0.07 0.004 260 / 0.70)', border: '1px solid oklch(0.73 0.12 78 / 0.10)' }}>
