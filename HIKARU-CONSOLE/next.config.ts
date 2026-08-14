@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   eslint:     { ignoreDuringBuilds: true },
 
+  // フォントファイルをPDF生成APIルートのサーバーレス関数バンドルに含める
+  outputFileTracingIncludes: {
+    '/api/invoices/[id]/pdf': ['./public/fonts/*.otf'],
+  },
 
   images: {
     remotePatterns: [

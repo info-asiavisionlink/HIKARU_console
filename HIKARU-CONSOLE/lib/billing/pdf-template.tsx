@@ -3,17 +3,20 @@
  * @react-pdf/renderer 使用
  */
 import React from 'react'
+import path from 'path'
 import {
   Document, Page, Text, View, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import { fmtJPY } from './calculator'
 
-// フォント登録（日本語対応 - Noto Sans CJK JP）
-// 実際の運用では適切なフォントファイルを配置してください
-// Font.register({ family: 'NotoSansJP', src: '...' })
+// 日本語フォント登録（Noto Sans JP - public/fonts/NotoSansJP-Regular.otf）
+Font.register({
+  family: 'NotoSansJP',
+  src: path.join(process.cwd(), 'public', 'fonts', 'NotoSansJP-Regular.otf'),
+})
 
 const styles = StyleSheet.create({
-  page:       { fontFamily: 'Helvetica', fontSize: 10, padding: 40, backgroundColor: '#ffffff' },
+  page:       { fontFamily: 'NotoSansJP', fontSize: 10, padding: 40, backgroundColor: '#ffffff' },
   header:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   title:      { fontSize: 22, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 4 },
   subtitle:   { fontSize: 11, color: '#555555' },
