@@ -63,14 +63,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // invoice cancel 時に invoice_job_links を削除し、jobを再請求可能にする。
-  // statusの更新が成功してからの後処理。失敗してもcancelは取り消さない。
+  // invoice の status 更新後の後処理。
+  // 失敗した場合でも invoice の cancelled 状態は取り消さないが、
+  // 呼び出し元に warning を返して再請求不能状態を通知する。
   if (newStatus === 'cancelled') {
     const { error: linkErr } = await auth.adminClient
       .from('invoice_job_links')
       .delete()
       .eq('invoice_id', id)
+      .eq('company_id', auth.companyId)   // 防御的フィルター（ownership は line 37 確認済み）
     if (linkErr) {
       console.error('[api/invoices/status] invoice_job_links 削除失敗 (invoice cancel 済):', linkErr.message)
+      // 請求書はキャンセルされているが job リンクが残存するため再請求不能になる可能性を通知
+      return NextResponse.json({
+        invoice: data,
+        warning: 'job_links_not_released',
+        warning_message: '請求書はキャンセルされましたが、作業の紐付け解除に失敗しました。同じ作業で再請求する場合はサポートへお問い合わせください。',
+      })
     }
   }
 
