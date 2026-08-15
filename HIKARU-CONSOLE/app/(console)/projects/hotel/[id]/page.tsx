@@ -10,7 +10,7 @@ import {
   SinglePriceCard, BillingInfoCard, emptyBilling, emptyPrice,
   BILLING_STATUSES, fmtJPY, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, DollarSign, Loader2 } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, DollarSign, Loader2, FileText } from 'lucide-react'
 
 interface FloorRow     { id?: string; floor_name: string; room_count: string }
 interface StaffingRow  { id?: string; time_slot: string; required_staff: string }
@@ -24,7 +24,14 @@ export default function HotelProjectDetailPage() {
   const [editing,      setEditing]      = React.useState(false)
   const [saving,       setSaving]       = React.useState(false)
   const [deleteOpen,   setDeleteOpen]   = React.useState(false)
-  const [quotingDraft, setQuotingDraft] = React.useState(false)
+  const [quotingDraft,    setQuotingDraft]    = React.useState(false)
+  const [invoicingDraft,  setInvoicingDraft]  = React.useState(false)
+  const [invoiceMonth,    setInvoiceMonth]    = React.useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+  // jobs=0 の確認ダイアログ用
+  const [noJobsConfirm,   setNoJobsConfirm]   = React.useState<{ month: string; message: string } | null>(null)
   const [form, setForm] = React.useState<any>({})
   const [floors,   setFloors]   = React.useState<FloorRow[]>([])
   const [staffing, setStaffing] = React.useState<StaffingRow[]>([])
@@ -100,6 +107,44 @@ export default function HotelProjectDetailPage() {
     } finally {
       setQuotingDraft(false)
     }
+  }
+
+  async function handleCreateMonthlyInvoice(confirmNoJobs = false) {
+    if (!invoiceMonth) { toast.error('対象月を選択してください'); return }
+    setInvoicingDraft(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/invoice/hotel-monthly`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ period_month: invoiceMonth, ...(confirmNoJobs ? { confirm_no_jobs: true } : {}) }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? '月次請求書の作成に失敗しました')
+        return
+      }
+      // jobs=0 の確認要求
+      if (json.requires_confirmation) {
+        setNoJobsConfirm({ month: invoiceMonth, message: json.message })
+        return
+      }
+      if (json.existing) {
+        toast.info(json.message ?? 'この月の月次請求書はすでに存在します')
+      } else {
+        toast.success('月次請求書の下書きを作成しました')
+      }
+      router.push(`/invoices/${json.invoice.id}`)
+    } catch {
+      toast.error('通信エラーが発生しました')
+    } finally {
+      setInvoicingDraft(false)
+    }
+  }
+
+  async function handleConfirmNoJobs() {
+    setNoJobsConfirm(null)
+    await handleCreateMonthlyInvoice(true)
   }
 
   async function handleDelete() {
@@ -410,6 +455,38 @@ export default function HotelProjectDetailPage() {
         </div>
 
         <div className="space-y-3">
+          {/* 月次請求書（閲覧モードのみ表示） */}
+          {!editing && (
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> 月次請求書
+                </h2>
+                <div className="space-y-2">
+                  <label className="text-xs text-[var(--color-muted-foreground)]">対象月</label>
+                  <input
+                    type="month"
+                    value={invoiceMonth}
+                    onChange={(e) => setInvoiceMonth(e.target.value)}
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={invoicingDraft || !invoiceMonth}
+                  onClick={() => handleCreateMonthlyInvoice(false)}
+                >
+                  {invoicingDraft
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
+                    : <><FileText className="h-4 w-4" /> 月次請求書を生成</>}
+                </Button>
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  下書きが作成されます。発行前に内容を確認してください。
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Link href="/projects/hotel"><Button variant="outline" className="w-full"><ArrowLeft className="h-4 w-4" /> 一覧へ</Button></Link>
           {!editing && (
             <Button variant="destructive" className="w-full" onClick={() => setDeleteOpen(true)}>
@@ -425,6 +502,24 @@ export default function HotelProjectDetailPage() {
         title="日常案件を削除しますか？"
         description={`「${project?.name}」を削除します。フロア・スタッフィング・作業エリア情報もすべて削除されます。この操作は取り消せません。`}
       />
+
+      {/* jobs=0 確認ダイアログ */}
+      {noJobsConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="mx-4 max-w-md w-full rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-xl space-y-4">
+            <h3 className="text-base font-semibold text-[var(--color-foreground)]">作業記録なしで請求書を生成しますか？</h3>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{noJobsConfirm.message}</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setNoJobsConfirm(null)} disabled={invoicingDraft}>
+                キャンセル
+              </Button>
+              <Button onClick={handleConfirmNoJobs} disabled={invoicingDraft}>
+                {invoicingDraft ? <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</> : '確認して生成'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
