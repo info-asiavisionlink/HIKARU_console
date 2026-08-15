@@ -29,6 +29,8 @@ export default function ClientDetailPage() {
   const [form, setForm] = React.useState({
     name: '', code: '', email: '', phone: '', address: '', contact_name: '', notes: '', is_active: true,
     invoice_email: '', payment_terms: '', closing_day: '',
+    payment_month_offset: '' as string,
+    payment_day: '' as string,
   })
 
   // ポータルアカウント
@@ -64,9 +66,11 @@ export default function ClientDetailPage() {
           contact_name:  data.contact_name ?? '',
           notes:         data.notes ?? '',
           is_active:     data.is_active ?? true,
-          invoice_email: data.invoice_email ?? '',
-          payment_terms: data.payment_terms ?? '',
-          closing_day:   data.closing_day != null ? String(data.closing_day) : '',
+          invoice_email:         data.invoice_email ?? '',
+          payment_terms:         data.payment_terms ?? '',
+          closing_day:           data.closing_day           != null ? String(data.closing_day)           : '',
+          payment_month_offset:  data.payment_month_offset  != null ? String(data.payment_month_offset)  : '',
+          payment_day:           data.payment_day           != null ? String(data.payment_day)           : '',
         })
         setNewPortal((p) => ({ ...p, contactName: data.contact_name ?? '' }))
       }
@@ -104,9 +108,11 @@ export default function ClientDetailPage() {
       contact_name:  form.contact_name.trim()  || null,
       notes:         form.notes.trim()         || null,
       is_active:     form.is_active,
-      invoice_email: form.invoice_email.trim() || null,
-      payment_terms: form.payment_terms.trim() || null,
-      closing_day:   closingDayNum,
+      invoice_email:        form.invoice_email.trim() || null,
+      payment_terms:        form.payment_terms.trim() || null,
+      closing_day:          closingDayNum,
+      payment_month_offset: form.payment_month_offset !== '' ? Number(form.payment_month_offset) : null,
+      payment_day:          form.payment_day           !== '' ? Number(form.payment_day)           : null,
     })
     if (error) {
       toast.error('保存に失敗しました')
@@ -267,10 +273,11 @@ export default function ClientDetailPage() {
                     />
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <Input
-                        label="支払条件"
+                        label="支払条件（メモ）"
                         value={form.payment_terms}
                         onChange={(e) => update('payment_terms', e.target.value)}
                         placeholder="例: 翌月末払い"
+                        hint="表示用メモ。自動計算には下記の設定を使用"
                       />
                       <Input
                         label="締日"
@@ -281,6 +288,39 @@ export default function ClientDetailPage() {
                         onChange={(e) => update('closing_day', e.target.value)}
                         placeholder="例: 20（月末は31）"
                       />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">支払月</label>
+                        <select
+                          value={form.payment_month_offset}
+                          onChange={(e) => update('payment_month_offset', e.target.value)}
+                          className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)]"
+                        >
+                          <option value="">未設定（30日後fallback）</option>
+                          <option value="0">当月</option>
+                          <option value="1">翌月</option>
+                          <option value="2">翌々月</option>
+                          <option value="3">3ヶ月後</option>
+                          <option value="4">4ヶ月後</option>
+                          <option value="5">5ヶ月後</option>
+                          <option value="6">6ヶ月後</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">支払日</label>
+                        <select
+                          value={form.payment_day}
+                          onChange={(e) => update('payment_day', e.target.value)}
+                          className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)]"
+                        >
+                          <option value="">未設定（30日後fallback）</option>
+                          {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+                            <option key={d} value={String(d)}>{d}日</option>
+                          ))}
+                          <option value="31">月末</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -299,8 +339,18 @@ export default function ClientDetailPage() {
                         <p className="text-xs font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider mb-2">請求情報</p>
                       </div>
                       <InfoRow label="請求書送付先" value={client.invoice_email} />
-                      <InfoRow label="支払条件" value={client.payment_terms} />
+                      <InfoRow label="支払条件（メモ）" value={client.payment_terms} />
                       <InfoRow label="締日" value={client.closing_day != null ? `${client.closing_day}日${client.closing_day === 31 ? '（月末）' : ''}` : null} />
+                      <InfoRow label="支払月" value={
+                        client.payment_month_offset != null
+                          ? ['当月','翌月','翌々月','3ヶ月後','4ヶ月後','5ヶ月後','6ヶ月後'][client.payment_month_offset] ?? `${client.payment_month_offset}ヶ月後`
+                          : null
+                      } />
+                      <InfoRow label="支払日" value={
+                        client.payment_day != null
+                          ? client.payment_day === 31 ? '月末' : `${client.payment_day}日`
+                          : null
+                      } />
                     </>
                   )}
                 </dl>

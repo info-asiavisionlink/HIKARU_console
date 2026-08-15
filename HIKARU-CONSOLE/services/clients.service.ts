@@ -13,6 +13,9 @@ export interface ClientRow {
   invoice_email: string | null
   payment_terms: string | null
   closing_day: number | null
+  // 支払条件構造化（migration 042）
+  payment_month_offset: number | null  // 0=当月,1=翌月,2=翌々月... (0-6)
+  payment_day: number | null           // 1-30=指定日, 31=月末
   created_at: string
   updated_at: string
 }
@@ -29,6 +32,9 @@ export interface ClientInsert {
   invoice_email?: string | null
   payment_terms?: string | null
   closing_day?: number | null
+  // 支払条件構造化（migration 042）
+  payment_month_offset?: number | null
+  payment_day?: number | null
 }
 
 export async function listClients(opts?: {
