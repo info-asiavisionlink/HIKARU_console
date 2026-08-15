@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendNotification } from '@/lib/line/notification.service'
 import { invoiceOverdueTemplate } from '@/lib/line/templates'
+import { getJstDateString } from '@/lib/billing/date-utils'
 
 // POST /api/invoices/overdue - 支払期限超過請求書の管理者通知
 // Vercel Cron または管理者が手動で実行する。
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getJstDateString()
 
   // 期限超過の未払い請求書を取得
   const { data: overdueInvoices } = await db

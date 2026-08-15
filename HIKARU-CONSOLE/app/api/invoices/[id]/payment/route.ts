@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { sendNotification } from '@/lib/line/notification.service'
 import { paymentReceivedTemplate } from '@/lib/line/templates'
+import { getJstDateString } from '@/lib/billing/date-utils'
 
 // POST /api/invoices/[id]/payment - 入金記録
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       auth.companyId,
       invoice.project_id as string,
       'paid',
-      typeof paid_at === 'string' ? paid_at.split('T')[0] : new Date().toISOString().split('T')[0]
+      typeof paid_at === 'string' ? paid_at.split('T')[0] : getJstDateString()
     )
   }
 

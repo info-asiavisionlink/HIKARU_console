@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { getJstDateString } from '@/lib/billing/date-utils'
 
 // 有効なステータス遷移
 const VALID_TRANSITIONS: Record<string, Record<string, string[]>> = {
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         auth.companyId,
         existing.project_id as string,
         billingStatus,
-        newStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined
+        newStatus === 'paid' ? getJstDateString() : undefined
       )
     }
   }

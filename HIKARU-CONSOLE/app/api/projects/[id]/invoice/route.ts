@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { calcInvoice, buildItemsFromProjectPrice } from '@/lib/billing/calculator'
 import { calcDueDate } from '@/lib/billing/due-date'
+import { getJstDateString, getJstYear } from '@/lib/billing/date-utils'
 
 // POST /api/projects/[id]/invoice
 // 単発案件（spot）の完了済み作業実績から請求書 draft を自動生成する。
@@ -138,9 +139,8 @@ export async function POST(
       null
 
     // ── 9. 請求書番号発行 ────────────────────────────────────────────
-    const now       = new Date()
-    const year      = now.getFullYear()
-    const issueDate = now.toISOString().split('T')[0]
+    const issueDate = getJstDateString()
+    const year      = getJstYear()
 
     const { data: numData } = await auth.adminClient
       .rpc('next_invoice_number', {

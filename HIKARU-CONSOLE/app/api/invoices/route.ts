@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { calcInvoice, buildItemsFromProjectPrice, isOverdue } from '@/lib/billing/calculator'
+import { getJstDateString, getJstYear } from '@/lib/billing/date-utils'
 
 // GET /api/invoices
 export async function GET(req: NextRequest) {
@@ -38,8 +39,7 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // KPI（今月）
-  const now   = new Date()
-  const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+  const month = getJstDateString().slice(0, 7)
   const allThisMonth = await auth.adminClient
     .from('invoices')
     .select('invoice_type, status, total_amount, paid_amount, due_date')
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
 
     let periodLabel = ''
     if (period_month) {
-      const year = issue_date ? new Date(issue_date).getFullYear() : new Date().getFullYear()
+      const year = issue_date ? parseInt((issue_date as string).slice(0, 4), 10) : getJstYear()
       periodLabel = `${year}年${period_month}月分`
     }
 
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
   const calc = calcInvoice(lineItems, tax_rate, rounding_method)
 
   // 番号発行（DB関数で重複防止）
-  const year = issue_date ? new Date(issue_date).getFullYear() : new Date().getFullYear()
+  const year = issue_date ? parseInt((issue_date as string).slice(0, 4), 10) : getJstYear()
   const { data: numData } = await auth.adminClient
     .rpc('next_invoice_number', {
       p_company_id:   auth.companyId,
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       project_id:          project_id || null,
       invoice_type,
       invoice_number:      numData,
-      issue_date:          issue_date || new Date().toISOString().split('T')[0],
+      issue_date:          issue_date || getJstDateString(),
       due_date:            due_date || null,
       billing_period_from: billing_period_from || null,
       billing_period_to:   billing_period_to   || null,

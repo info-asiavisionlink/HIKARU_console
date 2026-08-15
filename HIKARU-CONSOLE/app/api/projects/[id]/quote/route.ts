@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { calcInvoice, buildItemsFromProjectPrice } from '@/lib/billing/calculator'
+import { getJstDateString, getJstYear, getJstMonth } from '@/lib/billing/date-utils'
 
 // POST /api/projects/[id]/quote
 // 案件詳細画面から見積書 draft を自動生成する。
@@ -78,10 +79,9 @@ export async function POST(
     // spot / hotel : period_month IS NULL の 1件を使用
     // recurring    : 当月分があれば優先、なければ最初のレコードを使用
     const projectType = project.project_type as 'spot' | 'recurring' | 'hotel'
-    const now         = new Date()
-    const year        = now.getFullYear()
-    const currentMonth = now.getMonth() + 1   // 1-12
-    const issueDate   = now.toISOString().split('T')[0]
+    const issueDate    = getJstDateString()
+    const year         = getJstYear()
+    const currentMonth = getJstMonth()
 
     let selectedPrice   = prices[0]
     let periodMonth: number | null = null

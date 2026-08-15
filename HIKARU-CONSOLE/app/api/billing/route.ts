@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { getJstDateString } from '@/lib/billing/date-utils'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AC = any
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
   const { error: billingErr } = await admin.from('project_billing').upsert({
     project_id,
     billing_status:      'paid',
-    actual_payment_date: now.split('T')[0],
+    actual_payment_date: getJstDateString(),
     updated_at:          now,
   }, { onConflict: 'project_id' })
 

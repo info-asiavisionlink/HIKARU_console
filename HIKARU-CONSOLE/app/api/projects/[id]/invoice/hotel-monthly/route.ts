@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { calcInvoice, buildItemsFromProjectPrice } from '@/lib/billing/calculator'
 import { calcDueDate } from '@/lib/billing/due-date'
+import { getJstDateString, getJstYear, getMonthLastDay } from '@/lib/billing/date-utils'
 
 // POST /api/projects/[id]/invoice/hotel-monthly
 // 日常案件（project_type='hotel'）の月次請求書 draft を生成する。
@@ -57,7 +58,7 @@ export async function POST(
     }
 
     const billingFrom = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`
-    const billingTo   = lastDayOfMonth(targetYear, targetMonth)
+    const billingTo   = getMonthLastDay(targetYear, targetMonth)
 
     // ── 1. project取得・company_id / project_type 確認（IDOR対策） ─────
     const { data: project } = await auth.adminClient
@@ -180,9 +181,8 @@ export async function POST(
     }
 
     // ── 8. 請求書番号発行 ─────────────────────────────────────────────
-    const now       = new Date()
-    const year      = now.getFullYear()
-    const issueDate = now.toISOString().split('T')[0]
+    const issueDate = getJstDateString()
+    const year      = getJstYear()
 
     const { data: numData } = await auth.adminClient.rpc('next_invoice_number', {
       p_company_id:   auth.companyId,
@@ -311,8 +311,4 @@ export async function POST(
   }
 }
 
-// 対象月の末日を YYYY-MM-DD 形式で返す
-function lastDayOfMonth(year: number, month: number): string {
-  return new Date(year, month, 0).toISOString().split('T')[0]
-}
 

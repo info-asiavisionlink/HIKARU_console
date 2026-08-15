@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { getJstDateString, getJstYear } from '@/lib/billing/date-utils'
 
 // POST /api/invoices/[id]/convert  見積書 → 請求書に変換
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // 新しい請求書番号発行
-  const year = issue_date ? new Date(issue_date).getFullYear() : new Date().getFullYear()
+  const year = issue_date ? parseInt((issue_date as string).slice(0, 4), 10) : getJstYear()
   const { data: numData } = await auth.adminClient
     .rpc('next_invoice_number', {
       p_company_id:   auth.companyId,
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       invoice_type:        'invoice',
       invoice_number:      numData,
       converted_from_id:   quote.id,
-      issue_date:          issue_date || new Date().toISOString().split('T')[0],
+      issue_date:          issue_date || getJstDateString(),
       due_date:            due_date || null,
       billing_period_from: quote.billing_period_from,
       billing_period_to:   quote.billing_period_to,
