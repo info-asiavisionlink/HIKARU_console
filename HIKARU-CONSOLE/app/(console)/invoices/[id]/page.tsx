@@ -84,8 +84,12 @@ export default function InvoiceDetailPage() {
   async function handleCancel() {
     if (!cancelReason.trim()) { toast.error('キャンセル理由を入力してください'); return }
     await act(async () => {
-      await changeInvoiceStatus(id, 'cancelled', cancelReason)
+      const result = await changeInvoiceStatus(id, 'cancelled', cancelReason)
       toast.success('キャンセルしました')
+      // link解除に失敗した場合は警告を表示（請求書はキャンセル済み）
+      if (result.warning) {
+        toast.warning(result.warning_message ?? '作業の紐付け解除に失敗しました。再請求前に確認してください。')
+      }
       setCancelOpen(false)
       await load()
     })

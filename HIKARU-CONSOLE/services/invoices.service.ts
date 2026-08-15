@@ -180,8 +180,10 @@ export async function changeInvoiceStatus(id: string, status: string, cancelReas
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ status, cancel_reason: cancelReason }),
   })
-  if (!res.ok) throw new Error((await res.json()).error)
-  return (await res.json()).invoice
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error)
+  // フルレスポンスを返す（invoice + 任意の warning フィールドを含む）
+  return json as { invoice: InvoiceRow; warning?: string; warning_message?: string }
 }
 
 export async function generatePdf(id: string): Promise<{ pdf_path: string; signed_url: string }> {
