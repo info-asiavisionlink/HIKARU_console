@@ -136,6 +136,23 @@ export async function POST(req: NextRequest) {
 
     if (!price) return NextResponse.json({ error: '単価データが見つかりません' }, { status: 404 })
 
+    // 単価データが自社案件に属しているか確認（adminClient は RLS バイパスのため必須）
+    const { data: priceProject } = await auth.adminClient
+      .from('projects')
+      .select('id, company_id')
+      .eq('id', price.project_id)
+      .single()
+
+    if (!priceProject || priceProject.company_id !== auth.companyId) {
+      return NextResponse.json({ error: '他社の単価データは使用できません' }, { status: 403 })
+    }
+
+    // 指定された project_id と単価の project_id が一致することを確認
+    // （同一会社でも別案件の単価を誤流用するのを防ぐ）
+    if (project_id && price.project_id !== project_id) {
+      return NextResponse.json({ error: '別案件の単価データは使用できません' }, { status: 400 })
+    }
+
     const { data: proj } = await auth.adminClient
       .from('projects').select('name').eq('id', project_id).single()
 

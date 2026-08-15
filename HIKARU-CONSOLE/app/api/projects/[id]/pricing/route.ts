@@ -13,6 +13,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
+  // adminClient は service_role のため RLS をバイパスする。
+  // company_id 確認をアプリ側で必ず実施すること。
+  const { data: project } = await auth.adminClient
+    .from('projects')
+    .select('id, company_id')
+    .eq('id', id)
+    .single()
+
+  if (!project) return NextResponse.json({ error: '案件が見つかりません' }, { status: 404 })
+  if (project.company_id !== auth.companyId) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+
   const [billingRes, pricesRes] = await Promise.all([
     auth.adminClient.from('project_billing').select('*').eq('project_id', id).maybeSingle(),
     auth.adminClient.from('project_prices').select('*').eq('project_id', id).order('period_month', { ascending: true, nullsFirst: true }),
@@ -32,6 +43,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  // adminClient は service_role のため RLS をバイパスする。
+  // project_prices DELETE / INSERT および project_billing UPSERT より前に
+  // 必ず company_id を確認し、他社案件の料金を変更できないことを保証する。
+  const { data: project } = await auth.adminClient
+    .from('projects')
+    .select('id, company_id')
+    .eq('id', id)
+    .single()
+
+  if (!project) return NextResponse.json({ error: '案件が見つかりません' }, { status: 404 })
+  if (project.company_id !== auth.companyId) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
 
   const body = await req.json()
   const { billing, prices } = body
