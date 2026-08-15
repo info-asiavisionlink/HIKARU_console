@@ -14,7 +14,7 @@ import {
   emptyBilling, emptyPrice, BILLING_STATUSES, fmtJPY,
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign, Trash2, Building2, Plus, Loader2 } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, RefreshCw, Calendar, Users, DollarSign, Trash2, Building2, Plus, Loader2, FileText } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 
@@ -44,7 +44,12 @@ export default function RecurringProjectDetailPage() {
   const [editing,      setEditing]      = React.useState(false)
   const [saving,       setSaving]       = React.useState(false)
   const [deleteOpen,   setDeleteOpen]   = React.useState(false)
-  const [quotingDraft, setQuotingDraft] = React.useState(false)
+  const [quotingDraft,   setQuotingDraft]   = React.useState(false)
+  const [invoicingDraft, setInvoicingDraft] = React.useState(false)
+  const [invoiceMonth,   setInvoiceMonth]   = React.useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
   const [form,      setForm]      = React.useState<any>({})
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [clients,   setClients]   = React.useState<{ id: string; name: string }[]>([])
@@ -160,6 +165,34 @@ export default function RecurringProjectDetailPage() {
       toast.error('通信エラーが発生しました')
     } finally {
       setQuotingDraft(false)
+    }
+  }
+
+  async function handleCreateMonthlyInvoice() {
+    if (!invoiceMonth) { toast.error('対象月を選択してください'); return }
+    setInvoicingDraft(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/invoice/monthly`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ period_month: invoiceMonth }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? '月次請求書の作成に失敗しました')
+        return
+      }
+      if (json.existing) {
+        toast.info(json.message ?? 'この月の請求書はすでに存在します')
+      } else {
+        toast.success('月次請求書の下書きを作成しました')
+      }
+      router.push(`/invoices/${json.invoice.id}`)
+    } catch {
+      toast.error('通信エラーが発生しました')
+    } finally {
+      setInvoicingDraft(false)
     }
   }
 
@@ -656,6 +689,36 @@ export default function RecurringProjectDetailPage() {
               <CardContent className="pt-6 space-y-2">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">ステータス</h2>
                 <Badge variant={srStatusVariant[project.status] as any}>{srStatusLabel[project.status] ?? project.status}</Badge>
+              </CardContent>
+            </Card>
+
+            {/* 月次請求書 */}
+            <Card>
+              <CardContent className="pt-6 space-y-3">
+                <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> 月次請求書
+                </h2>
+                <div className="space-y-2">
+                  <label className="text-xs text-[var(--color-muted-foreground)]">対象月</label>
+                  <input
+                    type="month"
+                    value={invoiceMonth}
+                    onChange={(e) => setInvoiceMonth(e.target.value)}
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  disabled={invoicingDraft || !invoiceMonth}
+                  onClick={handleCreateMonthlyInvoice}
+                >
+                  {invoicingDraft
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
+                    : <><FileText className="h-4 w-4" /> 月次請求書を生成</>}
+                </Button>
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  下書きが作成されます。発行前に内容を確認してください。
+                </p>
               </CardContent>
             </Card>
 
