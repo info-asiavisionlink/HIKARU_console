@@ -192,57 +192,29 @@ export async function POST(
         .limit(1)
 
       if (!prices || prices.length === 0) {
-        // period_month IS NULL がなければ最初のレコードを使う
-        const { data: anyPrices } = await auth.adminClient
-          .from('project_prices')
-          .select('id, amount_ex_tax, tax_rate, unit_price, quantity, period_month')
-          .eq('project_id', projectId)
-          .limit(1)
-
-        if (!anyPrices || anyPrices.length === 0) {
-          return NextResponse.json({
-            error: 'この案件には料金情報が登録されていないため、請求書を作成できません。料金情報を設定してから再度お試しください。',
-          }, { status: 400 })
-        }
-
-        const price    = anyPrices[0]
-        const items    = buildItemsFromProjectPrice(price, 'spot', '', project.name)
-        const calc     = calcInvoice(items, Number(price.tax_rate) || 0.10, 'floor')
-        subtotal       = calc.subtotal
-        taxRate        = calc.tax_rate
-        taxAmount      = calc.tax_amount
-        totalAmount    = calc.total_amount
-        lineItemRows   = calc.items.map((item, i) => ({
-          order_num:   item.order_num ?? i,
-          description: item.description,
-          quantity:    item.quantity,
-          unit:        item.unit  || null,
-          unit_price:  item.unit_price,
-          amount:      item.amount,
-          tax_rate:    item.tax_rate ?? calc.tax_rate,
-          source_type: item.source_type || 'project_price',
-          source_id:   item.source_id   || null,
-        }))
-      } else {
-        const price    = prices[0]
-        const items    = buildItemsFromProjectPrice(price, 'spot', '', project.name)
-        const calc     = calcInvoice(items, Number(price.tax_rate) || 0.10, 'floor')
-        subtotal       = calc.subtotal
-        taxRate        = calc.tax_rate
-        taxAmount      = calc.tax_amount
-        totalAmount    = calc.total_amount
-        lineItemRows   = calc.items.map((item, i) => ({
-          order_num:   item.order_num ?? i,
-          description: item.description,
-          quantity:    item.quantity,
-          unit:        item.unit  || null,
-          unit_price:  item.unit_price,
-          amount:      item.amount,
-          tax_rate:    item.tax_rate ?? calc.tax_rate,
-          source_type: item.source_type || 'project_price',
-          source_id:   item.source_id   || null,
-        }))
+        return NextResponse.json({
+          error: 'この案件には料金情報が登録されていないため、請求書を作成できません。料金情報を設定してから再度お試しください。',
+        }, { status: 400 })
       }
+
+      const price    = prices[0]
+      const items    = buildItemsFromProjectPrice(price, 'spot', '', project.name)
+      const calc     = calcInvoice(items, Number(price.tax_rate) || 0.10, 'floor')
+      subtotal       = calc.subtotal
+      taxRate        = calc.tax_rate
+      taxAmount      = calc.tax_amount
+      totalAmount    = calc.total_amount
+      lineItemRows   = calc.items.map((item, i) => ({
+        order_num:   item.order_num ?? i,
+        description: item.description,
+        quantity:    item.quantity,
+        unit:        item.unit  || null,
+        unit_price:  item.unit_price,
+        amount:      item.amount,
+        tax_rate:    item.tax_rate ?? calc.tax_rate,
+        source_type: item.source_type || 'project_price',
+        source_id:   item.source_id   || null,
+      }))
     }
 
     // ── 11. invoice INSERT（invoice_type='invoice', status='draft'固定） ──
