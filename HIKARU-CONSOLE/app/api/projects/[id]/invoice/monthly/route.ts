@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { calcInvoice, buildItemsFromProjectPrice } from '@/lib/billing/calculator'
+import { calcDueDate } from '@/lib/billing/due-date'
 
 // POST /api/projects/[id]/invoice/monthly
 // 定期案件（recurring）の月次請求書 draft を生成する。
@@ -75,6 +76,16 @@ export async function POST(
         error: 'この案件には顧客が設定されていません。顧客を設定してから請求書を作成してください。',
       }, { status: 400 })
     }
+
+    // ── 3b. 顧客の支払条件取得（due_date 計算用、company_id でIDOR対策） ──
+    // 取得失敗・NULL の場合は calcDueDate の fallback（issue_date + 30日）が機能するため
+    // エラーは返さず請求生成を続行する。
+    const { data: client } = await auth.adminClient
+      .from('clients')
+      .select('closing_day, payment_month_offset, payment_day')
+      .eq('id', project.client_id)
+      .eq('company_id', auth.companyId)
+      .single()
 
     // ── 4. 同月 non-cancelled invoice 存在チェック（重複防止） ─────────
     const { data: existingInvoices } = await auth.adminClient
@@ -197,7 +208,13 @@ export async function POST(
         invoice_type:       'invoice',
         invoice_number:     numData,
         issue_date:         issueDate,
-        due_date:           addDays(issueDate, 30),
+        due_date:           calcDueDate({
+          issueDate,
+          billingPeriodTo:    billingTo,
+          closingDay:         client?.closing_day           ?? null,
+          paymentMonthOffset: client?.payment_month_offset  ?? null,
+          paymentDay:         client?.payment_day           ?? null,
+        }),
         period_month:       targetMonth,
         billing_period_from: billingFrom,
         billing_period_to:   billingTo,
@@ -277,9 +294,3 @@ function lastDayOfMonth(year: number, month: number): string {
   return new Date(year, month, 0).toISOString().split('T')[0]
 }
 
-// 日付にN日加算して YYYY-MM-DD 文字列を返す
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
-}
