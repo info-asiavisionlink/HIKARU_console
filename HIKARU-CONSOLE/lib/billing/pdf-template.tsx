@@ -68,11 +68,16 @@ export interface PDFInvoiceData {
   company_email?:   string | null
 
   // 請求先（顧客）
-  client_name:     string
-  client_address?:  string | null
-  client_phone?:    string | null
-  client_email?:    string | null
-  client_contact?:  string | null
+  client_name:          string
+  client_address?:       string | null
+  client_phone?:         string | null
+  client_email?:         string | null
+  client_contact?:       string | null
+  client_invoice_email?: string | null  // 将来のメール送信用（PDF非表示）
+
+  // 支払条件
+  payment_terms?: string | null
+  closing_day?:   number | null
 
   // 案件
   project_name?:   string | null
@@ -101,6 +106,9 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
   const docTitle   = isInvoice ? '請求書' : '見積書'
   const dueLabel   = isInvoice ? '支払期限' : '有効期限'
   const taxPercent = Math.round((data.tax_rate ?? 0.10) * 100)
+  const closingDayText = data.closing_day != null
+    ? (data.closing_day === 31 ? '月末締め' : `毎月${data.closing_day}日締め`)
+    : null
 
   return (
     <Document title={`${docTitle} ${data.invoice_number}`}>
@@ -132,6 +140,8 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
           </Text>
           {data.client_contact  && <Text style={styles.label}>担当: {data.client_contact}</Text>}
           {data.client_address  && <Text style={styles.label}>{data.client_address}</Text>}
+          {data.payment_terms   && <Text style={[styles.label, { marginTop: 4 }]}>支払条件: {data.payment_terms}</Text>}
+          {closingDayText        && <Text style={styles.label}>締日: {closingDayText}</Text>}
         </View>
 
         {/* 件名 */}

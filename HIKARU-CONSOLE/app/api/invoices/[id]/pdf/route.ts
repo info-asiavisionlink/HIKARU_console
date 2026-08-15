@@ -15,10 +15,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .from('invoices')
     .select(`
       *,
-      clients:client_id (name, email, phone, address, contact_name),
+      clients:client_id (name, email, phone, address, contact_name, invoice_email, payment_terms, closing_day),
       projects:project_id (name),
       invoice_items (description, quantity, unit, unit_price, amount, order_num),
-      companies:company_id (name, logo_url)
+      companies:company_id (name, logo_url, address, phone, email)
     `)
     .eq('id', id)
     .eq('company_id', auth.companyId)
@@ -42,11 +42,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     billing_period_from:  invoice.billing_period_from,
     billing_period_to:    invoice.billing_period_to,
     company_name:         company?.name ?? 'HIKARU',
+    company_address:      company?.address  ?? null,
+    company_phone:        company?.phone    ?? null,
+    company_email:        company?.email    ?? null,
     client_name:          client?.name ?? '—',
-    client_address:       client?.address,
-    client_phone:         client?.phone,
-    client_email:         client?.email,
-    client_contact:       client?.contact_name,
+    client_address:       client?.address   ?? null,
+    client_phone:         client?.phone     ?? null,
+    client_email:         client?.email     ?? null,
+    client_contact:       client?.contact_name ?? null,
+    client_invoice_email: client?.invoice_email ?? null,
+    payment_terms:        client?.payment_terms ?? null,
+    closing_day:          client?.closing_day   ?? null,
     project_name:         project?.name,
     items:                items.map((i: any) => ({
       description: i.description,
