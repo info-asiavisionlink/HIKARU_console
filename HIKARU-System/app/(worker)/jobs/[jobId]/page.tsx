@@ -44,33 +44,37 @@ export default function JobDetailPage() {
 
   React.useEffect(() => {
     async function load() {
-      const supabase = createClient()
+      try {
+        const supabase = createClient()
 
-      // サーバーサイドで workerId を取得（getUser() ハング回避）
-      const meRes = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
-      const { user } = meRes.ok ? await meRes.json() : { user: null }
+        // サーバーサイドで workerId を取得（getUser() ハング回避）
+        const meRes = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
+        const { user } = meRes.ok ? await meRes.json() : { user: null }
 
-      const [projectRes] = await Promise.all([
-        getWorkerProject(projectId, user?.id),
-      ])
-      setProject(projectRes)
+        const [projectRes] = await Promise.all([
+          getWorkerProject(projectId, user?.id),
+        ])
+        setProject(projectRes)
 
-      // Load photo spots (project_id ベース)
-      const { data: spots } = await supabase
-        .from('photo_spots')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('order_num', { ascending: true })
-      setPhotoSpots(spots ?? [])
+        // Load photo spots (project_id ベース)
+        const { data: spots } = await supabase
+          .from('photo_spots')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('order_num', { ascending: true })
+        setPhotoSpots(spots ?? [])
 
-      // Load today's job if exists
-      if (projectRes?.todayJob) {
-        setActiveJob(projectRes.todayJob)
-        const ph = await getJobPhotos(projectRes.todayJob.id)
-        setPhotos(ph)
+        // Load today's job if exists
+        if (projectRes?.todayJob) {
+          setActiveJob(projectRes.todayJob)
+          const ph = await getJobPhotos(projectRes.todayJob.id)
+          setPhotos(ph)
+        }
+      } catch (err) {
+        console.error('[JobDetailPage] load error:', err)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     load()
   }, [projectId])
