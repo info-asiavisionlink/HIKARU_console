@@ -81,6 +81,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const isHotel = project.project_type === 'hotel'
 
+    // 日常案件: unit_price > 0 かつ quantity <= 0 は保存禁止
+    if (isHotel) {
+      const invalid = (prices as any[]).find(
+        (p) => Number(p.unit_price) > 0 && (!p.quantity || Number(p.quantity) <= 0)
+      )
+      if (invalid) {
+        return NextResponse.json(
+          { error: '日常案件は単価と数量の両方を入力してください' },
+          { status: 400 }
+        )
+      }
+    }
+
     const rows = (prices as any[])
       .filter((p) => Number(p.amount_ex_tax) > 0 || Number(p.unit_price) > 0)
       .map((p) => {

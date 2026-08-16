@@ -162,6 +162,9 @@ export default function HotelProjectDetailPage() {
 
   async function handleSave() {
     if (unitHasError) { toast.error('単位を入力してください'); return }
+    if (Number(price.unit_price) > 0 && (!price.quantity || Number(price.quantity) <= 0)) {
+      toast.error('数量を入力してください'); return
+    }
     setSaving(true)
     const [projRes, pricingRes] = await Promise.all([
       fetch(`/api/projects/hotel/${id}`, {

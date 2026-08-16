@@ -86,6 +86,10 @@ export default function NewHotelProjectPage() {
     e.preventDefault()
     if (!form.name.trim()) { toast.error('施設名を入力してください'); return }
     if (unitHasError) { toast.error('単位を入力してください'); return }
+    const effectiveQuantity = price.quantity ?? totalRooms
+    if (Number(price.unit_price) > 0 && effectiveQuantity <= 0) {
+      toast.error('数量を入力してください'); return
+    }
     setLoading(true)
 
     // ① 案件作成
