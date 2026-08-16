@@ -4,13 +4,13 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
-import { PageHeader, Button, Input, Textarea, Card, CardContent, Badge, Skeleton, toast, Breadcrumb } from '@hikaru/ui'
+import { PageHeader, Button, Input, Textarea, Card, CardContent, Badge, Skeleton, toast, Breadcrumb, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@hikaru/ui'
 import { AssigneeSelector, type Assignee } from '@/components/console/AssigneeSelector'
 import {
   SinglePriceCard, BillingInfoCard, emptyBilling, emptyPrice,
   BILLING_STATUSES, fmtJPY, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
-import { ArrowLeft, Edit2, Save, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, DollarSign, Loader2, FileText } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, DollarSign, Loader2, FileText, Building2 } from 'lucide-react'
 
 interface FloorRow     { id?: string; floor_name: string; room_count: string }
 interface StaffingRow  { id?: string; time_slot: string; required_staff: string }
@@ -41,8 +41,13 @@ export default function HotelProjectDetailPage() {
   const [price,   setPrice]   = React.useState<PriceEntry>(emptyPrice())
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
   const [unitHasError, setUnitHasError] = React.useState(false)
+  const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
+  React.useEffect(() => {
+    fetch('/api/clients?pageSize=100', { credentials: 'include' })
+      .then(r => r.json()).then(r => setClients(r.clients ?? []))
+  }, [])
 
   async function loadData() {
     setLoading(true)
@@ -56,6 +61,7 @@ export default function HotelProjectDetailPage() {
       const d = data.hotel_project_details
       setForm({
         name: data.name, status: data.status,
+        client_id: data.client_id ?? '',
         location_name: data.location_name ?? '',
         address: data.address ?? '',
         notes: data.notes ?? '',
@@ -172,6 +178,7 @@ export default function HotelProjectDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name, status: form.status,
+          client_id: form.client_id || null,
           location_name: form.location_name || null,
           address: form.address || null,
           notes: form.notes || null,
@@ -210,6 +217,7 @@ export default function HotelProjectDetailPage() {
   if (!project) return <div className="text-center py-20 text-[var(--color-muted-foreground)]">案件が見つかりません</div>
 
   const d = project.hotel_project_details
+  const clientName = clients.find(c => c.id === project.client_id)?.name
 
   return (
     <div>
@@ -461,6 +469,26 @@ export default function HotelProjectDetailPage() {
         </div>
 
         <div className="space-y-3">
+          {/* 顧客 */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
+                <Building2 className="h-4 w-4" /> 顧客
+              </h2>
+              {editing ? (
+                <Select value={form.client_id} onValueChange={v => upd('client_id', v)}>
+                  <SelectTrigger><SelectValue placeholder="顧客を選択（任意）" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">選択なし</SelectItem>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium">{clientName ?? '—'}</p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* 月次請求書（閲覧モードのみ表示） */}
           {!editing && (
             <Card>
