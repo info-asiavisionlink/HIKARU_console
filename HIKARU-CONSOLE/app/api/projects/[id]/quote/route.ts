@@ -65,7 +65,7 @@ export async function POST(
     // ── 4. project_prices取得（サーバー側で取得・ブラウザ値不使用） ──
     const { data: prices } = await auth.adminClient
       .from('project_prices')
-      .select('id, project_id, period_month, amount_ex_tax, tax_rate, unit_price, quantity')
+      .select('id, project_id, period_month, amount_ex_tax, tax_rate, unit_price, quantity, unit_label')
       .eq('project_id', projectId)
       .order('period_month', { ascending: true, nullsFirst: true })
 

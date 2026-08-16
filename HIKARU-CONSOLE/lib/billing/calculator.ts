@@ -90,6 +90,7 @@ export function buildItemsFromProjectPrice(
     unit_price?:   number | null
     quantity?:     number | null
     period_month?: number | null
+    unit_label?:   string | null
   },
   projectType:  'spot' | 'recurring' | 'hotel',
   periodLabel?: string,   // 例: "2026年8月分"
@@ -100,7 +101,7 @@ export function buildItemsFromProjectPrice(
       {
         description: `清掃費 ${projectName ?? ''}${periodLabel ? ` ${periodLabel}` : ''}`,
         quantity:    price.quantity,
-        unit:        '室',
+        unit:        price.unit_label?.trim() || '室',  // unit_label が NULL の場合は '室' fallback
         unit_price:  price.unit_price,
         source_type: 'project_price',
         source_id:   price.id,

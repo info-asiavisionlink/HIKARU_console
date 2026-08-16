@@ -159,7 +159,7 @@ export async function POST(
     // ── 7. 契約料金取得（period_month IS NULL = 日常案件の標準料金） ──
     const { data: prices } = await auth.adminClient
       .from('project_prices')
-      .select('id, amount_ex_tax, tax_rate, tax_amount, amount_inc_tax, unit_price, quantity, period_month')
+      .select('id, amount_ex_tax, tax_rate, tax_amount, amount_inc_tax, unit_price, quantity, period_month, unit_label')
       .eq('project_id', projectId)
       .is('period_month', null)
       .limit(1)
@@ -175,7 +175,7 @@ export async function POST(
     if (!price.unit_price || !price.quantity) {
       if (!price.amount_ex_tax || Number(price.amount_ex_tax) === 0) {
         return NextResponse.json({
-          error: '料金情報（1室単価・客室数または税抜金額）が設定されていません。料金情報を設定してから再度お試しください。',
+          error: '料金情報（単価・数量または税抜金額）が設定されていません。料金情報を設定してから再度お試しください。',
         }, { status: 400 })
       }
     }

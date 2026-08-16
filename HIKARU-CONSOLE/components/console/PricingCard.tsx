@@ -14,6 +14,7 @@ export interface PriceEntry {
   amount_inc_tax: number
   unit_price?:    number | null
   quantity?:      number | null
+  unit_label?:    string | null  // 日常案件の数量単位（室/㎡/箇所/人/回/台/件/式/その他）
 }
 
 export interface BillingEntry {
@@ -40,6 +41,10 @@ export const TAX_RATES = [
   { value: 0.08, label: '8%（軽減税率）' },
   { value: 0.00, label: '0%（非課税）' },
 ]
+
+// 日常案件で選択できる単位プリセット
+const UNIT_PRESETS = ['室', '㎡', '箇所', '人', '回', '台', '件', '式'] as const
+const OTHER_VALUE  = '__other__'
 
 /* ─── ユーティリティ ─── */
 
@@ -108,17 +113,23 @@ export function BillingInfoCard({ value, onChange }: BillingCardProps) {
   )
 }
 
-/* ─── 単発/ホテル 単価カード ─── */
+/* ─── 単発/日常 単価カード ─── */
 
 interface SinglePriceCardProps {
   value: PriceEntry
   onChange: (v: PriceEntry) => void
   title?: string
-  hotelMode?: boolean          // ホテル: unit_price × quantity を表示
-  totalRooms?: number          // ホテル: フロア合計部屋数
+  hotelMode?: boolean   // 日常: unit_price × quantity × unit_label を表示
+  totalRooms?: number   // 日常: フロア合計数（fallback 参考値）
 }
 
 export function SinglePriceCard({ value, onChange, title = '金額', hotelMode = false, totalRooms }: SinglePriceCardProps) {
+  // unit_label がプリセットか「その他」かを判定
+  const currentLabel = value.unit_label?.trim() ?? null
+  const isOther = currentLabel !== null && !(UNIT_PRESETS as readonly string[]).includes(currentLabel)
+  const selectValue = isOther ? OTHER_VALUE : (currentLabel ?? '室')
+  const [otherInput, setOtherInput] = React.useState(isOther ? currentLabel : '')
+
   function handleExTax(raw: string) {
     const ex = parseInt(raw.replace(/,/g, ''), 10) || 0
     const { taxAmount, amountIncTax } = calcTax(ex, value.tax_rate)
@@ -147,6 +158,22 @@ export function SinglePriceCard({ value, onChange, title = '金額', hotelMode =
     onChange({ ...value, tax_rate: rate, tax_amount: taxAmount, amount_inc_tax: amountIncTax })
   }
 
+  function handleUnitSelect(v: string) {
+    if (v === OTHER_VALUE) {
+      // その他を選択 → 自由入力欄へ。unit_label はいったん null にしてユーザー入力待ち
+      onChange({ ...value, unit_label: null })
+    } else {
+      setOtherInput('')
+      onChange({ ...value, unit_label: v })
+    }
+  }
+
+  function handleOtherInput(raw: string) {
+    const trimmed = raw.slice(0, 20)  // 最大20文字
+    setOtherInput(trimmed)
+    onChange({ ...value, unit_label: trimmed || null })
+  }
+
   const gold = 'oklch(0.73 0.12 78)'
 
   return (
@@ -157,37 +184,61 @@ export function SinglePriceCard({ value, onChange, title = '金額', hotelMode =
         </h2>
 
         {hotelMode && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">1室単価（税抜）</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={value.unit_price ? value.unit_price.toLocaleString('ja-JP') : ''}
-                  onChange={(e) => handleUnitPrice(e.target.value)}
-                  placeholder="1,500"
-                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-2.5 text-xs text-[var(--color-muted-foreground)]">円</span>
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">単価（税抜）</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={value.unit_price ? value.unit_price.toLocaleString('ja-JP') : ''}
+                    onChange={(e) => handleUnitPrice(e.target.value)}
+                    placeholder="1,500"
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm pr-8"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-[var(--color-muted-foreground)]">円</span>
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">
-                客室数 {totalRooms ? <span className="text-xs text-[var(--color-muted-foreground)]">（フロア合計: {totalRooms}室）</span> : ''}
-              </label>
-              <div className="relative">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">
+                  数量{totalRooms ? <span className="text-xs text-[var(--color-muted-foreground)] ml-1">（参考: {totalRooms}）</span> : ''}
+                </label>
                 <input
                   type="number"
                   min="0"
                   value={value.quantity ?? totalRooms ?? ''}
                   onChange={(e) => handleQty(e.target.value)}
-                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm pr-8"
+                  className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm"
                 />
-                <span className="absolute right-3 top-2.5 text-xs text-[var(--color-muted-foreground)]">室</span>
               </div>
             </div>
-          </div>
+
+            {/* 単位選択 */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">単位</label>
+              <Select value={selectValue} onValueChange={handleUnitSelect}>
+                <SelectTrigger><SelectValue placeholder="単位を選択" /></SelectTrigger>
+                <SelectContent>
+                  {UNIT_PRESETS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  <SelectItem value={OTHER_VALUE}>その他（自由入力）</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* その他選択時のみ自由入力欄を表示 */}
+              {selectValue === OTHER_VALUE && (
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={otherInput}
+                    onChange={(e) => handleOtherInput(e.target.value)}
+                    placeholder="例: 席、枚、基、m など（最大20文字）"
+                    maxLength={20}
+                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {!hotelMode && (

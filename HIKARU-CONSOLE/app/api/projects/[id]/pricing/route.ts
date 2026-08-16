@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 // PUT /api/projects/[id]/pricing
 // Body:
 //   billing: { billing_status, quote_number, contract_date, billing_date, payment_due_date, actual_payment_date, notes }
-//   prices:  Array<{ period_month?, amount_ex_tax, tax_rate, unit_price?, quantity? }>
+//   prices:  Array<{ period_month?, amount_ex_tax, tax_rate, unit_price?, quantity?, unit_label? }>
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const auth = await getAuthContext()
@@ -47,9 +47,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // adminClient は service_role のため RLS をバイパスする。
   // project_prices DELETE / INSERT および project_billing UPSERT より前に
   // 必ず company_id を確認し、他社案件の料金を変更できないことを保証する。
+  // project_type も取得して日常案件のサーバー側金額整合性チェックに使用する。
   const { data: project } = await auth.adminClient
     .from('projects')
-    .select('id, company_id')
+    .select('id, company_id, project_type')
     .eq('id', id)
     .single()
 
@@ -78,12 +79,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // 既存を全削除して再登録（upsert だと NULL UNIQUE が複雑になるため）
     await client.from('project_prices').delete().eq('project_id', id)
 
+    const isHotel = project.project_type === 'hotel'
+
     const rows = (prices as any[])
       .filter((p) => Number(p.amount_ex_tax) > 0 || Number(p.unit_price) > 0)
       .map((p) => {
-        const exTax    = Number(p.amount_ex_tax) || 0
-        const taxRate  = Number(p.tax_rate ?? 0.10)
+        const unitP   = Number(p.unit_price) || 0
+        const qty     = Number(p.quantity)   || 0
+        // 日常案件: amount_ex_tax = unit_price × quantity をサーバー側で保証
+        // spot/recurring: ブラウザ送信の amount_ex_tax をそのまま使用
+        const exTax   = isHotel ? unitP * qty : (Number(p.amount_ex_tax) || 0)
+        const taxRate = Number(p.tax_rate ?? 0.10)
         const { taxAmount, amountIncTax } = calcTax(exTax, taxRate)
+
+        // unit_label: trim して最大20文字。空文字は NULL 扱い
+        const rawLabel  = typeof p.unit_label === 'string' ? p.unit_label.trim() : null
+        const unitLabel = rawLabel && rawLabel.length > 0
+          ? rawLabel.slice(0, 20)
+          : null
+
         return {
           project_id:     id,
           period_month:   p.period_month   ?? null,
@@ -93,6 +107,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           amount_inc_tax: amountIncTax,
           unit_price:     p.unit_price     ?? null,
           quantity:       p.quantity       ?? null,
+          unit_label:     unitLabel,
         }
       })
 

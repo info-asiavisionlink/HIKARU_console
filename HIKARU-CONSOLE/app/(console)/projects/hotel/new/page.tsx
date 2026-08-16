@@ -293,11 +293,11 @@ export default function NewHotelProjectPage() {
               </CardContent>
             </Card>
 
-            {/* ★ 1室単価（フロア合計を自動参照） */}
+            {/* ★ 単価・数量・単位 */}
             <SinglePriceCard
               value={price}
               onChange={setPrice}
-              title="1室単価・売上"
+              title="単価・数量・売上"
               hotelMode
               totalRooms={totalRooms}
             />

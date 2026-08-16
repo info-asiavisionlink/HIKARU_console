@@ -1,0 +1,40 @@
+-- ============================================================
+-- 043: project_prices に unit_label カラムを追加
+-- ============================================================
+--
+-- 目的:
+--   日常案件（project_type='hotel'）の請求書明細における
+--   数量単位を案件ごとに設定可能にする。
+--
+--   現在は invoice_items.unit が '室' にハードコードされており、
+--   ホテル以外の施設（オフィス・商業施設等）の日常案件で
+--   不適切な単位が請求書・PDF に印字される問題を解消する。
+--
+-- 追加カラム:
+--   project_prices.unit_label TEXT
+--
+--   NULL 許可。DEFAULT なし。
+--   アプリ側で unit_label ?? '室' のフォールバックを行う。
+--
+-- DB レベルで DEFAULT '室' を設定しない理由:
+--   project_prices は spot / recurring / 日常（hotel）の全タイプで使用する。
+--   DB DEFAULT を '室' にすると spot・recurring の新規レコードにも
+--   '室' が入り、将来の集計・表示に影響する可能性があるため。
+--
+-- CHECK 制約を設けない理由:
+--   「その他」として任意単位（㎡/箇所/人/回/台/件/式/席 等）の
+--   自由入力を許可するため、固定選択肢に限定しない。
+--   文字数はアプリ層で制御する（過度な制約でマイグレーション複雑化を避ける）。
+--
+-- 既存データへの影響:
+--   ADD COLUMN IF NOT EXISTS のため既存レコードは unit_label = NULL のまま。
+--   backfill（UPDATE による一括更新）は行わない。
+--
+-- 影響しないテーブル:
+--   invoice_items（既存 Snapshot は変更しない）
+--   invoices / invoices_items / invoice_job_links
+--   project_billing / projects / clients
+-- ============================================================
+
+ALTER TABLE public.project_prices
+  ADD COLUMN IF NOT EXISTS unit_label TEXT;

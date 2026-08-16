@@ -20,6 +20,7 @@ interface ProjectPrice {
   amount_ex_tax: number
   unit_price:    number | null
   quantity:      number | null
+  unit_label?:   string | null
 }
 
 interface ProjectOption {
@@ -107,7 +108,7 @@ function NewInvoiceContent() {
       setItems([{
         description: desc,
         quantity:    price.quantity,
-        unit:        '室',
+        unit:        price.unit_label?.trim() || '室',
         unit_price:  price.unit_price,
         source_type: 'project_price',
         source_id:   price.id,
@@ -302,7 +303,7 @@ function NewInvoiceContent() {
                       >
                         {price.period_month ? `${price.period_month}月: ` : ''}
                         {fmtMoney(price.amount_ex_tax)} (税抜)
-                        {price.unit_price && price.quantity ? ` / ${price.quantity}室×${fmtMoney(price.unit_price)}` : ''}
+                        {price.unit_price && price.quantity ? ` / ${price.quantity}${price.unit_label?.trim() || '室'}×${fmtMoney(price.unit_price)}` : ''}
                       </Button>
                     ))}
                   </div>

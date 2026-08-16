@@ -78,7 +78,7 @@ export default function HotelProjectDetailPage() {
       if (b) setBilling({ billing_status: b.billing_status ?? 'unbilled', quote_number: b.quote_number ?? '', contract_date: b.contract_date ?? '', billing_date: b.billing_date ?? '', payment_due_date: b.payment_due_date ?? '', actual_payment_date: b.actual_payment_date ?? '', notes: b.notes ?? '' })
       if (ps?.[0]) {
         const p = ps[0]
-        setPrice({ amount_ex_tax: Number(p.amount_ex_tax), tax_rate: Number(p.tax_rate), tax_amount: Number(p.tax_amount), amount_inc_tax: Number(p.amount_inc_tax), unit_price: p.unit_price ? Number(p.unit_price) : null, quantity: p.quantity ?? null })
+        setPrice({ amount_ex_tax: Number(p.amount_ex_tax), tax_rate: Number(p.tax_rate), tax_amount: Number(p.tax_amount), amount_inc_tax: Number(p.amount_inc_tax), unit_price: p.unit_price ? Number(p.unit_price) : null, quantity: p.quantity ?? null, unit_label: p.unit_label ?? null })
       }
     }
     setLoading(false)
@@ -413,20 +413,21 @@ export default function HotelProjectDetailPage() {
             </Card>
           )}
 
-          {/* 単価（ホテルモード：1室単価 × 客室数） */}
+          {/* 単価（日常案件：単価 × 数量 × 単位） */}
           {editing
-            ? <SinglePriceCard value={price} onChange={setPrice} title="1室単価" hotelMode totalRooms={totalRooms} />
+            ? <SinglePriceCard value={price} onChange={setPrice} title="単価・数量" hotelMode totalRooms={totalRooms} />
             : (
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">単価・売上</h2>
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     {[
-                      ['1室単価（税抜）', price.unit_price ? fmtJPY(price.unit_price) : '—'],
-                      ['客室数',          price.quantity  ? `${price.quantity}室` : `${totalRooms}室`],
-                      ['税抜売上',        price.amount_ex_tax  > 0 ? fmtJPY(price.amount_ex_tax)  : '—'],
-                      ['消費税',          price.tax_amount     > 0 ? fmtJPY(price.tax_amount)     : '—'],
-                      ['税込売上',        price.amount_inc_tax > 0 ? fmtJPY(price.amount_inc_tax) : '—'],
+                      ['単価（税抜）', price.unit_price ? fmtJPY(price.unit_price) : '—'],
+                      ['数量',         price.quantity   ? `${price.quantity}${price.unit_label?.trim() || '室'}` : (totalRooms ? `${totalRooms}室` : '—')],
+                      ['単位',         price.unit_label?.trim() || '室'],
+                      ['税抜売上',     price.amount_ex_tax  > 0 ? fmtJPY(price.amount_ex_tax)  : '—'],
+                      ['消費税',       price.tax_amount     > 0 ? fmtJPY(price.tax_amount)     : '—'],
+                      ['税込売上',     price.amount_inc_tax > 0 ? fmtJPY(price.amount_inc_tax) : '—'],
                     ].map(([l,v]) => <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-bold mt-0.5" style={{ color: l === '税込売上' ? 'oklch(0.73 0.12 78)' : undefined }}>{v}</dd></div>)}
                   </dl>
                 </CardContent>
