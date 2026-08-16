@@ -15,39 +15,241 @@ Font.register({
   src: path.join(process.cwd(), 'public', 'fonts', 'NotoSansJP-Regular.otf'),
 })
 
+const GOLD   = '#c9a227'
+const DARK   = '#1a1a1a'
+const GRAY1  = '#444444'
+const GRAY2  = '#777777'
+const GRAY3  = '#aaaaaa'
+const BORDER = '#e5e5e5'
+const BG_ALT = '#f8f7f5'
+
 const styles = StyleSheet.create({
-  page:       { fontFamily: 'NotoSansJP', fontSize: 10, padding: 40, backgroundColor: '#ffffff' },
-  header:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  title:      { fontSize: 22, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 4 },
-  subtitle:   { fontSize: 11, color: '#555555' },
-  number:     { fontSize: 10, color: '#777777', marginTop: 2 },
-  section:    { marginBottom: 16 },
-  sectionTitle: { fontSize: 8, fontWeight: 'bold', color: '#999999', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, borderBottom: '1px solid #eeeeee', paddingBottom: 4 },
-  row:        { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  label:      { fontSize: 9, color: '#777777' },
-  value:      { fontSize: 10, color: '#1a1a1a' },
-  table:      { marginBottom: 16 },
-  tableHead:  { flexDirection: 'row', backgroundColor: '#f5f5f5', padding: '6 8', borderBottom: '1.5px solid #dddddd' },
-  tableRow:   { flexDirection: 'row', padding: '5 8', borderBottom: '0.5px solid #eeeeee' },
-  tableAlt:   { backgroundColor: '#fafafa' },
-  col1:       { flex: 3 },
-  col2:       { flex: 1, textAlign: 'right' },
-  col3:       { flex: 1, textAlign: 'right' },
-  col4:       { flex: 1.5, textAlign: 'right' },
-  colHead:    { fontSize: 8, fontWeight: 'bold', color: '#555555' },
-  colCell:    { fontSize: 9, color: '#1a1a1a' },
-  totalBox:   { alignItems: 'flex-end', marginBottom: 20 },
-  totalRow:   { flexDirection: 'row', justifyContent: 'flex-end', gap: 32, marginBottom: 4 },
-  totalLabel: { fontSize: 9, color: '#777777', width: 110, textAlign: 'right' },
-  totalValue: { fontSize: 10, color: '#1a1a1a', width: 100, textAlign: 'right' },
-  grandTotal: { backgroundColor: '#1a1a1a', padding: '6 12', flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  grandLabel: { fontSize: 11, fontWeight: 'bold', color: '#ffffff' },
-  grandValue: { fontSize: 14, fontWeight: 'bold', color: '#c9a227' },
-  footer:     { position: 'absolute', bottom: 30, left: 40, right: 40, borderTop: '0.5px solid #dddddd', paddingTop: 8 },
-  footerText: { fontSize: 7, color: '#aaaaaa', textAlign: 'center' },
-  notes:      { fontSize: 9, color: '#444444', lineHeight: 1.6 },
-  dueBadge:   { backgroundColor: '#c9a227', padding: '3 8', alignSelf: 'flex-start', marginBottom: 8 },
-  dueLabel:   { color: '#ffffff', fontSize: 9, fontWeight: 'bold' },
+  // ── ページ ──────────────────────────────────────────────────
+  page: {
+    fontFamily: 'NotoSansJP',
+    fontSize: 10,
+    padding: '44 48 60 48',
+    backgroundColor: '#ffffff',
+  },
+
+  // ── ヘッダー ────────────────────────────────────────────────
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 28,
+    paddingBottom: 20,
+    borderBottom: `2px solid ${BORDER}`,
+  },
+  // ヘッダー左：文書種別・番号
+  docTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: DARK,
+    marginBottom: 10,
+    letterSpacing: 2,
+  },
+  docMeta: {
+    fontSize: 9.5,
+    color: GRAY2,
+    marginTop: 3,
+  },
+  // ヘッダー右：自社情報
+  companyBlock: {
+    alignItems: 'flex-end',
+    maxWidth: 220,
+  },
+  companyName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: DARK,
+    marginBottom: 7,
+  },
+  companyDetail: {
+    fontSize: 8.5,
+    color: GRAY1,
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  companyReg: {
+    fontSize: 8,
+    color: GRAY2,
+    marginTop: 5,
+    textAlign: 'right',
+  },
+
+  // ── セクション共通 ───────────────────────────────────────────
+  section: {
+    marginBottom: 18,
+  },
+  sectionTitle: {
+    fontSize: 7.5,
+    fontWeight: 'bold',
+    color: GRAY3,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    paddingBottom: 5,
+    borderBottom: `0.75px solid ${BORDER}`,
+  },
+
+  // ── 請求先 ──────────────────────────────────────────────────
+  clientName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: DARK,
+    marginTop: 4,
+    marginBottom: 5,
+  },
+  clientDetail: {
+    fontSize: 9,
+    color: GRAY2,
+    marginTop: 2,
+  },
+
+  // ── 件名BOX ─────────────────────────────────────────────────
+  subjectBox: {
+    backgroundColor: BG_ALT,
+    borderLeft: `3px solid ${GOLD}`,
+    padding: '10 14',
+    marginBottom: 18,
+  },
+  subjectTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: DARK,
+    marginBottom: 4,
+  },
+  subjectDetail: {
+    fontSize: 9,
+    color: GRAY2,
+    marginTop: 2,
+  },
+
+  // ── 明細テーブル ─────────────────────────────────────────────
+  table: {
+    marginBottom: 4,
+    border: `0.75px solid ${BORDER}`,
+  },
+  tableHead: {
+    flexDirection: 'row',
+    backgroundColor: DARK,
+    padding: '8 10',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    padding: '8 10',
+    borderTop: `0.5px solid ${BORDER}`,
+  },
+  tableAlt: {
+    backgroundColor: '#fafaf9',
+  },
+  col1:  { flex: 3.5 },
+  col2:  { flex: 1,   textAlign: 'right' },
+  col3:  { flex: 1.2, textAlign: 'right' },
+  col4:  { flex: 1.5, textAlign: 'right' },
+  colHead: { fontSize: 8, fontWeight: 'bold', color: '#ffffff' },
+  colCell: { fontSize: 9, color: DARK },
+
+  // ── 合計エリア ───────────────────────────────────────────────
+  totalBox: {
+    alignItems: 'flex-end',
+    marginTop: 12,
+    marginBottom: 18,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 5,
+  },
+  totalLabel: {
+    fontSize: 9,
+    color: GRAY2,
+    width: 130,
+    textAlign: 'right',
+    paddingRight: 16,
+  },
+  totalValue: {
+    fontSize: 9.5,
+    color: DARK,
+    width: 90,
+    textAlign: 'right',
+  },
+  totalDivider: {
+    borderTop: `1px solid ${BORDER}`,
+    width: 260,
+    marginVertical: 6,
+  },
+  grandTotal: {
+    backgroundColor: DARK,
+    padding: '9 14',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: 280,
+    marginTop: 2,
+  },
+  grandLabel: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  grandValue: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: GOLD,
+  },
+
+  // ── 振込先BOX ────────────────────────────────────────────────
+  bankBox: {
+    backgroundColor: BG_ALT,
+    border: `0.75px solid ${BORDER}`,
+    padding: '10 14',
+    marginBottom: 16,
+  },
+  bankTitle: {
+    fontSize: 7.5,
+    fontWeight: 'bold',
+    color: GRAY3,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    paddingBottom: 5,
+    borderBottom: `0.75px solid ${BORDER}`,
+  },
+  bankText: {
+    fontSize: 9.5,
+    color: GRAY1,
+    marginTop: 3,
+  },
+  bankSub: {
+    fontSize: 8.5,
+    color: GRAY2,
+    marginTop: 2,
+  },
+
+  // ── 備考 ─────────────────────────────────────────────────────
+  notes: {
+    fontSize: 9,
+    color: GRAY1,
+    lineHeight: 1.7,
+  },
+
+  // ── フッター ─────────────────────────────────────────────────
+  footer: {
+    position: 'absolute',
+    bottom: 28,
+    left: 48,
+    right: 48,
+    borderTop: `0.5px solid ${BORDER}`,
+    paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  footerText: {
+    fontSize: 7,
+    color: GRAY3,
+  },
 })
 
 export interface PDFInvoiceData {
@@ -142,58 +344,74 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
     <Document title={`${docTitle} ${data.invoice_number}`}>
       <Page size="A4" style={styles.page}>
 
-        {/* ヘッダー */}
+        {/* ── ヘッダー ── */}
         <View style={styles.header}>
+          {/* 左：文書種別・番号 */}
           <View>
-            <Text style={styles.title}>{docTitle}</Text>
-            <Text style={styles.number}>No. {data.invoice_number}</Text>
-            <Text style={styles.number}>発行日: {data.issue_date}</Text>
+            <Text style={styles.docTitle}>{docTitle}</Text>
+            <Text style={styles.docMeta}>No. {data.invoice_number}</Text>
+            <Text style={styles.docMeta}>発行日: {data.issue_date}</Text>
             {data.due_date && (
-              <Text style={styles.number}>{dueLabel}: {data.due_date}</Text>
+              <Text style={styles.docMeta}>{dueLabel}: {data.due_date}</Text>
             )}
           </View>
-          {/* 自社情報（右上） */}
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1a1a1a' }}>{data.company_name}</Text>
+
+          {/* 右：自社情報 */}
+          <View style={styles.companyBlock}>
+            <Text style={styles.companyName}>{data.company_name}</Text>
             {data.company_postal_code && (
-              <Text style={styles.label}>〒{data.company_postal_code}</Text>
+              <Text style={styles.companyDetail}>〒{data.company_postal_code}</Text>
             )}
-            {data.company_address && <Text style={styles.label}>{data.company_address}</Text>}
-            {data.company_phone   && <Text style={styles.label}>TEL: {data.company_phone}</Text>}
-            {data.company_email   && <Text style={styles.label}>{data.company_email}</Text>}
+            {data.company_address && (
+              <Text style={styles.companyDetail}>{data.company_address}</Text>
+            )}
+            {data.company_phone && (
+              <Text style={styles.companyDetail}>TEL: {data.company_phone}</Text>
+            )}
+            {data.company_email && (
+              <Text style={styles.companyDetail}>{data.company_email}</Text>
+            )}
             {data.company_invoice_registration_number && (
-              <Text style={styles.label}>登録番号: {data.company_invoice_registration_number}</Text>
+              <Text style={styles.companyReg}>
+                登録番号: {data.company_invoice_registration_number}
+              </Text>
             )}
           </View>
         </View>
 
-        {/* 請求先 */}
+        {/* ── 請求先 ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>請求先</Text>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 3 }}>
-            {data.client_name} 御中
-          </Text>
-          {data.client_contact  && <Text style={styles.label}>担当: {data.client_contact}</Text>}
-          {data.client_address  && <Text style={styles.label}>{data.client_address}</Text>}
-          {data.payment_terms   && <Text style={[styles.label, { marginTop: 4 }]}>支払条件: {data.payment_terms}</Text>}
-          {closingDayText        && <Text style={styles.label}>締日: {closingDayText}</Text>}
+          <Text style={styles.sectionTitle}>{isInvoice ? '請求先' : '見積先'}</Text>
+          <Text style={styles.clientName}>{data.client_name} 御中</Text>
+          {data.client_contact && (
+            <Text style={styles.clientDetail}>担当: {data.client_contact}</Text>
+          )}
+          {data.client_address && (
+            <Text style={styles.clientDetail}>{data.client_address}</Text>
+          )}
+          {data.payment_terms && (
+            <Text style={[styles.clientDetail, { marginTop: 5 }]}>支払条件: {data.payment_terms}</Text>
+          )}
+          {closingDayText && (
+            <Text style={styles.clientDetail}>締日: {closingDayText}</Text>
+          )}
         </View>
 
-        {/* 件名 */}
+        {/* ── 件名BOX ── */}
         {(data.title || data.project_name) && (
-          <View style={[styles.section, { backgroundColor: '#f9f8f6', padding: '8 10', marginBottom: 16 }]}>
-            <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#1a1a1a' }}>
+          <View style={styles.subjectBox}>
+            <Text style={styles.subjectTitle}>
               {data.title ?? `${data.project_name} に関する${docTitle}`}
             </Text>
             {data.billing_period_from && data.billing_period_to && (
-              <Text style={styles.label}>
+              <Text style={styles.subjectDetail}>
                 対象期間: {data.billing_period_from} 〜 {data.billing_period_to}
               </Text>
             )}
           </View>
         )}
 
-        {/* 明細テーブル */}
+        {/* ── 明細テーブル ── */}
         <View style={styles.table}>
           <View style={styles.tableHead}>
             <Text style={[styles.colHead, styles.col1]}>内容</Text>
@@ -213,7 +431,7 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
           ))}
         </View>
 
-        {/* 合計（税率別対象額 + DB保存合計） */}
+        {/* ── 合計（税率別対象額 + DB保存合計） ── */}
         <View style={styles.totalBox}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>小計（税抜）</Text>
@@ -236,49 +454,51 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
               </React.Fragment>
             )
           })}
-          <View style={[styles.grandTotal, { width: 260 }]}>
+          {/* 合計前の区切り線 */}
+          <View style={styles.totalDivider} />
+          <View style={styles.grandTotal}>
             <Text style={styles.grandLabel}>{isInvoice ? '請求金額' : '合計金額（税込）'}</Text>
             <Text style={styles.grandValue}>{fmtJPY(data.total_amount)}</Text>
           </View>
         </View>
 
-        {/* 振込先（請求書のみ） */}
+        {/* ── 振込先BOX（請求書のみ） ── */}
         {isInvoice && hasBankInfo && (
-          <View style={[styles.section, { marginTop: 4 }]}>
-            <Text style={styles.sectionTitle}>振込先</Text>
+          <View style={styles.bankBox}>
+            <Text style={styles.bankTitle}>振込先</Text>
             {(data.bank_name || data.bank_branch_name) && (
-              <Text style={styles.label}>
-                {[data.bank_name, data.bank_branch_name].filter(Boolean).join(' ')}
+              <Text style={styles.bankText}>
+                {[data.bank_name, data.bank_branch_name].filter(Boolean).join('　')}
               </Text>
             )}
             {(data.bank_account_type || data.bank_account_number) && (
-              <Text style={styles.label}>
-                {[data.bank_account_type, data.bank_account_number].filter(Boolean).join(' ')}
+              <Text style={styles.bankText}>
+                {[data.bank_account_type, data.bank_account_number].filter(Boolean).join('　')}
               </Text>
             )}
             {data.bank_account_holder && (
-              <Text style={styles.label}>口座名義: {data.bank_account_holder}</Text>
+              <Text style={styles.bankText}>口座名義: {data.bank_account_holder}</Text>
             )}
             {data.bank_account_holder_kana && (
-              <Text style={styles.label}>（{data.bank_account_holder_kana}）</Text>
+              <Text style={styles.bankSub}>（{data.bank_account_holder_kana}）</Text>
             )}
           </View>
         )}
 
-        {/* 備考 */}
+        {/* ── 備考 ── */}
         {data.notes && (
-          <View style={[styles.section, { marginTop: 8 }]}>
+          <View style={[styles.section, { marginTop: 4 }]}>
             <Text style={styles.sectionTitle}>備考</Text>
             <Text style={styles.notes}>{data.notes}</Text>
           </View>
         )}
 
-        {/* フッター */}
+        {/* ── フッター ── */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {data.company_name} | {data.invoice_number} | {docTitle}
-          </Text>
+          <Text style={styles.footerText}>{data.company_name}</Text>
+          <Text style={styles.footerText}>{data.invoice_number}　|　{docTitle}</Text>
         </View>
+
       </Page>
     </Document>
   )
