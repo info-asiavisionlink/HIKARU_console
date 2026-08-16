@@ -522,76 +522,139 @@ export default function ReportDetailPage() {
 
       {/* メール送信確認モーダル */}
       {emailOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 no-print">
-          <div className="mx-4 max-w-lg w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-xl space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center gap-2 text-base font-semibold">
-              <Mail className="h-4 w-4" /> メール送信確認
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm no-print">
+          {/* modal — 完全不透明・3層構造（header / body / footer）*/}
+          <div
+            className="mx-4 max-w-2xl w-full rounded-xl border shadow-2xl flex flex-col max-h-[88vh]"
+            style={{
+              background: 'oklch(0.07 0.004 260)',
+              borderColor: 'oklch(0.73 0.12 78 / 0.35)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 0 40px oklch(0.73 0.12 78 / 0.08)',
+            }}
+          >
+            {/* ── Header ── */}
+            <div
+              className="flex items-center gap-2.5 px-6 py-4 shrink-0"
+              style={{ borderBottom: '1px solid oklch(0.73 0.12 78 / 0.20)' }}
+            >
+              <Mail className="h-4 w-4 text-[var(--color-primary)]" />
+              <h2 className="text-base font-semibold text-[var(--color-foreground)]">メール送信確認</h2>
             </div>
 
-            {emailLoading ? (
-              <p className="text-sm text-[var(--color-muted-foreground)]">読み込み中...</p>
-            ) : emailPreview ? (
-              <>
-                {/* 送信不可警告 */}
-                {(!emailPreview.configured || !emailPreview.can_send) && (
-                  <div className="rounded border border-amber-300/40 bg-amber-50/20 px-4 py-3">
-                    <p className="text-sm font-medium text-amber-700">
-                      {!emailPreview.configured
-                        ? 'メール送信設定が完了していません。Resendの接続設定後に送信できます。'
-                        : emailPreview.reason}
+            {/* ── Body（スクロール） ── */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {emailLoading ? (
+                <p className="text-sm text-[var(--color-muted-foreground)]">読み込み中...</p>
+              ) : emailPreview ? (
+                <>
+                  {/* Resend未設定・送信不可警告 */}
+                  {(!emailPreview.configured || !emailPreview.can_send) && (
+                    <div
+                      className="rounded-lg px-4 py-3"
+                      style={{
+                        background: 'oklch(0.78 0.18 65 / 0.10)',
+                        border: '1px solid oklch(0.78 0.18 65 / 0.45)',
+                      }}
+                    >
+                      <p className="text-sm font-medium" style={{ color: 'oklch(0.85 0.16 70)' }}>
+                        {!emailPreview.configured
+                          ? 'メール送信設定が完了していません。Resendの接続設定後に送信できます。'
+                          : emailPreview.reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 再送警告 */}
+                  {emailPreview.is_resend && emailPreview.can_send && (
+                    <div
+                      className="rounded-lg px-4 py-3"
+                      style={{
+                        background: 'oklch(0.73 0.12 78 / 0.07)',
+                        border: '1px solid oklch(0.73 0.12 78 / 0.25)',
+                      }}
+                    >
+                      <p className="text-sm text-[var(--color-muted-foreground)]">
+                        この報告書は過去に送信済みです。再送になります。
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 送信先（表示のみ） */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                      送信先
+                    </p>
+                    <p className="text-sm font-medium text-[var(--color-foreground)]">
+                      {emailPreview.to_email ?? (
+                        <span className="text-[var(--color-error)]">
+                          未設定（顧客管理でメールアドレスを設定してください）
+                        </span>
+                      )}
                     </p>
                   </div>
-                )}
-                {/* 再送警告 */}
-                {emailPreview.is_resend && emailPreview.can_send && (
-                  <div className="rounded border border-[var(--color-border)] bg-[var(--color-muted)]/10 px-4 py-3">
-                    <p className="text-sm text-[var(--color-muted-foreground)]">この報告書は過去に送信済みです。再送になります。</p>
-                  </div>
-                )}
-                {/* 送信先 */}
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">送信先</p>
-                  <p className="text-sm font-medium">
-                    {emailPreview.to_email ?? <span className="text-red-500">未設定</span>}
-                  </p>
-                </div>
-                {/* 件名（編集可能） */}
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">件名</p>
-                  <input
-                    type="text"
-                    value={emailSubject}
-                    onChange={e => setEmailSubject(e.target.value)}
-                    placeholder="件名を入力"
-                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30"
-                  />
-                </div>
-                {/* 添付PDF */}
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">添付PDF</p>
-                  {emailPreview.pdf_available
-                    ? <p className="text-sm">{emailPreview.pdf_filename}</p>
-                    : <p className="text-sm text-[var(--color-muted-foreground)]">未生成（先にPDF生成ボタンでPDFを作成してください）</p>
-                  }
-                </div>
-                {/* 本文（編集可能） */}
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文</p>
-                  <textarea
-                    value={emailBody}
-                    onChange={e => setEmailBody(e.target.value)}
-                    rows={8}
-                    placeholder="本文を入力"
-                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-xs text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 resize-y leading-relaxed"
-                  />
-                </div>
-              </>
-            ) : null}
 
-            <div className="flex justify-end gap-3 pt-2">
+                  {/* 件名（編集可能） */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                      件名
+                    </p>
+                    <input
+                      type="text"
+                      value={emailSubject}
+                      onChange={e => setEmailSubject(e.target.value)}
+                      placeholder="件名を入力"
+                      style={{
+                        background: 'oklch(0.11 0.005 260)',
+                        borderColor: 'oklch(0.73 0.12 78 / 0.30)',
+                      }}
+                      className="w-full rounded-lg border px-3 py-2.5 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30"
+                    />
+                  </div>
+
+                  {/* 添付PDF（表示のみ） */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                      添付PDF
+                    </p>
+                    {emailPreview.pdf_available ? (
+                      <p className="text-sm text-[var(--color-foreground)]">{emailPreview.pdf_filename}</p>
+                    ) : (
+                      <p className="text-sm text-[var(--color-muted-foreground)]">
+                        未生成（先にPDF生成ボタンでPDFを作成してください）
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 本文（編集可能） */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                      本文
+                    </p>
+                    <textarea
+                      value={emailBody}
+                      onChange={e => setEmailBody(e.target.value)}
+                      rows={8}
+                      placeholder="本文を入力"
+                      style={{
+                        background: 'oklch(0.11 0.005 260)',
+                        borderColor: 'oklch(0.73 0.12 78 / 0.30)',
+                      }}
+                      className="w-full rounded-lg border px-3 py-2.5 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 resize-y leading-relaxed"
+                    />
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {/* ── Footer ── */}
+            <div
+              className="flex justify-end gap-3 px-6 py-4 shrink-0"
+              style={{ borderTop: '1px solid oklch(0.73 0.12 78 / 0.20)' }}
+            >
               <button
                 onClick={handleEmailClose}
-                className="rounded-lg px-4 py-2 text-sm border border-[var(--color-border)] hover:bg-[var(--color-muted)]/20 transition-colors"
+                style={{ borderColor: 'oklch(0.73 0.12 78 / 0.30)' }}
+                className="rounded-lg px-4 py-2 text-sm border text-[var(--color-foreground)] hover:bg-[oklch(0.73_0.12_78/0.08)] transition-colors"
               >
                 閉じる
               </button>
