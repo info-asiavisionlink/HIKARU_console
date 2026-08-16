@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getReport, type ReportContent, type ReportSpot } from '@/services/reports.service'
 import { cn } from '@hikaru/ui'
-import { Printer, ChevronLeft, CheckCircle2, AlertTriangle, XCircle, Sparkles } from 'lucide-react'
+import { Printer, ChevronLeft, CheckCircle2, AlertTriangle, XCircle, Sparkles, FileText, Mail } from 'lucide-react'
 
 // ============================================================
 // 印刷スタイル
@@ -353,9 +353,28 @@ export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router  = useRouter()
 
-  const [report, setReport]   = React.useState<{ content: ReportContent; version: number; created_at: string } | null>(null)
+  const [report, setReport]   = React.useState<{ content: ReportContent; version: number; created_at: string; pdf_url?: string | null } | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError]     = React.useState<string | null>(null)
+
+  // PDF生成
+  const [pdfLoading, setPdfLoading] = React.useState(false)
+  const [pdfUrl,     setPdfUrl]     = React.useState<string | null>(null)
+
+  // メール送信モーダル
+  const [emailOpen,    setEmailOpen]    = React.useState(false)
+  const [emailLoading, setEmailLoading] = React.useState(false)
+  const [emailPreview, setEmailPreview] = React.useState<{
+    configured:   boolean
+    to_email:     string | null
+    subject:      string
+    body_text:    string
+    pdf_available: boolean
+    pdf_filename: string | null
+    can_send:     boolean
+    reason:       string | null
+    is_resend:    boolean
+  } | null>(null)
 
   React.useEffect(() => {
     async function load() {
@@ -363,12 +382,39 @@ export default function ReportDetailPage() {
       if (err || !data) {
         setError('報告書が見つかりませんでした')
       } else {
-        setReport({ content: data.content, version: data.version, created_at: data.created_at })
+        setReport({ content: data.content, version: data.version, created_at: data.created_at, pdf_url: (data as any).pdf_url ?? null })
       }
       setLoading(false)
     }
     load()
   }, [id])
+
+  async function handlePdf() {
+    setPdfLoading(true)
+    try {
+      const res  = await fetch(`/api/reports/${id}/pdf`, { method: 'POST', credentials: 'include' })
+      const json = await res.json()
+      if (!res.ok) { alert(json.error ?? 'PDF生成に失敗しました'); return }
+      setPdfUrl(json.signed_url)
+      setReport(r => r ? { ...r, pdf_url: json.pdf_path } : r)
+    } catch { alert('PDF生成に失敗しました') }
+    finally { setPdfLoading(false) }
+  }
+
+  async function handleEmailOpen() {
+    setEmailLoading(true)
+    setEmailOpen(true)
+    try {
+      const res  = await fetch(`/api/reports/${id}/email`, { credentials: 'include' })
+      const json = await res.json()
+      setEmailPreview(json)
+    } catch {
+      alert('メール情報の取得に失敗しました')
+      setEmailOpen(false)
+    } finally {
+      setEmailLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -405,6 +451,42 @@ export default function ReportDetailPage() {
           <ChevronLeft className="h-4 w-4" /> 報告書一覧
         </button>
         <div className="flex gap-3">
+          {/* PDF生成 */}
+          <button
+            onClick={handlePdf}
+            disabled={pdfLoading}
+            className={cn(
+              'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors border',
+              'border-[var(--color-border)] text-[var(--color-foreground)] bg-transparent',
+              'hover:bg-[var(--color-muted)]/20 disabled:opacity-50'
+            )}
+          >
+            <FileText className="h-4 w-4" /> {pdfLoading ? '生成中...' : 'PDF生成'}
+          </button>
+          {/* PDF DL */}
+          {(pdfUrl || report.pdf_url) && (
+            <a href={pdfUrl ?? '#'} target="_blank" rel="noopener noreferrer">
+              <button className={cn(
+                'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold border',
+                'border-[var(--color-border)] text-[var(--color-foreground)] bg-transparent hover:bg-[var(--color-muted)]/20'
+              )}>
+                <FileText className="h-4 w-4" /> PDF
+              </button>
+            </a>
+          )}
+          {/* メール送信 */}
+          <button
+            onClick={handleEmailOpen}
+            disabled={emailLoading}
+            className={cn(
+              'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors border',
+              'border-[var(--color-border)] text-[var(--color-foreground)] bg-transparent',
+              'hover:bg-[var(--color-muted)]/20 disabled:opacity-50'
+            )}
+          >
+            <Mail className="h-4 w-4" /> メール送信
+          </button>
+          {/* 印刷 */}
           <button
             onClick={() => window.print()}
             className={cn(
@@ -413,7 +495,7 @@ export default function ReportDetailPage() {
               'hover:bg-[var(--color-primary-hover)] transition-colors'
             )}
           >
-            <Printer className="h-4 w-4" /> 印刷 / PDF出力
+            <Printer className="h-4 w-4" /> 印刷
           </button>
         </div>
       </div>
@@ -426,6 +508,83 @@ export default function ReportDetailPage() {
           createdAt={report.created_at}
         />
       </div>
+
+      {/* メール送信確認モーダル */}
+      {emailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 no-print">
+          <div className="mx-4 max-w-lg w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-xl space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center gap-2 text-base font-semibold">
+              <Mail className="h-4 w-4" /> メール送信確認
+            </div>
+
+            {emailLoading ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">読み込み中...</p>
+            ) : emailPreview ? (
+              <>
+                {/* 送信不可警告 */}
+                {(!emailPreview.configured || !emailPreview.can_send) && (
+                  <div className="rounded border border-amber-300/40 bg-amber-50/20 px-4 py-3">
+                    <p className="text-sm font-medium text-amber-700">
+                      {!emailPreview.configured
+                        ? 'メール送信設定が完了していません。Resendの接続設定後に送信できます。'
+                        : emailPreview.reason}
+                    </p>
+                  </div>
+                )}
+                {/* 再送警告 */}
+                {emailPreview.is_resend && emailPreview.can_send && (
+                  <div className="rounded border border-[var(--color-border)] bg-[var(--color-muted)]/10 px-4 py-3">
+                    <p className="text-sm text-[var(--color-muted-foreground)]">この報告書は過去に送信済みです。再送になります。</p>
+                  </div>
+                )}
+                {/* 送信先 */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">送信先</p>
+                  <p className="text-sm font-medium">
+                    {emailPreview.to_email ?? <span className="text-red-500">未設定</span>}
+                  </p>
+                </div>
+                {/* 件名 */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">件名</p>
+                  <p className="text-sm">{emailPreview.subject}</p>
+                </div>
+                {/* 添付PDF */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">添付PDF</p>
+                  {emailPreview.pdf_available
+                    ? <p className="text-sm">{emailPreview.pdf_filename}</p>
+                    : <p className="text-sm text-[var(--color-muted-foreground)]">未生成（先にPDF生成ボタンでPDFを作成してください）</p>
+                  }
+                </div>
+                {/* 本文 */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文プレビュー</p>
+                  <pre className="text-xs whitespace-pre-wrap bg-[var(--color-muted)]/10 rounded border border-[var(--color-border)] p-3 leading-relaxed">
+                    {emailPreview.body_text}
+                  </pre>
+                </div>
+              </>
+            ) : null}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => { setEmailOpen(false); setEmailPreview(null) }}
+                className="rounded-lg px-4 py-2 text-sm border border-[var(--color-border)] hover:bg-[var(--color-muted)]/20 transition-colors"
+              >
+                閉じる
+              </button>
+              <button
+                disabled
+                title="実送信機能は現在準備中です"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] text-white opacity-40 cursor-not-allowed"
+              >
+                <Mail className="h-4 w-4" /> 送信（準備中）
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
