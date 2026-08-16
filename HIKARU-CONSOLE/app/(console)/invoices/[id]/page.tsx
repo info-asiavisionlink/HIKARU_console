@@ -11,6 +11,7 @@ import {
 import {
   ArrowLeft, FileText, Download, Send, CheckCircle, XCircle, Eye, Trash2,
   CreditCard, Globe, RefreshCw, FilePlus, AlertCircle, Edit3, Save, X as XIcon,
+  Mail,
 } from 'lucide-react'
 import {
   getInvoice, changeInvoiceStatus, generatePdf, publishInvoice, convertToInvoice,
@@ -52,6 +53,21 @@ export default function InvoiceDetailPage() {
 
   // PDF
   const [pdfUrl, setPdfUrl] = React.useState<string | null>(null)
+
+  // メール送信モーダル
+  const [emailOpen,    setEmailOpen]    = React.useState(false)
+  const [emailLoading, setEmailLoading] = React.useState(false)
+  const [emailPreview, setEmailPreview] = React.useState<{
+    configured:   boolean
+    to_email:     string | null
+    subject:      string
+    body_text:    string
+    pdf_available: boolean
+    pdf_filename: string | null
+    can_send:     boolean
+    reason:       string | null
+    is_resend:    boolean
+  } | null>(null)
 
   React.useEffect(() => { load() }, [id])
 
@@ -150,6 +166,21 @@ export default function InvoiceDetailPage() {
       setEditing(false)
       await load()
     })
+  }
+
+  async function handleEmailOpen() {
+    setEmailLoading(true)
+    setEmailOpen(true)
+    try {
+      const res = await fetch(`/api/invoices/${id}/email`, { credentials: 'include' })
+      const json = await res.json()
+      setEmailPreview(json)
+    } catch {
+      toast.error('メール情報の取得に失敗しました')
+      setEmailOpen(false)
+    } finally {
+      setEmailLoading(false)
+    }
   }
 
   async function handleDelete() {
@@ -281,6 +312,12 @@ export default function InvoiceDetailPage() {
                 {!inv.published_to_portal && !isDraft && !isCancelled && (
                   <Button size="sm" variant="outline" onClick={handlePublish} loading={acting}>
                     <Globe className="h-4 w-4" /> 顧客へ公開
+                  </Button>
+                )}
+                {/* メール送信（draft以外・cancelled以外で表示） */}
+                {!isDraft && !isCancelled && (
+                  <Button size="sm" variant="outline" onClick={handleEmailOpen} disabled={acting || emailLoading}>
+                    <Mail className="h-4 w-4" /> メール送信
                   </Button>
                 )}
                 {!isCancelled && (
@@ -538,6 +575,91 @@ export default function InvoiceDetailPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelOpen(false)}>戻る</Button>
             <Button onClick={handleCancel} loading={acting} className="bg-[var(--color-error)]">キャンセルする</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* メール送信確認モーダル */}
+      <Dialog open={emailOpen} onOpenChange={open => { setEmailOpen(open); if (!open) setEmailPreview(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4" /> メール送信確認
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            {emailLoading ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">読み込み中...</p>
+            ) : emailPreview ? (
+              <>
+                {/* 設定未完了・送信不可の警告 */}
+                {(!emailPreview.configured || !emailPreview.can_send) && (
+                  <div className="rounded-[var(--radius)] border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 px-4 py-3">
+                    <p className="text-sm font-medium text-[var(--color-warning-foreground)]">
+                      {!emailPreview.configured
+                        ? 'メール送信設定が完了していません。Resendの接続設定後に送信できます。'
+                        : emailPreview.reason}
+                    </p>
+                  </div>
+                )}
+
+                {/* 再送警告 */}
+                {emailPreview.is_resend && emailPreview.can_send && (
+                  <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted)]/20 px-4 py-3">
+                    <p className="text-sm text-[var(--color-muted-foreground)]">
+                      この書類は過去に送信済みです。再送になります。
+                    </p>
+                  </div>
+                )}
+
+                {/* 送信先（表示のみ・編集不可） */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">送信先</p>
+                  <p className="text-sm font-medium">
+                    {emailPreview.to_email ?? (
+                      <span className="text-[var(--color-error)]">未設定（顧客管理でメールアドレスを設定してください）</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* 件名 */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">件名</p>
+                  <p className="text-sm">{emailPreview.subject}</p>
+                </div>
+
+                {/* 添付PDF */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">添付PDF</p>
+                  {emailPreview.pdf_available ? (
+                    <p className="text-sm">{emailPreview.pdf_filename}</p>
+                  ) : (
+                    <p className="text-sm text-[var(--color-muted-foreground)]">
+                      未生成（先にPDF生成ボタンでPDFを作成してください）
+                    </p>
+                  )}
+                </div>
+
+                {/* 本文プレビュー */}
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文プレビュー</p>
+                  <pre className="text-xs text-[var(--color-foreground)] whitespace-pre-wrap bg-[var(--color-muted)]/10 rounded-[var(--radius)] p-3 border border-[var(--color-border)] leading-relaxed">
+                    {emailPreview.body_text}
+                  </pre>
+                </div>
+              </>
+            ) : null}
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEmailOpen(false); setEmailPreview(null) }}>
+              閉じる
+            </Button>
+            <Button
+              disabled
+              title="実送信機能は現在準備中です"
+            >
+              <Mail className="h-4 w-4" /> 送信（準備中）
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
