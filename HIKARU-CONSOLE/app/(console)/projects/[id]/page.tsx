@@ -343,7 +343,7 @@ export default function ProjectDetailPage() {
                   </Button>
                 </div>
                 {(project.project_type === 'recurring' || project.project_type === 'hotel') && (
-                  <p className="text-xs text-[var(--color-muted-foreground)]">定期・ホテル案件は対象月を選択してください</p>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">定期・日常案件は対象月を選択してください</p>
                 )}
               </div>
 

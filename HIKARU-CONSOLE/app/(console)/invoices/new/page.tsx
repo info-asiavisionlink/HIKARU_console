@@ -265,7 +265,7 @@ function NewInvoiceContent() {
                       <SelectItem value="">選択しない</SelectItem>
                       {projects.map(p => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.project_type === 'spot' ? '単発' : p.project_type === 'recurring' ? '定期' : 'ホテル'})
+                          {p.name} ({p.project_type === 'spot' ? '単発' : p.project_type === 'recurring' ? '定期' : '日常'})
                         </SelectItem>
                       ))}
                     </SelectContent>

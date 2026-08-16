@@ -84,7 +84,7 @@ export default function NewHotelProjectPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) { toast.error('ホテル名を入力してください'); return }
+    if (!form.name.trim()) { toast.error('施設名を入力してください'); return }
     if (unitHasError) { toast.error('単位を入力してください'); return }
     setLoading(true)
 
@@ -175,14 +175,14 @@ export default function NewHotelProjectPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
 
-            {/* ホテル基本情報 */}
+            {/* 施設情報 */}
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                  <Hotel className="h-4 w-4" /> ホテル基本情報
+                  <Hotel className="h-4 w-4" /> 施設情報
                 </h2>
-                <Input label="ホテル名 *" value={form.name} onChange={e => upd('name', e.target.value)} placeholder="○○ホテル" required />
-                <Input label="施設名・通称" value={form.location_name} onChange={e => upd('location_name', e.target.value)} placeholder="例: ○○ホテル別館 / ○○リゾート" />
+                <Input label="施設名 *" value={form.name} onChange={e => upd('name', e.target.value)} placeholder="例: ○○ビル / ○○ホテル" required />
+                <Input label="施設名・通称" value={form.location_name} onChange={e => upd('location_name', e.target.value)} placeholder="例: ○○ビル 別館 / ○○リゾート" />
                 <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="担当責任者" value={form.manager_name} onChange={e => upd('manager_name', e.target.value)} />
@@ -208,7 +208,7 @@ export default function NewHotelProjectPage() {
                     <Layers className="h-4 w-4" /> フロア情報
                     {totalRooms > 0 && (
                       <span className="ml-2 text-xs font-normal" style={{ color: 'oklch(0.73 0.12 78)' }}>
-                        合計 {totalRooms}室
+                        合計 {totalRooms}
                       </span>
                     )}
                   </h2>
@@ -220,8 +220,7 @@ export default function NewHotelProjectPage() {
                   {floors.map((f, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Input className="w-24" placeholder="1F" value={f.floor_name} onChange={e => updFloor(i, 'floor_name', e.target.value)} />
-                      <Input className="w-28" type="number" min="0" placeholder="部屋数" value={f.room_count} onChange={e => updFloor(i, 'room_count', e.target.value)} />
-                      <span className="text-sm text-[var(--color-muted-foreground)]">室</span>
+                      <Input className="w-28" type="number" min="0" placeholder="数量" value={f.room_count} onChange={e => updFloor(i, 'room_count', e.target.value)} />
                       <button type="button" onClick={() => setFloors(arr => arr.filter((_, j) => j !== i))}
                         className="ml-auto text-[var(--color-muted-foreground)] hover:text-[var(--color-destructive)]">
                         <Trash2 className="h-4 w-4" />
@@ -319,7 +318,7 @@ export default function NewHotelProjectPage() {
                     <Plus className="h-3.5 w-3.5" /> 箇所を追加
                   </button>
                 </div>
-                <p className="text-xs text-[var(--color-muted-foreground)]">作業者が写真を撮影する箇所を追加してください（例: ロビー、客室、大浴場）。</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">作業者が写真を撮影する箇所を追加してください（例: ロビー、共用部、作業エリア）。</p>
                 <div className="space-y-2">
                   {spots.map((spot, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -328,7 +327,7 @@ export default function NewHotelProjectPage() {
                         {i + 1}
                       </div>
                       <Input value={spot} onChange={e => updSpot(i, e.target.value)}
-                        placeholder={i === 0 ? '例: ロビー清掃' : i === 1 ? '例: 客室清掃' : '例: 大浴場清掃...'}
+                        placeholder={i === 0 ? '例: ロビー清掃' : i === 1 ? '例: 共用部清掃' : '例: エリア清掃...'}
                         className="flex-1" />
                       <button type="button" onClick={() => rmSpot(i)}
                         className="p-1.5 rounded-[var(--radius)] hover:opacity-80 shrink-0"

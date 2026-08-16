@@ -22,10 +22,10 @@ const TYPE_OPTIONS = [
   { value: '',          label: 'すべて',     icon: FolderOpen },
   { value: 'spot',      label: '単発',       icon: Zap },
   { value: 'recurring', label: '定期',       icon: RefreshCw },
-  { value: 'hotel',     label: 'ホテル',     icon: Hotel },
+  { value: 'hotel',     label: '日常',       icon: Hotel },
 ]
 
-const typeLabel: Record<string, string> = { spot: '単発', recurring: '定期', hotel: 'ホテル' }
+const typeLabel: Record<string, string> = { spot: '単発', recurring: '定期', hotel: '日常' }
 const typeVariant: Record<string, string> = { spot: 'info', recurring: 'warning', hotel: 'secondary' }
 
 const PAGE_SIZE = 20
@@ -247,7 +247,7 @@ export default function ProjectsPage() {
         <EmptyState
           icon={<FolderOpen className="h-12 w-12" />}
           title="案件が見つかりません"
-          description={search || status ? '検索条件を変更してみてください' : '単発・定期・ホテルのいずれかから案件を追加してください'}
+          description={search || status ? '検索条件を変更してみてください' : '単発・定期・日常のいずれかから案件を追加してください'}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -235,15 +235,15 @@ export default function HotelProjectDetailPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
 
-          {/* ホテル基本情報 */}
+          {/* 施設情報 */}
           <Card>
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider flex items-center gap-2">
-                <Hotel className="h-4 w-4" /> ホテル情報
+                <Hotel className="h-4 w-4" /> 施設情報
               </h2>
               {editing ? (
                 <>
-                  <Input label="ホテル名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
+                  <Input label="施設名 *" value={form.name} onChange={e => upd('name', e.target.value)} />
                   <Input label="施設名・通称" value={form.location_name} onChange={e => upd('location_name', e.target.value)} />
                   <Input label="住所" value={form.address} onChange={e => upd('address', e.target.value)} placeholder="例: 東京都渋谷区○○1-2-3" />
                   <div className="grid grid-cols-2 gap-4">
@@ -271,7 +271,7 @@ export default function HotelProjectDetailPage() {
                     ['総階数',   d?.total_floors ? `${d.total_floors}階` : '—'],
                     ['稼働時間', d?.operating_start_time && d?.operating_end_time ? `${d.operating_start_time} 〜 ${d.operating_end_time}` : '—'],
                     ['契約期間', [d?.contract_start_date, d?.contract_end_date].filter(Boolean).join(' 〜 ') || '—'],
-                    ['総客室数', `${totalRooms}室`],
+                    ['合計数量', totalRooms > 0 ? String(totalRooms) : '—'],
                   ].map(([l,v]) => <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>)}
                 </dl>
               )}
@@ -292,8 +292,7 @@ export default function HotelProjectDetailPage() {
                   {floors.map((f, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Input className="w-24" placeholder="1F" value={f.floor_name} onChange={e => setFloors(arr => arr.map((r, j) => j===i ? {...r, floor_name: e.target.value} : r))} />
-                      <Input className="w-28" type="number" placeholder="部屋数" value={f.room_count} onChange={e => setFloors(arr => arr.map((r, j) => j===i ? {...r, room_count: e.target.value} : r))} />
-                      <span className="text-sm text-[var(--color-muted-foreground)]">室</span>
+                      <Input className="w-28" type="number" placeholder="数量" value={f.room_count} onChange={e => setFloors(arr => arr.map((r, j) => j===i ? {...r, room_count: e.target.value} : r))} />
                       <button type="button" onClick={() => setFloors(arr => arr.filter((_, j) => j!==i))} className="ml-auto text-[var(--color-muted-foreground)] hover:text-[var(--color-destructive)]"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}
@@ -303,7 +302,7 @@ export default function HotelProjectDetailPage() {
                   {project.floors?.map((f: any) => (
                     <div key={f.id} className="rounded border border-[var(--color-border)] px-3 py-2 text-sm">
                       <p className="font-bold" style={{ color: 'oklch(0.73 0.12 78)' }}>{f.floor_name}</p>
-                      <p className="text-[var(--color-muted-foreground)]">{f.room_count}室</p>
+                      <p className="text-[var(--color-muted-foreground)]">{f.room_count}</p>
                     </div>
                   ))}
                 </div>
@@ -389,7 +388,7 @@ export default function HotelProjectDetailPage() {
                     <div key={i} className="flex items-center gap-2">
                       <span className="text-xs w-5 text-center" style={{ color: 'var(--color-primary)' }}>{i+1}</span>
                       <Input value={s} onChange={e => setSpots(p => p.map((x,j) => j===i ? e.target.value : x))}
-                        placeholder={i===0?'例: ロビー清掃':i===1?'例: 客室清掃':'例: 大浴場清掃...'} className="flex-1" />
+                        placeholder={i===0?'例: ロビー清掃':i===1?'例: 共用部清掃':'例: エリア清掃...'} className="flex-1" />
                       <button type="button" onClick={() => setSpots(p => p.length<=1?['']:p.filter((_,j)=>j!==i))}
                         style={{ color: 'var(--color-error-foreground)' }}>✕</button>
                     </div>

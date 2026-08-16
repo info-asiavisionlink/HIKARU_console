@@ -155,7 +155,7 @@ function NewShiftForm() {
                       </p>
                     )}
                     <p className="text-[10px]" style={{ color: 'oklch(0.45 0.005 75)' }}>
-                      {{ spot:'単発', recurring:'定期', hotel:'ホテル' }[selectedProject.project_type] ?? ''}案件
+                      {{ spot:'単発', recurring:'定期', hotel:'日常' }[selectedProject.project_type] ?? ''}案件
                     </p>
                   </div>
                 )}

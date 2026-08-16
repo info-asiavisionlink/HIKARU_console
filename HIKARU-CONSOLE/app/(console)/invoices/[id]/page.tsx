@@ -428,7 +428,7 @@ export default function InvoiceDetailPage() {
                 <DRow label="案件名" value={inv.projects.name} />
                 <DRow label="種別"   value={
                   inv.projects.project_type === 'spot' ? '単発' :
-                  inv.projects.project_type === 'recurring' ? '定期' : 'ホテル'
+                  inv.projects.project_type === 'recurring' ? '定期' : '日常'
                 } />
                 <DRow label="場所"   value={inv.projects.location_name} />
                 <Link href={`/projects/${inv.project_id}`}>

@@ -40,13 +40,13 @@ export default function HotelProjectsPage() {
         actions={<Link href="/projects/hotel/new"><Button><Plus className="h-4 w-4" /> 日常案件を登録</Button></Link>}
       />
       <div className="mb-4">
-        <SearchBar value={search} onChange={setSearch} placeholder="ホテル名で検索" className="w-64" />
+        <SearchBar value={search} onChange={setSearch} placeholder="施設名で検索" className="w-64" />
       </div>
       <TableWrapper>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ホテル名</TableHead><TableHead>顧客</TableHead>
+              <TableHead>施設名</TableHead><TableHead>顧客</TableHead>
               <TableHead>総階数</TableHead><TableHead>稼働時間</TableHead>
               <TableHead>契約期間</TableHead><TableHead>ステータス</TableHead>
               <TableHead className="w-10"></TableHead>
