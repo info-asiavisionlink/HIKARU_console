@@ -2,12 +2,12 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { listReports, getReportStats, type ReportListItem } from '@/services/reports.service'
+import { listReports, getReportStats, type ReportListItem, type EmailStatus } from '@/services/reports.service'
 import {
   PageHeader, Skeleton, Pagination,
   TableWrapper, Table, TableHeader, TableBody,
   TableRow, TableHead, TableCell,
-  ScoreBadge,
+  ScoreBadge, Badge,
 } from '@hikaru/ui'
 import { EmptyState } from '@/components/console/EmptyState'
 import {
@@ -24,6 +24,35 @@ const PAGE_SIZE = 20
 function ScoreChip({ score }: { score: number | null }) {
   if (score == null) return <span className="text-[var(--color-muted-foreground)]">—</span>
   return <ScoreBadge score={score} showLabel={false} size="sm" />
+}
+
+function PdfBadge({ pdfUrl }: { pdfUrl: string | null }) {
+  if (pdfUrl) {
+    return <Badge variant="success" size="sm">生成済み</Badge>
+  }
+  return <Badge variant="secondary" size="sm">未生成</Badge>
+}
+
+function EmailBadge({ status, lastSentAt }: { status: EmailStatus; lastSentAt: string | null }) {
+  if (status === 'sent') {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <Badge variant="success" size="sm">送信済み</Badge>
+        {lastSentAt && (
+          <span className="text-[10px] text-[var(--color-muted-foreground)]">
+            {new Date(lastSentAt).toLocaleString('ja-JP', {
+              month: 'short', day: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </span>
+        )}
+      </div>
+    )
+  }
+  if (status === 'failed') {
+    return <Badge variant="error" size="sm">送信失敗</Badge>
+  }
+  return <Badge variant="secondary" size="sm">未送信</Badge>
 }
 
 function StatCard({ icon: Icon, label, value }: {
@@ -248,10 +277,13 @@ function ReportsTab() {
             <TableRow>
               <TableHead>作業日</TableHead>
               <TableHead>案件名</TableHead>
+              <TableHead>顧客</TableHead>
               <TableHead>店舗</TableHead>
               <TableHead>担当者</TableHead>
               <TableHead className="text-center">スコア</TableHead>
               <TableHead className="text-center">Ver.</TableHead>
+              <TableHead className="text-center">PDF</TableHead>
+              <TableHead className="text-center">メール</TableHead>
               <TableHead>生成日時</TableHead>
               <TableHead className="w-20"></TableHead>
             </TableRow>
@@ -260,14 +292,14 @@ function ReportsTab() {
             {loading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((__, j) => (
+                  {Array.from({ length: 11 }).map((__, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-12">
+                <TableCell colSpan={11} className="py-12">
                   <EmptyState
                     icon={<FileText className="h-10 w-10" />}
                     title="報告書がありません"
@@ -293,6 +325,9 @@ function ReportsTab() {
                       )}
                     </div>
                   </TableCell>
+                  <TableCell className="text-sm text-[var(--color-muted-foreground)] truncate max-w-[100px]">
+                    {(item.projects as any)?.clients?.name ?? '—'}
+                  </TableCell>
                   <TableCell className="text-sm text-[var(--color-muted-foreground)] truncate max-w-[120px]">
                     {(item.projects as any)?.stores?.name ?? '—'}
                   </TableCell>
@@ -304,6 +339,12 @@ function ReportsTab() {
                   </TableCell>
                   <TableCell className="text-center text-sm text-[var(--color-muted-foreground)]">
                     v{item.version}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <PdfBadge pdfUrl={item.pdf_url} />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <EmailBadge status={item.email_status} lastSentAt={item.last_sent_at} />
                   </TableCell>
                   <TableCell className="text-sm text-[var(--color-muted-foreground)] whitespace-nowrap">
                     {new Date(item.created_at).toLocaleString('ja-JP', {

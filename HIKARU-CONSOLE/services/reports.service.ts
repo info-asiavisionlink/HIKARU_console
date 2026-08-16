@@ -3,6 +3,8 @@
 // browser Supabase廃止。GET /api/reports, /api/reports/[id] 経由で取得。
 // ============================================================
 
+export type EmailStatus = 'sent' | 'failed' | 'unsent'
+
 export interface ReportListItem {
   id: string
   job_id: string
@@ -10,7 +12,10 @@ export interface ReportListItem {
   worker_id: string
   version: number
   overall_score: number | null
+  pdf_url: string | null
   created_at: string
+  email_status: EmailStatus
+  last_sent_at: string | null
   jobs: {
     work_date: string
     started_at: string
@@ -19,6 +24,8 @@ export interface ReportListItem {
   projects: {
     name: string
     code: string | null
+    client_id: string | null
+    clients: { name: string } | null
     stores: { name: string; address: string | null } | null
   } | null
   profiles: { name: string } | null

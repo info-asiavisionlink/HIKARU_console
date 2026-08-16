@@ -20,9 +20,9 @@ export async function GET(req: NextRequest) {
     let query = auth.adminClient
       .from('reports')
       .select(
-        `id, job_id, project_id, worker_id, version, overall_score, created_at,
+        `id, job_id, project_id, worker_id, version, overall_score, pdf_url, created_at,
          jobs(work_date, started_at, completed_at),
-         projects(name, code, stores(name, address)),
+         projects(name, code, client_id, clients:client_id(name), stores(name, address)),
          profiles(name)`,
         { count: 'exact' }
       )
@@ -39,6 +39,49 @@ export async function GET(req: NextRequest) {
       console.error('[api/reports]', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // メール送信状態: report_ids をまとめて一括取得（N+1 禁止）
+    const reportIds = (data ?? []).map((r: any) => r.id).filter(Boolean) as string[]
+    type EmailEntry = { status: 'sent' | 'failed' | 'unsent'; lastSentAt: string | null }
+    const emailStatusMap: Record<string, EmailEntry> = {}
+
+    if (reportIds.length > 0) {
+      const { data: emailLogs } = await auth.adminClient
+        .from('document_email_logs')
+        .select('report_id, status, sent_at')
+        .eq('company_id', auth.companyId)
+        .in('report_id', reportIds)
+        .not('report_id', 'is', null)
+
+      const grouped: Record<string, Array<{ status: string; sent_at: string | null }>> = {}
+      for (const log of (emailLogs ?? [])) {
+        if (!log.report_id) continue
+        if (!grouped[log.report_id]) grouped[log.report_id] = []
+        grouped[log.report_id].push({ status: log.status, sent_at: log.sent_at })
+      }
+
+      for (const [reportId, logs] of Object.entries(grouped)) {
+        const sentLogs = logs.filter(l => l.status === 'sent')
+        if (sentLogs.length > 0) {
+          const lastSentAt = sentLogs
+            .map(l => l.sent_at)
+            .filter(Boolean)
+            .sort()
+            .at(-1) ?? null
+          emailStatusMap[reportId] = { status: 'sent', lastSentAt }
+        } else if (logs.some(l => l.status === 'failed')) {
+          emailStatusMap[reportId] = { status: 'failed', lastSentAt: null }
+        } else {
+          emailStatusMap[reportId] = { status: 'unsent', lastSentAt: null }
+        }
+      }
+    }
+
+    const enrichedData = (data ?? []).map((r: any) => ({
+      ...r,
+      email_status:  emailStatusMap[r.id]?.status   ?? 'unsent',
+      last_sent_at:  emailStatusMap[r.id]?.lastSentAt ?? null,
+    }))
 
     // stats (同一会社の全件)
     const [{ data: allScores }, { data: monthly }] = await Promise.all([
@@ -57,7 +100,7 @@ export async function GET(req: NextRequest) {
     const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
 
     return NextResponse.json({
-      data:  data ?? [],
+      data:  enrichedData,
       count: count ?? 0,
       stats: {
         totalReports:   allScores?.length   ?? 0,
