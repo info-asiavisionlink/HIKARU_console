@@ -191,7 +191,7 @@ export default function JobDetailPage() {
         }
       />
 
-      <div className={cn("space-y-0", activeJob && "pb-32")}>
+      <div className={cn("space-y-0", activeJob && "pb-44")}>
         {/* 完了バナー */}
         {isJobCompleted && (
           <div className="bg-[var(--color-success)] px-4 py-3 flex items-center gap-2">
@@ -239,7 +239,7 @@ export default function JobDetailPage() {
 
         {/* 作業開始時刻 */}
         {activeJob && (
-          <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-3">
+          <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-4">
             <div className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
               <Clock className="h-4 w-4" />
               <span>
@@ -287,7 +287,7 @@ export default function JobDetailPage() {
         )}
 
         {/* マニュアル & AIチャット & 品質評価 & 報告書ボタン */}
-        <div className="px-4 py-4 bg-[var(--color-surface)] border-b border-[var(--color-border)] grid grid-cols-2 gap-2">
+        <div className="px-4 py-4 bg-[var(--color-surface)] border-b border-[var(--color-border)] grid grid-cols-2 gap-3">
           <Link
             href={`/jobs/${projectId}/manual`}
             className="flex flex-col items-center gap-1.5 rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-3 active:bg-[var(--color-border)] transition-colors"
