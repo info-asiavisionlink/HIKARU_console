@@ -105,7 +105,7 @@ export default function BeforePage() {
       </div>
 
       {/* 撮影箇所リスト */}
-      <div className="px-4 py-4 space-y-6 pb-32">
+      <div className="px-4 py-3 space-y-4 pb-32">
         {spots.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-[var(--color-muted-foreground)]">

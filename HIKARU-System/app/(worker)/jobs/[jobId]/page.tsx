@@ -188,7 +188,7 @@ export default function JobDetailPage() {
         }
       />
 
-      <div className="pb-32 space-y-0">
+      <div className={cn("space-y-0", activeJob && "pb-32")}>
         {/* 完了バナー */}
         {isJobCompleted && (
           <div className="bg-[var(--color-success)] px-4 py-3 flex items-center gap-2">
@@ -328,51 +328,58 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      {/* 固定フッターボタン */}
-      <div className="fixed bottom-[var(--bottom-nav-height)] left-0 right-0 px-4 pb-4 pt-3 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border)]">
-        {isJobCompleted ? (
-          <div className="flex gap-2">
-            <Link
-              href={`/jobs/${projectId}/report`}
-              className="flex-1 flex items-center justify-center gap-2 rounded-[var(--radius-xl)] bg-[var(--color-primary)] py-4 text-base font-semibold text-white active:bg-[var(--color-primary-hover)] transition-colors"
-            >
-              <FileText className="h-5 w-5" /> 報告書
-            </Link>
-            <button
-              onClick={() => router.push('/jobs')}
-              className="flex-1 rounded-[var(--radius-xl)] bg-[var(--color-muted)] py-4 text-base font-semibold text-[var(--color-muted-foreground)]"
-            >
-              一覧に戻る
-            </button>
-          </div>
-        ) : activeJob ? (
-          <div className="flex gap-2">
-            <Link
-              href={`/jobs/${projectId}/${beforeCount < totalSpots ? 'before' : 'after'}`}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-2 rounded-[var(--radius-xl)] py-4',
-                'text-base font-semibold text-white',
-                'bg-[var(--color-primary)] active:bg-[var(--color-primary-active)]',
-                'transition-colors'
-              )}
-            >
-              <Camera className="h-5 w-5" />
-              {beforeCount < totalSpots ? 'Before撮影' : 'After撮影'}
-            </Link>
-            {afterCount === totalSpots && totalSpots > 0 && (
-              <button
-                onClick={handleComplete}
-                disabled={completing || generatingReport}
-                className="flex-1 rounded-[var(--radius-xl)] bg-[var(--color-success)] py-4 text-base font-semibold text-white active:bg-[var(--color-success-hover)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+      {/* 固定フッター: 作業中・完了時のみ */}
+      {activeJob && (
+        <div className="fixed bottom-[var(--bottom-nav-height)] left-0 right-0 px-4 pb-4 pt-3 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border)]">
+          {isJobCompleted ? (
+            <div className="flex gap-2">
+              <Link
+                href={`/jobs/${projectId}/report`}
+                className="flex-1 flex items-center justify-center gap-2 rounded-[var(--radius-xl)] bg-[var(--color-primary)] py-4 text-base font-semibold text-white active:bg-[var(--color-primary-hover)] transition-colors"
               >
-                {(completing || generatingReport) && (
-                  <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                )}
-                {completing ? '完了処理中...' : generatingReport ? '報告書生成中...' : '作業完了'}
+                <FileText className="h-5 w-5" /> 報告書
+              </Link>
+              <button
+                onClick={() => router.push('/jobs')}
+                className="flex-1 rounded-[var(--radius-xl)] bg-[var(--color-muted)] py-4 text-base font-semibold text-[var(--color-muted-foreground)]"
+              >
+                一覧に戻る
               </button>
-            )}
-          </div>
-        ) : (
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Link
+                href={`/jobs/${projectId}/${beforeCount < totalSpots ? 'before' : 'after'}`}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 rounded-[var(--radius-xl)] py-4',
+                  'text-base font-semibold text-white',
+                  'bg-[var(--color-primary)] active:bg-[var(--color-primary-active)]',
+                  'transition-colors'
+                )}
+              >
+                <Camera className="h-5 w-5" />
+                {beforeCount < totalSpots ? 'Before撮影' : 'After撮影'}
+              </Link>
+              {afterCount === totalSpots && totalSpots > 0 && (
+                <button
+                  onClick={handleComplete}
+                  disabled={completing || generatingReport}
+                  className="flex-1 rounded-[var(--radius-xl)] bg-[var(--color-success)] py-4 text-base font-semibold text-white active:bg-[var(--color-success-hover)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {(completing || generatingReport) && (
+                    <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  )}
+                  {completing ? '完了処理中...' : generatingReport ? '報告書生成中...' : '作業完了'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 作業未開始: コンテンツ末尾のインラインCTA */}
+      {!activeJob && (
+        <div className="px-4 pt-2 pb-10">
           <button
             onClick={handleStartWork}
             disabled={starting}
@@ -392,8 +399,8 @@ export default function JobDetailPage() {
             )}
             {starting ? '準備中...' : '作業を開始する'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
