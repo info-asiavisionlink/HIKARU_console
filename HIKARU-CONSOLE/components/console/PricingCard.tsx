@@ -119,16 +119,30 @@ interface SinglePriceCardProps {
   value: PriceEntry
   onChange: (v: PriceEntry) => void
   title?: string
-  hotelMode?: boolean   // 日常: unit_price × quantity × unit_label を表示
-  totalRooms?: number   // 日常: フロア合計数（fallback 参考値）
+  hotelMode?: boolean    // 日常: unit_price × quantity × unit_label を表示
+  totalRooms?: number    // 日常: フロア合計数（fallback 参考値）
+  onUnitError?: (hasError: boolean) => void  // 単位バリデーションエラーを親へ通知
 }
 
-export function SinglePriceCard({ value, onChange, title = '金額', hotelMode = false, totalRooms }: SinglePriceCardProps) {
-  // unit_label がプリセットか「その他」かを判定
-  const currentLabel = value.unit_label?.trim() ?? null
-  const isOther = currentLabel !== null && !(UNIT_PRESETS as readonly string[]).includes(currentLabel)
-  const selectValue = isOther ? OTHER_VALUE : (currentLabel ?? '室')
-  const [otherInput, setOtherInput] = React.useState(isOther ? currentLabel : '')
+export function SinglePriceCard({ value, onChange, title = '金額', hotelMode = false, totalRooms, onUnitError }: SinglePriceCardProps) {
+  // 初期値: unit_label がプリセット以外の非 NULL 値ならその他選択中
+  const initLabel    = value.unit_label?.trim() ?? null
+  const initIsOther  = initLabel !== null && !(UNIT_PRESETS as readonly string[]).includes(initLabel)
+
+  // isOtherSelected: unit_label が null になっても「その他選択中」を保持するための独立した state
+  const [isOtherSelected, setIsOtherSelected] = React.useState(initIsOther)
+  const [otherInput,      setOtherInput]       = React.useState(initIsOther ? (initLabel ?? '') : '')
+
+  // ドロップダウンの表示値: isOtherSelected を優先（unit_label が null でも OTHER_VALUE を維持）
+  const displaySelectValue = isOtherSelected ? OTHER_VALUE : (value.unit_label?.trim() ?? '室')
+
+  // バリデーションエラー: その他選択中かつ自由入力が空
+  const unitError = hotelMode && isOtherSelected && otherInput.trim() === ''
+
+  // 親へエラー状態を通知
+  React.useEffect(() => {
+    if (hotelMode) onUnitError?.(unitError)
+  }, [unitError, hotelMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleExTax(raw: string) {
     const ex = parseInt(raw.replace(/,/g, ''), 10) || 0
@@ -160,9 +174,13 @@ export function SinglePriceCard({ value, onChange, title = '金額', hotelMode =
 
   function handleUnitSelect(v: string) {
     if (v === OTHER_VALUE) {
-      // その他を選択 → 自由入力欄へ。unit_label はいったん null にしてユーザー入力待ち
+      // その他を選択 → 自由入力欄を表示。isOtherSelected を true に固定する
+      setIsOtherSelected(true)
+      setOtherInput('')
       onChange({ ...value, unit_label: null })
     } else {
+      // プリセット選択 → その他状態を解除
+      setIsOtherSelected(false)
       setOtherInput('')
       onChange({ ...value, unit_label: v })
     }
@@ -217,7 +235,7 @@ export function SinglePriceCard({ value, onChange, title = '金額', hotelMode =
             {/* 単位選択 */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[var(--color-foreground)]">単位</label>
-              <Select value={selectValue} onValueChange={handleUnitSelect}>
+              <Select value={displaySelectValue} onValueChange={handleUnitSelect}>
                 <SelectTrigger><SelectValue placeholder="単位を選択" /></SelectTrigger>
                 <SelectContent>
                   {UNIT_PRESETS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
@@ -225,7 +243,7 @@ export function SinglePriceCard({ value, onChange, title = '金額', hotelMode =
                 </SelectContent>
               </Select>
               {/* その他選択時のみ自由入力欄を表示 */}
-              {selectValue === OTHER_VALUE && (
+              {isOtherSelected && (
                 <div className="mt-2">
                   <input
                     type="text"
@@ -233,8 +251,15 @@ export function SinglePriceCard({ value, onChange, title = '金額', hotelMode =
                     onChange={(e) => handleOtherInput(e.target.value)}
                     placeholder="例: 席、枚、基、m など（最大20文字）"
                     maxLength={20}
-                    className="w-full rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm"
+                    className={`w-full rounded-[var(--radius)] border bg-[var(--color-input)] px-3 py-2 text-sm ${
+                      unitError
+                        ? 'border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500'
+                        : 'border-[var(--color-border)]'
+                    }`}
                   />
+                  {unitError && (
+                    <p className="mt-1 text-xs text-red-500">単位を入力してください</p>
+                  )}
                 </div>
               )}
             </div>

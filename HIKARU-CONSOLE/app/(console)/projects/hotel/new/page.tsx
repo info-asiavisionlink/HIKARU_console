@@ -45,6 +45,7 @@ export default function NewHotelProjectPage() {
   const [billing,  setBilling]  = React.useState<BillingEntry>(emptyBilling())
   const [clients,  setClients]  = React.useState<{ id: string; name: string }[]>([])
   const [spots,    setSpots]    = React.useState<string[]>([''])
+  const [unitHasError, setUnitHasError] = React.useState(false)
 
   const [form, setForm] = React.useState({
     name: '', status: 'active', client_id: '', location_name: '', address: '', notes: '',
@@ -84,6 +85,7 @@ export default function NewHotelProjectPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) { toast.error('ホテル名を入力してください'); return }
+    if (unitHasError) { toast.error('単位を入力してください'); return }
     setLoading(true)
 
     // ① 案件作成
@@ -300,6 +302,7 @@ export default function NewHotelProjectPage() {
               title="単価・数量・売上"
               hotelMode
               totalRooms={totalRooms}
+              onUnitError={setUnitHasError}
             />
 
             {/* ★ 請求情報 */}
@@ -371,7 +374,7 @@ export default function NewHotelProjectPage() {
                 </Select>
               </CardContent>
             </Card>
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading || unitHasError} className="w-full">
               {loading ? '登録中...' : '登録する'}
             </Button>
             <Link href="/projects/hotel">

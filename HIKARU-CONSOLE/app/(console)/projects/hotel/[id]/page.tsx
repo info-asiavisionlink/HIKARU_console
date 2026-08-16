@@ -40,6 +40,7 @@ export default function HotelProjectDetailPage() {
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [price,   setPrice]   = React.useState<PriceEntry>(emptyPrice())
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
+  const [unitHasError, setUnitHasError] = React.useState(false)
 
   React.useEffect(() => { loadData() }, [id]) // eslint-disable-line
 
@@ -160,6 +161,7 @@ export default function HotelProjectDetailPage() {
   function upd(k: string, v: string) { setForm((p: any) => ({ ...p, [k]: v })) }
 
   async function handleSave() {
+    if (unitHasError) { toast.error('単位を入力してください'); return }
     setSaving(true)
     const [projRes, pricingRes] = await Promise.all([
       fetch(`/api/projects/hotel/${id}`, {
@@ -215,7 +217,7 @@ export default function HotelProjectDetailPage() {
           <div className="flex gap-2">
             {editing
               ? <><Button variant="outline" size="sm" onClick={() => { setEditing(false); loadData() }}>キャンセル</Button>
-                  <Button size="sm" onClick={handleSave} disabled={saving}><Save className="h-4 w-4" />{saving ? '保存中...' : '保存'}</Button></>
+                  <Button size="sm" onClick={handleSave} disabled={saving || unitHasError}><Save className="h-4 w-4" />{saving ? '保存中...' : '保存'}</Button></>
               : <>
                   <Button variant="outline" size="sm" onClick={handleCreateQuote} disabled={quotingDraft}>
                     {quotingDraft
@@ -415,7 +417,7 @@ export default function HotelProjectDetailPage() {
 
           {/* 単価（日常案件：単価 × 数量 × 単位） */}
           {editing
-            ? <SinglePriceCard value={price} onChange={setPrice} title="単価・数量" hotelMode totalRooms={totalRooms} />
+            ? <SinglePriceCard value={price} onChange={setPrice} title="単価・数量" hotelMode totalRooms={totalRooms} onUnitError={setUnitHasError} />
             : (
               <Card>
                 <CardContent className="pt-6 space-y-3">
