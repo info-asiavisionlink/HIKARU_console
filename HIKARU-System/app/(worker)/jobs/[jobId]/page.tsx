@@ -47,12 +47,11 @@ export default function JobDetailPage() {
       try {
         const supabase = createClient()
 
-        // サーバーサイドで workerId を取得（getUser() ハング回避）
-        const meRes = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
-        const { user } = meRes.ok ? await meRes.json() : { user: null }
-
+        // workerId を省略することで service 内部の supabase.auth.getUser() を経由させる。
+        // fetch('/api/auth/me') + workerId 渡し方式だと browser Supabase client の
+        // session refresh (refreshingDeferred) が未完結のまま query が hang するため。
         const [projectRes] = await Promise.all([
-          getWorkerProject(projectId, user?.id),
+          getWorkerProject(projectId),
         ])
         setProject(projectRes)
 
