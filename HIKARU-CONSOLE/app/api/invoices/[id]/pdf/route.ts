@@ -17,8 +17,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       *,
       clients:client_id (name, email, phone, address, contact_name, invoice_email, payment_terms, closing_day),
       projects:project_id (name),
-      invoice_items (description, quantity, unit, unit_price, amount, order_num),
-      companies:company_id (name, logo_url, address, phone, email)
+      invoice_items (description, quantity, unit, unit_price, amount, tax_rate, order_num),
+      companies:company_id (
+        name, logo_url, address, phone, email,
+        postal_code, invoice_registration_number,
+        bank_name, bank_branch_name, bank_account_type,
+        bank_account_number, bank_account_holder, bank_account_holder_kana
+      )
     `)
     .eq('id', id)
     .eq('company_id', auth.companyId)
@@ -41,26 +46,41 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     status:               invoice.status,
     billing_period_from:  invoice.billing_period_from,
     billing_period_to:    invoice.billing_period_to,
+    // 自社情報（既存）
     company_name:         company?.name ?? 'HIKARU',
     company_address:      company?.address  ?? null,
     company_phone:        company?.phone    ?? null,
     company_email:        company?.email    ?? null,
+    // 自社情報（新規）
+    company_postal_code:                 company?.postal_code                 ?? null,
+    company_invoice_registration_number: company?.invoice_registration_number ?? null,
+    // 振込先
+    bank_name:               company?.bank_name               ?? null,
+    bank_branch_name:        company?.bank_branch_name        ?? null,
+    bank_account_type:       company?.bank_account_type       ?? null,
+    bank_account_number:     company?.bank_account_number     ?? null,
+    bank_account_holder:     company?.bank_account_holder     ?? null,
+    bank_account_holder_kana: company?.bank_account_holder_kana ?? null,
+    // 顧客情報
     client_name:          client?.name ?? '—',
-    client_address:       client?.address   ?? null,
-    client_phone:         client?.phone     ?? null,
-    client_email:         client?.email     ?? null,
+    client_address:       client?.address      ?? null,
+    client_phone:         client?.phone        ?? null,
+    client_email:         client?.email        ?? null,
     client_contact:       client?.contact_name ?? null,
     client_invoice_email: client?.invoice_email ?? null,
     payment_terms:        client?.payment_terms ?? null,
     closing_day:          client?.closing_day   ?? null,
     project_name:         project?.name,
-    items:                items.map((i: any) => ({
+    // 明細（tax_rate を追加）
+    items: items.map((i: any) => ({
       description: i.description,
       quantity:    Number(i.quantity),
       unit:        i.unit,
       unit_price:  Number(i.unit_price),
       amount:      Number(i.amount),
+      tax_rate:    Number(i.tax_rate ?? invoice.tax_rate ?? 0.10),
     })),
+    // 金額（DB値をそのまま使用 — 再計算しない）
     subtotal:     Number(invoice.subtotal),
     tax_rate:     Number(invoice.tax_rate),
     tax_amount:   Number(invoice.tax_amount),

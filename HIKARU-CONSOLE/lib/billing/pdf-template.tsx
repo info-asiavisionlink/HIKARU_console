@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   colCell:    { fontSize: 9, color: '#1a1a1a' },
   totalBox:   { alignItems: 'flex-end', marginBottom: 20 },
   totalRow:   { flexDirection: 'row', justifyContent: 'flex-end', gap: 32, marginBottom: 4 },
-  totalLabel: { fontSize: 9, color: '#777777', width: 100, textAlign: 'right' },
+  totalLabel: { fontSize: 9, color: '#777777', width: 110, textAlign: 'right' },
   totalValue: { fontSize: 10, color: '#1a1a1a', width: 100, textAlign: 'right' },
   grandTotal: { backgroundColor: '#1a1a1a', padding: '6 12', flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   grandLabel: { fontSize: 11, fontWeight: 'bold', color: '#ffffff' },
@@ -61,11 +61,23 @@ export interface PDFInvoiceData {
   billing_period_from?: string | null
   billing_period_to?:   string | null
 
-  // 発行元（自社）
+  // 発行元（自社）既存
   company_name:    string
   company_address?: string | null
   company_phone?:   string | null
   company_email?:   string | null
+
+  // 発行元（自社）Phase 3追加
+  company_postal_code?:                 string | null
+  company_invoice_registration_number?: string | null
+
+  // 振込先（請求書のみ表示）
+  bank_name?:                string | null
+  bank_branch_name?:         string | null
+  bank_account_type?:        string | null
+  bank_account_number?:      string | null
+  bank_account_holder?:      string | null
+  bank_account_holder_kana?: string | null
 
   // 請求先（顧客）
   client_name:          string
@@ -89,9 +101,10 @@ export interface PDFInvoiceData {
     unit?:       string | null
     unit_price:  number
     amount:      number
+    tax_rate?:   number  // Phase 3追加: 税率別集計のため
   }[]
 
-  // 金額
+  // 金額（DB保存値をそのまま使用）
   subtotal:     number
   tax_rate:     number
   tax_amount:   number
@@ -105,10 +118,25 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
   const isInvoice  = data.invoice_type === 'invoice'
   const docTitle   = isInvoice ? '請求書' : '見積書'
   const dueLabel   = isInvoice ? '支払期限' : '有効期限'
-  const taxPercent = Math.round((data.tax_rate ?? 0.10) * 100)
+
   const closingDayText = data.closing_day != null
     ? (data.closing_day === 31 ? '月末締め' : `毎月${data.closing_day}日締め`)
     : null
+
+  // 税率別集計（PDF表示用のみ。DB保存金額は変更しない）
+  const taxByRate = data.items.reduce<Record<number, number>>((acc, item) => {
+    const r = item.tax_rate ?? data.tax_rate
+    acc[r] = (acc[r] ?? 0) + item.amount
+    return acc
+  }, {})
+  const taxRates = Object.keys(taxByRate).map(Number).sort((a, b) => a - b)
+
+  // 振込先: 1項目以上あれば表示
+  const hasBankInfo = !!(
+    data.bank_name || data.bank_branch_name ||
+    data.bank_account_type || data.bank_account_number ||
+    data.bank_account_holder
+  )
 
   return (
     <Document title={`${docTitle} ${data.invoice_number}`}>
@@ -124,11 +152,18 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
               <Text style={styles.number}>{dueLabel}: {data.due_date}</Text>
             )}
           </View>
+          {/* 自社情報（右上） */}
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1a1a1a' }}>{data.company_name}</Text>
+            {data.company_postal_code && (
+              <Text style={styles.label}>〒{data.company_postal_code}</Text>
+            )}
             {data.company_address && <Text style={styles.label}>{data.company_address}</Text>}
             {data.company_phone   && <Text style={styles.label}>TEL: {data.company_phone}</Text>}
             {data.company_email   && <Text style={styles.label}>{data.company_email}</Text>}
+            {data.company_invoice_registration_number && (
+              <Text style={styles.label}>登録番号: {data.company_invoice_registration_number}</Text>
+            )}
           </View>
         </View>
 
@@ -178,21 +213,57 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
           ))}
         </View>
 
-        {/* 合計 */}
+        {/* 合計（税率別対象額 + DB保存合計） */}
         <View style={styles.totalBox}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>小計（税抜）</Text>
             <Text style={styles.totalValue}>{fmtJPY(data.subtotal)}</Text>
           </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>消費税（{taxPercent}%）</Text>
-            <Text style={styles.totalValue}>{fmtJPY(data.tax_amount)}</Text>
-          </View>
+          {taxRates.map(rate => {
+            const pct  = Math.round(rate * 100)
+            const base = taxByRate[rate]
+            const tax  = Math.floor(base * rate)
+            return (
+              <React.Fragment key={rate}>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>{pct}%対象額</Text>
+                  <Text style={styles.totalValue}>{fmtJPY(base)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>消費税額（{pct}%）</Text>
+                  <Text style={styles.totalValue}>{fmtJPY(tax)}</Text>
+                </View>
+              </React.Fragment>
+            )
+          })}
           <View style={[styles.grandTotal, { width: 260 }]}>
             <Text style={styles.grandLabel}>{isInvoice ? '請求金額' : '合計金額（税込）'}</Text>
             <Text style={styles.grandValue}>{fmtJPY(data.total_amount)}</Text>
           </View>
         </View>
+
+        {/* 振込先（請求書のみ） */}
+        {isInvoice && hasBankInfo && (
+          <View style={[styles.section, { marginTop: 4 }]}>
+            <Text style={styles.sectionTitle}>振込先</Text>
+            {(data.bank_name || data.bank_branch_name) && (
+              <Text style={styles.label}>
+                {[data.bank_name, data.bank_branch_name].filter(Boolean).join(' ')}
+              </Text>
+            )}
+            {(data.bank_account_type || data.bank_account_number) && (
+              <Text style={styles.label}>
+                {[data.bank_account_type, data.bank_account_number].filter(Boolean).join(' ')}
+              </Text>
+            )}
+            {data.bank_account_holder && (
+              <Text style={styles.label}>口座名義: {data.bank_account_holder}</Text>
+            )}
+            {data.bank_account_holder_kana && (
+              <Text style={styles.label}>（{data.bank_account_holder_kana}）</Text>
+            )}
+          </View>
+        )}
 
         {/* 備考 */}
         {data.notes && (
