@@ -274,7 +274,7 @@ export default function HotelProjectDetailPage() {
                     ['総階数',   d?.total_floors ? `${d.total_floors}階` : '—'],
                     ['稼働時間', d?.operating_start_time && d?.operating_end_time ? `${d.operating_start_time} 〜 ${d.operating_end_time}` : '—'],
                     ['契約期間', [d?.contract_start_date, d?.contract_end_date].filter(Boolean).join(' 〜 ') || '—'],
-                    ['合計数量', totalRooms > 0 ? String(totalRooms) : '—'],
+                    ['フロア合計', totalRooms > 0 ? String(totalRooms) : '—'],
                   ].map(([l,v]) => <div key={l}><dt className="text-[var(--color-muted-foreground)]">{l}</dt><dd className="font-medium mt-0.5">{v}</dd></div>)}
                 </dl>
               )}
@@ -290,6 +290,7 @@ export default function HotelProjectDetailPage() {
                 </h2>
                 {editing && <Button type="button" variant="outline" size="sm" onClick={() => setFloors(f => [...f, { floor_name: '', room_count: '' }])}><Plus className="h-3.5 w-3.5" /></Button>}
               </div>
+              <p className="text-xs text-[var(--color-muted-foreground)]">施設構成の参考情報です。料金の数量は料金設定で別途入力してください。</p>
               {editing ? (
                 <div className="space-y-2">
                   {floors.map((f, i) => (

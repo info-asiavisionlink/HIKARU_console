@@ -220,6 +220,7 @@ export default function NewHotelProjectPage() {
                     <Plus className="h-3.5 w-3.5" /> フロア追加
                   </Button>
                 </div>
+                <p className="text-xs text-[var(--color-muted-foreground)]">施設構成の参考情報です。料金計算に使用する数量は、下の料金設定で別途入力してください。</p>
                 <div className="space-y-2">
                   {floors.map((f, i) => (
                     <div key={i} className="flex items-center gap-2">
