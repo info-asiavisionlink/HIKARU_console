@@ -149,12 +149,25 @@ export async function GET(
 //    Resend設定が完了している場合でも安全停止する。
 // ─────────────────────────────────────────────────────────────────
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // ── 0. subject / body_text 受け取り・バリデーション ────────────
+  let subject = ''
+  let bodyText = ''
+  try {
+    const body = await req.json()
+    subject  = typeof body.subject   === 'string' ? body.subject.trim()   : ''
+    bodyText = typeof body.body_text === 'string' ? body.body_text.trim() : ''
+  } catch {
+    // body なし or JSON不正 → 後続validation で弾く
+  }
+  if (!subject)  return NextResponse.json({ error: '件名を入力してください' },  { status: 400 })
+  if (!bodyText) return NextResponse.json({ error: '本文を入力してください' },  { status: 400 })
 
   // ── 1. invoice取得・ownership確認 ────────────────────────────
   const { data: invoice } = await auth.adminClient

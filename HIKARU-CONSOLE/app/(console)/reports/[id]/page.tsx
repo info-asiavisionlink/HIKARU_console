@@ -375,6 +375,8 @@ export default function ReportDetailPage() {
     reason:       string | null
     is_resend:    boolean
   } | null>(null)
+  const [emailSubject, setEmailSubject] = React.useState('')
+  const [emailBody,    setEmailBody]    = React.useState('')
 
   React.useEffect(() => {
     async function load() {
@@ -408,12 +410,21 @@ export default function ReportDetailPage() {
       const res  = await fetch(`/api/reports/${id}/email`, { credentials: 'include' })
       const json = await res.json()
       setEmailPreview(json)
+      setEmailSubject(json.subject ?? '')
+      setEmailBody(json.body_text ?? '')
     } catch {
       alert('メール情報の取得に失敗しました')
       setEmailOpen(false)
     } finally {
       setEmailLoading(false)
     }
+  }
+
+  function handleEmailClose() {
+    setEmailOpen(false)
+    setEmailPreview(null)
+    setEmailSubject('')
+    setEmailBody('')
   }
 
   if (loading) {
@@ -544,10 +555,16 @@ export default function ReportDetailPage() {
                     {emailPreview.to_email ?? <span className="text-red-500">未設定</span>}
                   </p>
                 </div>
-                {/* 件名 */}
+                {/* 件名（編集可能） */}
                 <div>
                   <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">件名</p>
-                  <p className="text-sm">{emailPreview.subject}</p>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={e => setEmailSubject(e.target.value)}
+                    placeholder="件名を入力"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30"
+                  />
                 </div>
                 {/* 添付PDF */}
                 <div>
@@ -557,19 +574,23 @@ export default function ReportDetailPage() {
                     : <p className="text-sm text-[var(--color-muted-foreground)]">未生成（先にPDF生成ボタンでPDFを作成してください）</p>
                   }
                 </div>
-                {/* 本文 */}
+                {/* 本文（編集可能） */}
                 <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文プレビュー</p>
-                  <pre className="text-xs whitespace-pre-wrap bg-[var(--color-muted)]/10 rounded border border-[var(--color-border)] p-3 leading-relaxed">
-                    {emailPreview.body_text}
-                  </pre>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文</p>
+                  <textarea
+                    value={emailBody}
+                    onChange={e => setEmailBody(e.target.value)}
+                    rows={8}
+                    placeholder="本文を入力"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-input)] px-3 py-2 text-xs text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/30 resize-y leading-relaxed"
+                  />
                 </div>
               </>
             ) : null}
 
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => { setEmailOpen(false); setEmailPreview(null) }}
+                onClick={handleEmailClose}
                 className="rounded-lg px-4 py-2 text-sm border border-[var(--color-border)] hover:bg-[var(--color-muted)]/20 transition-colors"
               >
                 閉じる

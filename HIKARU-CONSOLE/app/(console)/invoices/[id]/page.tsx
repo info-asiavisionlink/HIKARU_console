@@ -68,6 +68,8 @@ export default function InvoiceDetailPage() {
     reason:       string | null
     is_resend:    boolean
   } | null>(null)
+  const [emailSubject, setEmailSubject] = React.useState('')
+  const [emailBody,    setEmailBody]    = React.useState('')
 
   React.useEffect(() => { load() }, [id])
 
@@ -175,6 +177,8 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${id}/email`, { credentials: 'include' })
       const json = await res.json()
       setEmailPreview(json)
+      setEmailSubject(json.subject ?? '')
+      setEmailBody(json.body_text ?? '')
     } catch {
       toast.error('メール情報の取得に失敗しました')
       setEmailOpen(false)
@@ -580,7 +584,10 @@ export default function InvoiceDetailPage() {
       </Dialog>
 
       {/* メール送信確認モーダル */}
-      <Dialog open={emailOpen} onOpenChange={open => { setEmailOpen(open); if (!open) setEmailPreview(null) }}>
+      <Dialog open={emailOpen} onOpenChange={open => {
+        setEmailOpen(open)
+        if (!open) { setEmailPreview(null); setEmailSubject(''); setEmailBody('') }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -622,10 +629,14 @@ export default function InvoiceDetailPage() {
                   </p>
                 </div>
 
-                {/* 件名 */}
+                {/* 件名（編集可能） */}
                 <div>
                   <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">件名</p>
-                  <p className="text-sm">{emailPreview.subject}</p>
+                  <Input
+                    value={emailSubject}
+                    onChange={e => setEmailSubject(e.target.value)}
+                    placeholder="件名を入力"
+                  />
                 </div>
 
                 {/* 添付PDF */}
@@ -640,18 +651,21 @@ export default function InvoiceDetailPage() {
                   )}
                 </div>
 
-                {/* 本文プレビュー */}
+                {/* 本文（編集可能） */}
                 <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文プレビュー</p>
-                  <pre className="text-xs text-[var(--color-foreground)] whitespace-pre-wrap bg-[var(--color-muted)]/10 rounded-[var(--radius)] p-3 border border-[var(--color-border)] leading-relaxed">
-                    {emailPreview.body_text}
-                  </pre>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">本文</p>
+                  <Textarea
+                    value={emailBody}
+                    onChange={e => setEmailBody(e.target.value)}
+                    rows={8}
+                    placeholder="本文を入力"
+                  />
                 </div>
               </>
             ) : null}
           </DialogBody>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setEmailOpen(false); setEmailPreview(null) }}>
+            <Button variant="outline" onClick={() => { setEmailOpen(false); setEmailPreview(null); setEmailSubject(''); setEmailBody('') }}>
               閉じる
             </Button>
             <Button
