@@ -3,10 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { getWorkerProject } from '@/services/worker-projects.service'
 import { getOrCreateTodayJob, completeJob } from '@/services/jobs.service'
-import { getJobPhotos } from '@/services/photos.service'
-import { createClient } from '@/lib/supabase/client'
 import { WorkerHeader } from '@/components/layouts/WorkerHeader'
 import { WorkProgress, SpotStatusDot } from '@/components/worker/WorkProgress'
 import { cn } from '@hikaru/ui'
@@ -45,29 +42,17 @@ export default function JobDetailPage() {
   React.useEffect(() => {
     async function load() {
       try {
-        const supabase = createClient()
-
-        // workerId を省略することで service 内部の supabase.auth.getUser() を経由させる。
-        // fetch('/api/auth/me') + workerId 渡し方式だと browser Supabase client の
-        // session refresh (refreshingDeferred) が未完結のまま query が hang するため。
-        const [projectRes] = await Promise.all([
-          getWorkerProject(projectId),
-        ])
-        setProject(projectRes)
-
-        // Load photo spots (project_id ベース)
-        const { data: spots } = await supabase
-          .from('photo_spots')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('order_num', { ascending: true })
+        const res = await fetch(`/api/projects/${projectId}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        if (!res.ok) return
+        const { project, spots, todayJob, photos: ph } = await res.json()
+        setProject(project)
         setPhotoSpots(spots ?? [])
-
-        // Load today's job if exists
-        if (projectRes?.todayJob) {
-          setActiveJob(projectRes.todayJob)
-          const ph = await getJobPhotos(projectRes.todayJob.id)
-          setPhotos(ph)
+        if (todayJob) {
+          setActiveJob(todayJob)
+          setPhotos(ph ?? [])
         }
       } catch (err) {
         console.error('[JobDetailPage] load error:', err)
