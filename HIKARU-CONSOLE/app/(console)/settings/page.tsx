@@ -5,17 +5,23 @@ import {
   PageHeader, Button, Input, Card, CardContent, CardHeader, CardTitle, toast, Skeleton,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
-import { Save, Building2, Info, CreditCard } from 'lucide-react'
+import { Save, Building2, Info, CreditCard, Stamp, Upload, Trash2 } from 'lucide-react'
 
 export default function SettingsPage() {
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [company, setCompany] = React.useState<any>(null)
+  const [hasSeal, setHasSeal] = React.useState(false)
+  const [uploadingSeal, setUploadingSeal] = React.useState(false)
+  const [deletingSeal, setDeletingSeal] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
   const [form, setForm] = React.useState({
     name: '', address: '', phone: '', email: '',
     postal_code: '', invoice_registration_number: '',
     bank_name: '', bank_branch_name: '', bank_account_type: '',
     bank_account_number: '', bank_account_holder: '', bank_account_holder_kana: '',
+    corporate_number: '',
   })
 
   React.useEffect(() => {
@@ -24,6 +30,7 @@ export default function SettingsPage() {
       .then(d => {
         if (d?.data) {
           setCompany(d.data)
+          setHasSeal(d.data.has_seal ?? false)
           setForm({
             name:    d.data.name    ?? '',
             address: d.data.address ?? '',
@@ -37,6 +44,7 @@ export default function SettingsPage() {
             bank_account_number:         d.data.bank_account_number         ?? '',
             bank_account_holder:         d.data.bank_account_holder         ?? '',
             bank_account_holder_kana:    d.data.bank_account_holder_kana    ?? '',
+            corporate_number:            d.data.corporate_number            ?? '',
           })
         }
       })
@@ -48,22 +56,93 @@ export default function SettingsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) return
+
+    // 法人番号 client validation
+    const corpNum = form.corporate_number.trim()
+    if (corpNum && !/^\d{13}$/.test(corpNum)) {
+      toast.error('法人番号は13桁の数字で入力してください（ハイフンなし）')
+      return
+    }
+
     setSaving(true)
     const res = await fetch('/api/settings', {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, corporate_number: corpNum || null }),
     })
     if (res.ok) {
       const { data } = await res.json()
       setCompany(data)
+      setHasSeal(data.has_seal ?? false)
       toast.success('設定を保存しました')
     } else {
       const { error } = await res.json().catch(() => ({ error: '保存に失敗しました' }))
       toast.error(error ?? '保存に失敗しました')
     }
     setSaving(false)
+  }
+
+  async function handleSealUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Client validation
+    if (file.type !== 'image/png') {
+      toast.error('PNG形式のファイルのみアップロードできます')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    if (file.size > 1024 * 1024) {
+      toast.error('ファイルサイズは1MB以下にしてください')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    setUploadingSeal(true)
+    try {
+      const res = await fetch('/api/settings/seal', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      })
+      if (res.ok) {
+        setHasSeal(true)
+        toast.success('電子印を登録しました')
+      } else {
+        const { error } = await res.json().catch(() => ({ error: 'アップロードに失敗しました' }))
+        toast.error(error ?? 'アップロードに失敗しました')
+      }
+    } catch {
+      toast.error('アップロードに失敗しました')
+    } finally {
+      setUploadingSeal(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleSealDelete() {
+    setDeletingSeal(true)
+    try {
+      const res = await fetch('/api/settings/seal', {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (res.ok) {
+        setHasSeal(false)
+        toast.success('電子印を削除しました')
+      } else {
+        const { error } = await res.json().catch(() => ({ error: '削除に失敗しました' }))
+        toast.error(error ?? '削除に失敗しました')
+      }
+    } catch {
+      toast.error('削除に失敗しました')
+    } finally {
+      setDeletingSeal(false)
+    }
   }
 
   return (
@@ -126,6 +205,15 @@ export default function SettingsPage() {
                   placeholder="T1234567890123"
                 />
               </div>
+              <Input
+                label="法人番号"
+                value={form.corporate_number}
+                onChange={(e) => upd('corporate_number', e.target.value)}
+                placeholder="1234567890123"
+                inputMode="numeric"
+                maxLength={13}
+                hint="13桁の数字で入力してください（ハイフンなし）"
+              />
               {company?.created_at && (
                 <p className="text-xs text-[var(--color-muted-foreground)]">
                   登録日: {new Date(company.created_at).toLocaleDateString('ja-JP')}
@@ -190,6 +278,60 @@ export default function SettingsPage() {
                   placeholder="カ）ヒカル"
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* 電子印 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Stamp className="h-4 w-4" /> 電子印
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                {hasSeal ? (
+                  <span className="text-sm font-medium" style={{ color: 'oklch(0.72 0.18 150)' }}>
+                    ✓ 電子印登録済み
+                  </span>
+                ) : (
+                  <span className="text-sm text-[var(--color-muted-foreground)]">未登録</span>
+                )}
+              </div>
+              <p className="text-xs text-[var(--color-muted-foreground)]">
+                PNG形式・1MB以下
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingSeal || deletingSeal}
+                >
+                  <Upload className="h-4 w-4" />
+                  {uploadingSeal ? 'アップロード中...' : hasSeal ? '電子印を変更' : '電子印をアップロード'}
+                </Button>
+                {hasSeal && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleSealDelete}
+                    disabled={deletingSeal || uploadingSeal}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletingSeal ? '削除中...' : '電子印を削除'}
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png"
+                className="hidden"
+                onChange={handleSealUpload}
+              />
             </CardContent>
           </Card>
 
