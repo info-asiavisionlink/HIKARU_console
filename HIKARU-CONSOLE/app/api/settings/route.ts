@@ -12,12 +12,15 @@ export async function GET() {
       id, name, address, phone, email, created_at,
       postal_code, invoice_registration_number,
       bank_name, bank_branch_name, bank_account_type,
-      bank_account_number, bank_account_holder, bank_account_holder_kana
+      bank_account_number, bank_account_holder, bank_account_holder_kana,
+      corporate_number, seal_path
     `)
     .eq('id', companyId)
     .single()
 
-  return NextResponse.json({ data: company })
+  if (!company) return NextResponse.json({ data: null })
+  const { seal_path, ...rest } = company as Record<string, unknown>
+  return NextResponse.json({ data: { ...rest, has_seal: seal_path !== null } })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -31,6 +34,7 @@ export async function PATCH(req: NextRequest) {
     postal_code, invoice_registration_number,
     bank_name, bank_branch_name, bank_account_type,
     bank_account_number, bank_account_holder, bank_account_holder_kana,
+    corporate_number,
   } = body
 
   if (!name?.trim()) return NextResponse.json({ error: '会社名を入力してください' }, { status: 400 })
@@ -53,6 +57,16 @@ export async function PATCH(req: NextRequest) {
     )
   }
 
+  // 法人番号: 空文字/null は null、値あり → 13桁数字のみ
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const corpNum = corporate_number?.trim() || null
+  if (corpNum && !/^\d{13}$/.test(corpNum)) {
+    return NextResponse.json(
+      { error: '法人番号は13桁の数字で入力してください（ハイフンなし）' },
+      { status: 400 }
+    )
+  }
+
   const { data, error } = await admin
     .from('companies')
     .update({
@@ -68,11 +82,13 @@ export async function PATCH(req: NextRequest) {
       bank_account_number:          bank_account_number?.trim()          || null,
       bank_account_holder:          bank_account_holder?.trim()          || null,
       bank_account_holder_kana:     bank_account_holder_kana?.trim()     || null,
-    })
+      corporate_number:             corpNum,
+    } as never)
     .eq('id', companyId)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const { seal_path, ...rest } = data as Record<string, unknown>
+  return NextResponse.json({ data: { ...rest, has_seal: seal_path !== null } })
 }
