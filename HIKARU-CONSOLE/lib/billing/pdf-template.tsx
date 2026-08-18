@@ -37,8 +37,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 28,
-    paddingBottom: 20,
+    marginBottom: 18,
+    paddingBottom: 14,
     borderBottom: `2px solid ${BORDER}`,
   },
   // ヘッダー左：文書種別・番号
@@ -77,16 +77,24 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: 'right',
   },
-  companySeal: {
-    width: 48,
-    height: 48,
-    marginTop: 8,
+  // 押印枠（常時表示）
+  sealBox: {
+    width: 54,
+    height: 54,
+    border: `0.75px solid ${GRAY3}`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
     alignSelf: 'flex-end',
+  },
+  companySeal: {
+    width: 46,
+    height: 46,
   },
 
   // ── セクション共通 ───────────────────────────────────────────
   section: {
-    marginBottom: 18,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 7.5,
@@ -118,7 +126,7 @@ const styles = StyleSheet.create({
     backgroundColor: BG_ALT,
     borderLeft: `3px solid ${GOLD}`,
     padding: '10 14',
-    marginBottom: 18,
+    marginBottom: 12,
   },
   subjectTitle: {
     fontSize: 11,
@@ -160,8 +168,8 @@ const styles = StyleSheet.create({
   // ── 合計エリア ───────────────────────────────────────────────
   totalBox: {
     alignItems: 'flex-end',
-    marginTop: 12,
-    marginBottom: 18,
+    marginTop: 8,
+    marginBottom: 12,
   },
   totalRow: {
     flexDirection: 'row',
@@ -211,7 +219,7 @@ const styles = StyleSheet.create({
     backgroundColor: BG_ALT,
     border: `0.75px solid ${BORDER}`,
     padding: '10 14',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   bankTitle: {
     fontSize: 7.5,
@@ -390,9 +398,12 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
                 法人番号: {data.company_corporate_number}
               </Text>
             )}
-            {data.company_seal_base64 && (
-              <Image src={data.company_seal_base64} style={styles.companySeal} />
-            )}
+            {/* 押印枠：電子印未登録時も枠のみ表示 */}
+            <View style={styles.sealBox}>
+              {data.company_seal_base64 && (
+                <Image src={data.company_seal_base64} style={styles.companySeal} />
+              )}
+            </View>
           </View>
         </View>
 
