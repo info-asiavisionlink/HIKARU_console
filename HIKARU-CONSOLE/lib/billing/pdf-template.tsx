@@ -5,7 +5,7 @@
 import React from 'react'
 import path from 'path'
 import {
-  Document, Page, Text, View, StyleSheet, Font,
+  Document, Page, Text, View, StyleSheet, Font, Image,
 } from '@react-pdf/renderer'
 import { fmtJPY } from './calculator'
 
@@ -76,6 +76,12 @@ const styles = StyleSheet.create({
     color: GRAY2,
     marginTop: 5,
     textAlign: 'right',
+  },
+  companySeal: {
+    width: 48,
+    height: 48,
+    marginTop: 8,
+    alignSelf: 'flex-end',
   },
 
   // ── セクション共通 ───────────────────────────────────────────
@@ -272,6 +278,9 @@ export interface PDFInvoiceData {
   // 発行元（自社）Phase 3追加
   company_postal_code?:                 string | null
   company_invoice_registration_number?: string | null
+  // 発行元（自社）Phase 5追加
+  company_corporate_number?: string | null
+  company_seal_base64?:      string | null  // Base64 data URI — Public URL不使用
 
   // 振込先（請求書のみ表示）
   bank_name?:                string | null
@@ -375,6 +384,14 @@ export function InvoicePDF({ data }: { data: PDFInvoiceData }) {
               <Text style={styles.companyReg}>
                 登録番号: {data.company_invoice_registration_number}
               </Text>
+            )}
+            {data.company_corporate_number && (
+              <Text style={styles.companyReg}>
+                法人番号: {data.company_corporate_number}
+              </Text>
+            )}
+            {data.company_seal_base64 && (
+              <Image src={data.company_seal_base64} style={styles.companySeal} />
             )}
           </View>
         </View>

@@ -22,7 +22,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         name, logo_url, address, phone, email,
         postal_code, invoice_registration_number,
         bank_name, bank_branch_name, bank_account_type,
-        bank_account_number, bank_account_holder, bank_account_holder_kana
+        bank_account_number, bank_account_holder, bank_account_holder_kana,
+        corporate_number, seal_path
       )
     `)
     .eq('id', id)
@@ -36,6 +37,25 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const company = invoice.companies as any
   const items   = (invoice.invoice_items as any[] ?? [])
     .sort((a: any, b: any) => a.order_num - b.order_num)
+
+  // 電子印: Private Storage からダウンロード → Base64 data URI へ変換
+  // 取得失敗時もPDF生成を続行する
+  let companySealBase64: string | null = null
+  if (company?.seal_path) {
+    try {
+      const { data: sealBlob, error: sealErr } = await auth.adminClient.storage
+        .from('company-assets')
+        .download(company.seal_path)
+      if (!sealErr && sealBlob) {
+        const arrayBuf = await sealBlob.arrayBuffer()
+        companySealBase64 = `data:image/png;base64,${Buffer.from(arrayBuf).toString('base64')}`
+      } else {
+        console.error('[pdf] seal download error:', sealErr?.message)
+      }
+    } catch (e) {
+      console.error('[pdf] seal download failed — continuing without seal:', e)
+    }
+  }
 
   const pdfData: PDFInvoiceData = {
     invoice_type:         invoice.invoice_type as 'quote' | 'invoice',
@@ -54,6 +74,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // 自社情報（新規）
     company_postal_code:                 company?.postal_code                 ?? null,
     company_invoice_registration_number: company?.invoice_registration_number ?? null,
+    company_corporate_number:            company?.corporate_number            ?? null,
+    company_seal_base64:                 companySealBase64,
     // 振込先
     bank_name:               company?.bank_name               ?? null,
     bank_branch_name:        company?.bank_branch_name        ?? null,
