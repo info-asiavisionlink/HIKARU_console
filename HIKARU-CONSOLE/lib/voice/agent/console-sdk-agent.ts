@@ -7,6 +7,8 @@ import { Agent, tool, setTracingDisabled } from '@openai/agents'
 import { z } from 'zod'
 import { isValidConsoleAction, getConsoleActionLevel } from '@/lib/voice/registry/console.actions'
 
+const CONFIRMATION_EXPIRY_MS = 5 * 60 * 1000
+
 // HIKARU業務データをOpenAIトレーシングへ送信しない
 setTracingDisabled(true)
 
@@ -135,6 +137,52 @@ const getPendingRequestsTool = tool({
   },
 })
 
+const getQualitySummaryTool = tool({
+  name:        'get_quality_summary',
+  description: '今日・最近の品質評価サマリーを取得する。低スコア案件の確認等。',
+  parameters:  z.object({
+    date: z.string().optional().describe('確認日（YYYY-MM-DD形式。省略時は今日）'),
+  }),
+  execute: async ({ date }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const query = date ? `?date=${date}` : ''
+      const res   = await apiGet(`/api/quality${query}`, ctx)
+      if (!res.ok) return '品質評価データを取得できませんでした。'
+      const data  = await res.json()
+      const items = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
+      if (items.length === 0) return '品質評価データはありません。'
+      const low = items.filter((e: { score?: number }) => (e.score ?? 100) < 80)
+      if (low.length === 0) return `本日${items.length}件の品質評価があります。全て基準を満たしています。`
+      return `本日${items.length}件中、${low.length}件がスコア80未満です。品質管理画面で確認してください。`
+    } catch { return '品質評価情報の取得中にエラーが発生しました。' }
+  },
+})
+
+const proposeActionTool = tool({
+  name:        'propose_action',
+  description: 'L4 Write操作（経費承認・勤怠修正承認等）をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
+  parameters:  z.object({
+    action:              z.string().describe('console.approve_expense / console.approve_attendance 等'),
+    params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（expenseId, correctionId等）'),
+    confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
+  }),
+  execute: async ({ action, params = {}, confirmationMessage }) => {
+    if (!isValidConsoleAction(action)) return `不明なAction: ${action}`
+    const level = getConsoleActionLevel(action)
+    if (level < 3) return `${action}はConfirmation不要です。`
+    if (level >= 5) return 'この操作は音声での実行が禁止されています。'
+    return JSON.stringify({
+      __pendingConfirmation: true,
+      action,
+      params,
+      safetyLevel: level,
+      message:     confirmationMessage,
+      expiresAt:   Date.now() + CONFIRMATION_EXPIRY_MS,
+    })
+  },
+})
+
 const navigateTool = tool({
   name:        'navigate',
   description: '指定のページへ移動する',
@@ -156,12 +204,31 @@ const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタ�
 ## 役割
 - 案件・顧客・従業員・協力業者の状況確認
 - 承認待ち経費・勤怠修正の件数確認
+- 品質評価サマリーの確認
 - 必要なページへのナビゲーション提案
+- 経費申請・勤怠修正申請の承認（Confirmation必須）
 
 ## 重要なルール
 - Toolで取得した情報のみを事実として扱う
-- 承認・変更・削除などのWrite操作は現在対応していない（DAY2で追加予定）
-- 2〜3文以内で音声向けに簡潔に回答する`
+- 2〜3文以内で音声向けに簡潔に回答する
+
+## Write操作のルール（重要）
+承認操作（経費承認・勤怠修正承認）は必ずpropose_actionを使う。
+直接実行は禁止。必ず管理者の確認を取ること。
+
+propose_action の使い方:
+1. まずRead Toolで承認対象のID・詳細を確認する（例: get_pending_expenses）
+2. propose_actionを呼ぶ（action, params, confirmationMessage を指定）
+3. finalOutputに確認文を書く（例: 「田中さんの3,200円交通費を承認します。よろしいですか？」）
+4. 管理者が「はい」と言ったら自動的にServerが実行する
+
+## propose_actionのactionとparamsの対応
+- console.approve_expense    → params: { expenseId }    「〇〇さんの〇〇円の経費申請を承認します。よろしいですか？」
+- console.approve_attendance → params: { correctionId } 「〇〇さんの勤怠修正申請を承認します。よろしいですか？」
+
+## L5禁止操作（音声実行不可）
+削除・権限変更・全件承認・大量操作は実行不可。
+「全部承認して」等はエラーとして説明すること。`
 
 export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
   name:         'JARVIS Console',
@@ -174,6 +241,8 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getPendingExpensesTool,
     getPendingAttendanceTool,
     getPendingRequestsTool,
+    getQualitySummaryTool,
+    proposeActionTool,
     navigateTool,
   ],
 })

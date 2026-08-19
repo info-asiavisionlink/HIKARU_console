@@ -110,6 +110,16 @@ export const CONSOLE_ACTIONS = {
     level: 2 as const,
     description: '設定画面を開く',
   },
+
+  // ─── L4: Important Write（Confirmation必須・管理者権限確認）──
+  'console.approve_expense': {
+    level: 4 as const,
+    description: '経費申請を承認する',
+  },
+  'console.approve_attendance': {
+    level: 4 as const,
+    description: '勤怠修正申請を承認する',
+  },
 } as const
 
 export type ConsoleActionName = keyof typeof CONSOLE_ACTIONS
@@ -118,7 +128,7 @@ export function isValidConsoleAction(name: string): name is ConsoleActionName {
   return Object.prototype.hasOwnProperty.call(CONSOLE_ACTIONS, name)
 }
 
-export function getConsoleActionLevel(name: ConsoleActionName): 0 | 1 | 2 {
+export function getConsoleActionLevel(name: ConsoleActionName): 0 | 1 | 2 | 3 | 4 {
   return CONSOLE_ACTIONS[name].level
 }
 

@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
 
     const finalOutput = result.finalOutput ?? ''
     let navigateAction: string | null = null
+    let pendingConfirmation: Record<string, unknown> | null = null
 
     for (const item of result.newItems ?? []) {
       if (item.type === 'tool_call_output_item') {
@@ -81,20 +82,32 @@ export async function POST(req: NextRequest) {
           const output = typeof item.output === 'string' ? item.output : ''
           const parsed = JSON.parse(output)
           if (parsed.__navigate && parsed.action) navigateAction = parsed.action
+          if (parsed.__pendingConfirmation) {
+            pendingConfirmation = {
+              action:      parsed.action,
+              params:      parsed.params ?? {},
+              safetyLevel: parsed.safetyLevel,
+              message:     parsed.message,
+              expiresAt:   parsed.expiresAt,
+            }
+          }
         } catch {}
       }
     }
 
-    const hasApprovalInterruption = (result.interruptions ?? []).length > 0
-
     return Response.json({
-      action:             navigateAction,
-      confidence:         navigateAction ? 1.0 : 0,
-      params:             {},
-      voiceReply:         finalOutput || null,
-      pendingApproval:    hasApprovalInterruption,
-      previousResponseId: result.lastResponseId,
-    } satisfies ConsoleAgentApiResponse & { pendingApproval?: boolean; previousResponseId?: string })
+      action:              navigateAction,
+      confidence:          navigateAction ? 1.0 : 0,
+      params:              {},
+      voiceReply:          finalOutput || null,
+      pendingApproval:     false,
+      pendingConfirmation: pendingConfirmation ?? undefined,
+      previousResponseId:  result.lastResponseId,
+    } satisfies ConsoleAgentApiResponse & {
+      pendingApproval?:    boolean
+      pendingConfirmation?: Record<string, unknown>
+      previousResponseId?: string
+    })
 
   } catch (err) {
     console.error('[console-agent-sdk]', err instanceof Error ? err.message : err)

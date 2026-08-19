@@ -22,11 +22,22 @@ export interface LastResultData {
   summary?: string
 }
 
+export interface PendingConfirmation {
+  action:        string
+  params:        Record<string, string>
+  safetyLevel:   3 | 4 | 5
+  message:       string
+  resourceType?: string
+  resourceId?:   string
+  expiresAt:     number
+}
+
 export interface ConversationContext {
   lastIntent?:          string
   lastAction?:          string
   lastResultData?:      LastResultData
   previousResponseId?:  string
+  pendingConfirmation?: PendingConfirmation
   pendingApproval?:     boolean
   pendingAction?:       string
 }
