@@ -1,9 +1,11 @@
 // ============================================================
-// CONSOLE Browser TTS wrapper（System と同仕様・独立コード）
+// CONSOLE Browser SpeechSynthesis TTS wrapper（System と同仕様・独立コード）
 // ============================================================
 
+import type { VoiceSettings } from '@/lib/voice/state/types'
+
 export class BrowserTTS {
-  speak(text: string, onEnd?: () => void): void {
+  speak(text: string, onEnd?: () => void, settings?: VoiceSettings): void {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       onEnd?.()
       return
@@ -11,9 +13,18 @@ export class BrowserTTS {
     window.speechSynthesis.cancel()
     const utter   = new SpeechSynthesisUtterance(text)
     utter.lang    = 'ja-JP'
-    utter.rate    = 1.0
-    utter.pitch   = 1.0
-    utter.volume  = 1.0
+    utter.rate    = settings?.rate   ?? 1.0
+    utter.pitch   = settings?.pitch  ?? 1.0
+    utter.volume  = settings?.volume ?? 1.0
+
+    const voices = window.speechSynthesis.getVoices()
+    if (settings?.voiceURI) {
+      const found = voices.find(v => v.voiceURI === settings.voiceURI)
+      if (found) utter.voice = found
+    } else {
+      const jpVoice = voices.find(v => v.lang.startsWith('ja'))
+      if (jpVoice) utter.voice = jpVoice
+    }
 
     if (onEnd) {
       let called = false
@@ -31,6 +42,11 @@ export class BrowserTTS {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }
+  }
+
+  getVoices(): SpeechSynthesisVoice[] {
+    if (typeof window === 'undefined') return []
+    return window.speechSynthesis.getVoices()
   }
 
   get isSpeaking(): boolean {

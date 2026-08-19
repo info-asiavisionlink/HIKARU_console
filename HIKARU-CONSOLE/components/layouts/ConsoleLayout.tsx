@@ -1,9 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Sidebar } from './Sidebar'
-import { ConsoleHeader } from './ConsoleHeader'
+import { Sidebar }              from './Sidebar'
+import { ConsoleHeader }        from './ConsoleHeader'
 import { Toaster, HudBackground, cn } from '@hikaru/ui'
+import { ConsoleVoiceProvider } from '@/lib/voice/ConsoleVoiceContext'
+import { MiniConsolePanel }     from '@/components/voice/MiniConsolePanel'
 
 interface ConsoleLayoutProps {
   children: React.ReactNode
@@ -35,13 +37,12 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
-  // デスクトップ用のサイドバー幅（モバイルでは0）
   const sidebarWidth = collapsed
     ? 'var(--sidebar-collapsed-width)'
     : 'var(--sidebar-width)'
 
   return (
-    <>
+    <ConsoleVoiceProvider>
       <Background />
 
       <Sidebar
@@ -59,7 +60,6 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
       <main
         className={cn(
           'min-h-dvh pt-[var(--header-height)] transition-all duration-300',
-          // モバイル: paddingLeft=0、デスクトップ: サイドバー幅分
           'pl-0 md:pl-[var(--sidebar-left)]',
         )}
         style={{ ['--sidebar-left' as string]: sidebarWidth }}
@@ -68,6 +68,8 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
           {children}
         </div>
       </main>
+
+      <MiniConsolePanel />
 
       <Toaster
         position="top-right"
@@ -85,6 +87,6 @@ export function ConsoleLayout({ children }: ConsoleLayoutProps) {
           },
         }}
       />
-    </>
+    </ConsoleVoiceProvider>
   )
 }
