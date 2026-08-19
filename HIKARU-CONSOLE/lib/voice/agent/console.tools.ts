@@ -1,0 +1,214 @@
+// ============================================================
+// JARVIS CONSOLE Tool Registry — DAY1 Read-only Tools
+// System Tools とは完全分離。Admin/Manager Context専用。
+// Agentが直接Supabase queryすることは禁止。
+// ============================================================
+
+import type { ConsoleAgentTool, ConsoleAgentContext, ToolResult } from './types'
+
+// ─── HTTP helper（Cookie転送でAuth維持）──────────────────────
+async function apiFetch(path: string, ctx: ConsoleAgentContext): Promise<Response> {
+  return fetch(`${ctx.baseUrl}${path}`, {
+    headers: { Cookie: ctx.cookieHeader },
+    credentials: 'include',
+  })
+}
+
+// ─── Tools ───────────────────────────────────────────────────
+
+const getDashboardSummary: ConsoleAgentTool = {
+  name:        'get_dashboard_summary',
+  description: 'ダッシュボードの今日の状況サマリーを取得する',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/dashboard', ctx)
+      if (!res.ok) return { success: false, text: 'ダッシュボード情報を取得できませんでした。' }
+      const data = await res.json()
+      const parts: string[] = []
+      if (data?.activeProjects  != null) parts.push(`進行中案件: ${data.activeProjects}件`)
+      if (data?.pendingExpenses != null) parts.push(`承認待ち経費: ${data.pendingExpenses}件`)
+      if (data?.pendingAttendance != null && data.pendingAttendance > 0) parts.push(`勤怠修正申請: ${data.pendingAttendance}件`)
+      return {
+        success: true,
+        text:    parts.length > 0 ? `現在の状況: ${parts.join('、')}` : 'ダッシュボードを確認してください。',
+        data,
+      }
+    } catch {
+      return { success: false, text: 'ダッシュボード情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getProjects: ConsoleAgentTool = {
+  name:        'get_projects',
+  description: '案件一覧を取得する',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      status: { type: 'string', description: 'active / inactive / all', enum: ['active', 'inactive', 'all'] },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const query = params.status && params.status !== 'all' ? `?status=${params.status}` : ''
+      const res   = await apiFetch(`/api/projects${query}`, ctx)
+      if (!res.ok) return { success: false, text: '案件一覧を取得できませんでした。' }
+      const data  = await res.json()
+      const list: Array<{ id: string; name: string }> = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
+      if (list.length === 0) return { success: true, text: '案件はありません。', items: [] }
+      const items = list.slice(0, 5).map((p, i) => ({ id: p.id, label: `${i + 1}件目: ${p.name}` }))
+      return {
+        success: true,
+        text:    `案件が${list.length}件あります。`,
+        items,
+        data:    { total: list.length },
+      }
+    } catch {
+      return { success: false, text: '案件一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getNotifications: ConsoleAgentTool = {
+  name:        'get_notifications',
+  description: '管理者向け通知・未読件数を確認する',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/console-notifications', ctx)
+      if (!res.ok) return { success: false, text: '通知を取得できませんでした。' }
+      const data  = await res.json()
+      const list  = data.notifications ?? []
+      const unread = data.unread_count ?? list.filter((n: { is_read: boolean }) => !n.is_read).length
+      if (unread === 0) return { success: true, text: '未読の通知はありません。' }
+      const items = list.filter((n: { is_read: boolean }) => !n.is_read).slice(0, 5).map(
+        (n: { id: string; title?: string; body?: string }, i: number) => ({
+          id: n.id, label: `${i + 1}件目: ${n.title ?? n.body ?? '通知'}`,
+        })
+      )
+      return { success: true, text: `未読の通知が${unread}件あります。`, items }
+    } catch {
+      return { success: false, text: '通知の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getPendingExpenses: ConsoleAgentTool = {
+  name:        'get_pending_expenses',
+  description: '承認待ちの経費申請件数と一覧を確認する',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/expenses?status=submitted', ctx)
+      if (!res.ok) return { success: false, text: '経費申請を確認できませんでした。' }
+      const data  = await res.json()
+      const items = Array.isArray(data?.data) ? data.data : []
+      if (items.length === 0) return { success: true, text: '承認待ちの経費申請はありません。' }
+      const listItems = items.slice(0, 5).map(
+        (e: { id: string; amount?: number; title?: string }, i: number) => ({
+          id: e.id, label: `${i + 1}件目: ${e.title ?? `¥${e.amount ?? '?'}`}`,
+        })
+      )
+      return {
+        success: true,
+        text:    `承認待ちの経費申請が${items.length}件あります。`,
+        items:   listItems,
+      }
+    } catch {
+      return { success: false, text: '経費申請の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getPendingAttendance: ConsoleAgentTool = {
+  name:        'get_pending_attendance',
+  description: '勤怠修正申請の承認待ち件数を確認する',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/attendance/corrections?status=pending', ctx)
+      if (!res.ok) return { success: false, text: '勤怠修正申請を確認できませんでした。' }
+      const data  = await res.json()
+      const items = Array.isArray(data?.data) ? data.data : []
+      if (items.length === 0) return { success: true, text: '承認待ちの勤怠修正申請はありません。' }
+      return {
+        success: true,
+        text:    `承認待ちの勤怠修正申請が${items.length}件あります。`,
+      }
+    } catch {
+      return { success: false, text: '勤怠修正申請の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getPendingRequests: ConsoleAgentTool = {
+  name:        'get_pending_requests',
+  description: '案件依頼・見積依頼の未対応件数を確認する',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/project-requests?status=pending&count=true', ctx)
+      if (!res.ok) return { success: false, text: '案件依頼を確認できませんでした。' }
+      const data  = await res.json()
+      const count = data.count ?? (data.data?.length ?? 0)
+      if (count === 0) return { success: true, text: '未対応の案件依頼はありません。' }
+      return {
+        success: true,
+        text:    `未対応の案件依頼が${count}件あります。`,
+        data:    { count },
+      }
+    } catch {
+      return { success: false, text: '案件依頼の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const navigate: ConsoleAgentTool = {
+  name:        'navigate',
+  description: '指定のページへ移動する',
+  safetyLevel: 2,
+  parameters: {
+    type:       'object',
+    properties: {
+      action: { type: 'string', description: 'console.go_dashboard / console.open_projects 等' },
+    },
+    required: ['action'],
+  },
+  async execute(params): Promise<ToolResult> {
+    return {
+      success: true,
+      text:    `navigate:${params.action}`,
+      data:    { action: params.action },
+    }
+  },
+}
+
+// ─── Registry ────────────────────────────────────────────────
+export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
+  getDashboardSummary,
+  getProjects,
+  getNotifications,
+  getPendingExpenses,
+  getPendingAttendance,
+  getPendingRequests,
+  navigate,
+]
+
+export function toOpenAITools(tools: ConsoleAgentTool[]) {
+  return tools.map(tool => ({
+    type: 'function' as const,
+    function: {
+      name:        tool.name,
+      description: tool.description,
+      parameters:  tool.parameters,
+    },
+  }))
+}

@@ -349,7 +349,8 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     const recentMessages = messagesRef.current.slice(-6).map(m => ({ role: m.role, content: m.text }))
 
     try {
-      const res = await fetch('/api/ai/console-intent', {
+      // CONSOLE Agent APIへ（多段Tool実行・Admin Context対応）
+      const res = await fetch('/api/ai/console-agent', {
         method:      'POST',
         headers:     { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -362,7 +363,29 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         }),
       })
       if (!res.ok) { finishWithError('音声アシスタントへの接続に失敗しました。'); return }
-      const result: IntentResult = await res.json()
+      const result = await res.json()
+
+      // AgentがToolで収集したリストをConversation Contextへ反映
+      if (result.resultData) {
+        conversationCtxRef.current = {
+          ...conversationCtxRef.current,
+          lastResultData: result.resultData,
+        }
+      }
+
+      // action=null + voiceReply → Agentが直接回答
+      if (!result.action && result.voiceReply) {
+        setResponse(result.voiceReply)
+        addMessage('assistant', result.voiceReply)
+        conversationCtxRef.current = {
+          ...conversationCtxRef.current,
+          lastIntent:  'agent.response',
+          lastAction:  undefined,
+        }
+        speakAndMaybeResume(result.voiceReply)
+        return
+      }
+
       await executeAction(result)
     } catch {
       finishWithError('音声アシスタントへの接続に失敗しました。')
