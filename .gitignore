@@ -29,3 +29,4 @@ supabase/.temp/
 
 # Duplicate/temp files
 "HIKARU-CONSOLE/next.config 2.ts"
+.env*
