@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
   Bell, FileText, X, UserCog, Inbox, ClockArrowUp, CalendarDays, Receipt,
-  FileSpreadsheet, Star, Package, FileSignature,
+  FileSpreadsheet, Star, Package, FileSignature, Cpu,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -279,6 +279,52 @@ export function Sidebar({
           })}
         </ul>
       </nav>
+
+      {/* HIKARU AI ASSISTANT カード */}
+      {!collapsed && (
+        <div className="px-3 pb-3" style={{ borderTop: `1px solid ${GOLD}1a` }}>
+          <p className="mt-3 mb-2 text-[8px] font-bold uppercase tracking-[0.3em]" style={{ color: `${GOLD}59` }}>
+            HIKARU AI ASSISTANT
+          </p>
+          <Link
+            href="/assistant"
+            className="flex items-center gap-3 rounded-xl p-3 transition-all duration-200 relative overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, ${GOLD}12, ${GOLD}08)`,
+              border: `1px solid ${GOLD}38`,
+            }}
+          >
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full shrink-0"
+              style={{
+                background: `radial-gradient(circle, ${GOLD}55 0%, ${GOLD}22 60%, transparent 100%)`,
+                border: `1.5px solid ${GOLD}66`,
+                boxShadow: `0 0 12px ${GOLD}44`,
+              }}
+            >
+              <div className="h-3 w-3 rounded-full"
+                style={{ background: `radial-gradient(circle, oklch(0.88 0.13 78), oklch(0.73 0.12 78))`, boxShadow: `0 0 8px ${GOLD}` }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold" style={{ color: 'oklch(0.82 0.13 78)' }}>JARVIS</p>
+              <p className="text-[9px] mt-0.5" style={{ color: `${GOLD}80` }}>アクティブ・音声待機中</p>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: `${GOLD}80` }} />
+          </Link>
+        </div>
+      )}
+      {collapsed && (
+        <div className="px-2 pb-2" style={{ borderTop: `1px solid ${GOLD}1a` }}>
+          <Link
+            href="/assistant"
+            className="mt-2 flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition-all"
+            style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}38` }}
+            title="JARVIS AI Assistant"
+          >
+            <Cpu className="h-4 w-4" style={{ color: 'oklch(0.82 0.13 78)' }} />
+          </Link>
+        </div>
+      )}
 
       {/* 下部エリア */}
       <div className="py-3 flex flex-col gap-0.5 px-2" style={{ borderTop: `1px solid ${GOLD}1a` }}>
