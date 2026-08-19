@@ -23,9 +23,12 @@ export interface LastResultData {
 }
 
 export interface ConversationContext {
-  lastIntent?:     string
-  lastAction?:     string
-  lastResultData?: LastResultData
+  lastIntent?:          string
+  lastAction?:          string
+  lastResultData?:      LastResultData
+  previousResponseId?:  string
+  pendingApproval?:     boolean
+  pendingAction?:       string
 }
 
 // Voice設定（localStorage保存・Conversationは保存しない）
