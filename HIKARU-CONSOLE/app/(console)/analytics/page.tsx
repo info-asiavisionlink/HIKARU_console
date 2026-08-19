@@ -3,8 +3,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import {
-  getAnalyticsOverview, getMonthlyTrends, getStoreRankings,
-  getWorkerRankings, getQualityDistribution, getSpotQualityRankings,
   type AnalyticsOverview, type MonthlyTrend, type StoreRanking,
   type WorkerRanking, type QualityDistribution, type SpotQualityRank,
 } from '@/services/analytics.service'
@@ -118,21 +116,24 @@ export default function AnalyticsPage() {
 
   React.useEffect(() => {
     async function load() {
-      const [ov, tr, sr, wr, dist, spot] = await Promise.all([
-        getAnalyticsOverview(),
-        getMonthlyTrends(),
-        getStoreRankings(),
-        getWorkerRankings(),
-        getQualityDistribution(),
-        getSpotQualityRankings(),
-      ])
-      setOverview(ov)
-      setTrends(tr)
-      setStoreRanks(sr)
-      setWorkerRanks(wr)
-      setDistribution(dist)
-      setSpotRanks(spot)
-      setLoading(false)
+      try {
+        const res = await fetch('/api/analytics')
+        if (!res.ok) {
+          console.error('[analytics] API error:', res.status)
+          return
+        }
+        const data = await res.json()
+        setOverview(data.overview       ?? null)
+        setTrends(data.trends           ?? [])
+        setStoreRanks(data.storeRankings   ?? [])
+        setWorkerRanks(data.workerRankings  ?? [])
+        setDistribution(data.distribution  ?? [])
+        setSpotRanks(data.spotRankings    ?? [])
+      } catch (err) {
+        console.error('[analytics] fetch error:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
