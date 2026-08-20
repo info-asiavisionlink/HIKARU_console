@@ -44,15 +44,21 @@ export interface ConsoleChatMessage {
 
 // ─── セッション設定 ──────────────────────────────────────────
 const SESSION_STOP_RE    = /^(終了|やめて|止めて|ストップ|セッション終了|会話終了|閉じて|おしまい|終わり)$/
-const CONFIRM_YES_WORDS  = ['はい', 'うん', 'ええ', 'そうです', 'お願い', 'よろしく', 'よろし', 'OK', 'ok', 'オーケー', 'いいよ', 'いいです', 'いい', 'やって', 'してください', '確認', '実行']
-const CONFIRM_NO_WORDS   = ['いいえ', 'やめて', 'キャンセル', 'やめる', 'いや', 'ノー', 'やっぱり', 'なし', '取消']
+const CONFIRM_YES_EXACT  = new Set(['はい', 'うん', 'ええ', 'ok', 'OK', 'オーケー', 'そう', 'そうです', 'もちろん', 'わかりました', 'わかった'])
+const CONFIRM_YES_STARTS = ['よろし', 'お願いします', 'いいです', 'いいよ', 'それでお願い', '実行して', '進めて', 'そうして', '承認します']
+const CONFIRM_NO_EXACT   = new Set(['いいえ', 'いや', 'ノー'])
+const CONFIRM_NO_STARTS  = ['やめ', 'キャンセル', 'やっぱり', '違います', '戻して', '実行しない', 'ストップ', '取り消し', '却下']
 function isConfirmYes(text: string): boolean {
-  if (text.length > 25) return false
-  return CONFIRM_YES_WORDS.some(w => text.includes(w))
+  const t = text.trim()
+  if (!t || t.length > 20) return false
+  if (CONFIRM_YES_EXACT.has(t)) return true
+  return CONFIRM_YES_STARTS.some(w => t.startsWith(w) || t === w)
 }
 function isConfirmNo(text: string): boolean {
-  if (text.length > 25) return false
-  return CONFIRM_NO_WORDS.some(w => text.includes(w))
+  const t = text.trim()
+  if (!t || t.length > 25) return false
+  if (CONFIRM_NO_EXACT.has(t)) return true
+  return CONFIRM_NO_STARTS.some(w => t.startsWith(w) || t.includes(w))
 }
 const STANDBY_MS         = 60_000
 const SESSION_TIMEOUT_MS = 5 * 60_000
@@ -372,6 +378,18 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   }, [addMessage, speakAndMaybeResume, finishWithError, setModeSync])
 
   const handleUtterance = React.useCallback(async (utterance: string) => {
+    // ─── 期限切れ pendingConfirmation の自動クリア ───────────────
+    const expiredPending = conversationCtxRef.current.pendingConfirmation
+    if (expiredPending && Date.now() > expiredPending.expiresAt) {
+      conversationCtxRef.current = { ...conversationCtxRef.current, pendingConfirmation: undefined }
+      if (isConfirmYes(utterance.trim()) || isConfirmNo(utterance.trim())) {
+        const msg = '確認の有効期限が切れました。もう一度操作してください。'
+        setResponse(msg); addMessage('user', utterance); addMessage('assistant', msg)
+        speakAndMaybeResume(msg)
+        return
+      }
+    }
+
     if (isSessionRef.current && SESSION_STOP_RE.test(utterance.trim())) {
       addMessage('user', utterance)
       addMessage('assistant', '会話を終了します')
