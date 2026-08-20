@@ -4,9 +4,10 @@
 
 export type VoiceMode =
   | 'idle'        // 待機
-  | 'listening'   // 音声認識中
-  | 'processing'  // Intent解析中
-  | 'speaking'    // TTS読み上げ中
+  | 'listening'   // 音声認識中（LISTENING）
+  | 'processing'  // モデル推論中（THINKING）
+  | 'working'     // Tool実行中（WORKING）
+  | 'speaking'    // 音声出力中（SPEAKING）
   | 'error'       // エラー状態
 
 // 自然会話用 Conversation Context（セッションスコープ・DB保存なし）
@@ -31,6 +32,8 @@ export interface PendingConfirmation {
   resourceId?:   string
   expiresAt:     number
 }
+
+export type VoiceEngineMode = 'realtime' | 'realtime-connecting' | 'browser' | 'off'
 
 export interface ConversationContext {
   lastIntent?:          string

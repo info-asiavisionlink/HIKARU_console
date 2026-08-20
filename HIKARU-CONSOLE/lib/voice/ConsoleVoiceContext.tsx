@@ -2,6 +2,7 @@
 // ============================================================
 // ConsoleVoiceContext — CONSOLE Persistent Voice Provider
 // ConsoleLayoutに1つだけ配置。ページ遷移後もSessionを維持する。
+// Realtime(WebRTC)を標準Voice Engine。失敗時はBrowser STTへfallback。
 // SystemのSystemVoiceContextとは完全分離（CONSOLE業務専用）。
 // useConsoleJarvis() で各Pageから消費する。
 // ============================================================
@@ -10,9 +11,110 @@ import * as React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { browserTTS }            from '@/lib/voice/tts/browser'
 import type {
-  VoiceMode, ConversationContext, LastResultData, VoiceSettings, PendingConfirmation,
+  VoiceMode, VoiceEngineMode, ConversationContext, LastResultData, VoiceSettings, PendingConfirmation,
 } from '@/lib/voice/state/types'
 import type { ConsoleActionName } from '@/lib/voice/registry/console.actions'
+
+// ─── CONSOLE Realtime定数 ─────────────────────────────────────
+const RT_MODEL = 'gpt-4o-realtime-preview'
+
+const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
+管理者・マネージャーの業務をサポートする音声アシスタントです。
+回答は2〜3文以内で日本語で簡潔に。
+
+## Write操作（最重要）
+承認操作（経費承認・勤怠承認等）は必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。
+確認なしに実行ツールを呼ばない。
+
+## actionとparamsの対応
+- console.approve_expense    → params: { expenseId }
+- console.approve_attendance → params: { correctionId }`
+
+function buildConsoleRealtimeTools(
+  router: ReturnType<typeof useRouter>,
+) {
+  const apiFetch = async (path: string) => {
+    const res = await fetch(path, { credentials: 'include' })
+    if (!res.ok) return null
+    return res.json()
+  }
+  return [
+    {
+      name: 'get_dashboard_summary', description: 'ダッシュボードの今日の状況サマリーを取得する',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => {
+        const data = await apiFetch('/api/dashboard')
+        if (!data) return 'ダッシュボード情報を取得できませんでした。'
+        const parts: string[] = []
+        if (data?.activeProjects  != null) parts.push(`進行中案件: ${data.activeProjects}件`)
+        if (data?.pendingExpenses != null) parts.push(`承認待ち経費: ${data.pendingExpenses}件`)
+        if (data?.pendingAttendance > 0)   parts.push(`勤怠修正申請: ${data.pendingAttendance}件`)
+        return parts.length > 0 ? `現在: ${parts.join('、')}` : 'ダッシュボードを確認してください。'
+      },
+    },
+    {
+      name: 'get_pending_expenses', description: '承認待ちの経費申請件数と一覧・IDを確認する',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => {
+        const data = await apiFetch('/api/expenses?status=submitted')
+        if (!data) return '経費申請を確認できませんでした。'
+        const items = Array.isArray(data?.data) ? data.data : []
+        if (items.length === 0) return '承認待ちの経費申請はありません。'
+        const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.title ?? `¥${e.amount}`} [id:${e.id}]`).join(', ')
+        return `承認待ちの経費申請が${items.length}件あります。${list}`
+      },
+    },
+    {
+      name: 'get_pending_attendance', description: '勤怠修正申請の承認待ちを確認する',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => {
+        const data = await apiFetch('/api/attendance/corrections?status=pending')
+        if (!data) return '勤怠修正申請を確認できませんでした。'
+        const items = Array.isArray(data?.data) ? data.data : []
+        if (items.length === 0) return '承認待ちの勤怠修正申請はありません。'
+        const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.worker_name ?? '従業員'} [id:${e.id}]`).join(', ')
+        return `承認待ちの勤怠修正申請が${items.length}件あります。${list}`
+      },
+    },
+    {
+      name: 'get_notifications', description: '管理者向け通知・未読件数を確認する',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => {
+        const data = await apiFetch('/api/console-notifications')
+        if (!data) return '通知を取得できませんでした。'
+        const unread = data.unread_count ?? 0
+        return unread === 0 ? '未読の通知はありません。' : `未読の通知が${unread}件あります。`
+      },
+    },
+    {
+      name: 'navigate', description: '指定のページへ移動する',
+      parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      execute: async ({ path }: { path: string }) => { router.push(path); return `${path}へ移動します。` },
+    },
+    {
+      name: 'execute_confirmed_action',
+      description: 'ユーザーが「はい」と確認した後にのみ呼ぶ。Server Auth再検証して実行。',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['console.approve_expense', 'console.approve_attendance'] },
+          params: { type: 'object', additionalProperties: { type: 'string' } },
+        },
+        required: ['action'],
+      },
+      execute: async ({ action, params = {} }: { action: string; params?: Record<string, string> }) => {
+        try {
+          const res = await fetch('/api/ai/confirm-action', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ action, params, safetyLevel: 4, expiresAt: Date.now() + 90_000 }),
+          })
+          const data = await res.json()
+          return res.ok ? (data.voiceReply ?? '完了しました。') : (data.error ?? '実行に失敗しました。')
+        } catch { return '実行中にエラーが発生しました。' }
+      },
+    },
+  ]
+}
 
 // ─── STT型補完 ───────────────────────────────────────────────
 interface SpeechRecognitionEvent extends Event {
@@ -89,21 +191,24 @@ function saveVoiceSettings(s: VoiceSettings): void {
 
 // ─── Context型 ───────────────────────────────────────────────
 export interface ConsoleVoiceContextValue {
-  mode:              VoiceMode
-  isSession:         boolean
-  isStandby:         boolean
-  transcript:        string
-  response:          string
-  errorMessage:      string
-  messages:          ConsoleChatMessage[]
-  voiceSettings:     VoiceSettings
-  setVoiceSettings:  (s: VoiceSettings) => void
-  isSpeechSupported: boolean
-  startListening:    () => void
-  stopAll:           () => void
-  startSession:      () => void
-  stopSession:       () => void
-  handleUtterance:   (text: string) => Promise<void>
+  mode:               VoiceMode
+  isSession:          boolean
+  isStandby:          boolean
+  transcript:         string
+  response:           string
+  errorMessage:       string
+  messages:           ConsoleChatMessage[]
+  voiceSettings:      VoiceSettings
+  setVoiceSettings:   (s: VoiceSettings) => void
+  isSpeechSupported:  boolean
+  voiceEngineMode:    VoiceEngineMode
+  connectRealtime:    () => void
+  disconnectRealtime: () => void
+  startListening:     () => void
+  stopAll:            () => void
+  startSession:       () => void
+  stopSession:        () => void
+  handleUtterance:    (text: string) => Promise<void>
 }
 
 const ConsoleVoiceContext = React.createContext<ConsoleVoiceContextValue | null>(null)
@@ -189,14 +294,15 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const router   = useRouter()
   const pathname = usePathname()
 
-  const [mode,          setMode]             = React.useState<VoiceMode>('idle')
-  const [transcript,    setTranscript]       = React.useState('')
-  const [response,      setResponse]         = React.useState('')
-  const [errorMessage,  setErrorMessage]     = React.useState('')
-  const [messages,      setMessages]         = React.useState<ConsoleChatMessage[]>([])
-  const [isSession,     setIsSession]        = React.useState(false)
-  const [isStandby,     setIsStandby]        = React.useState(false)
-  const [voiceSettings, setVoiceSettingsSt]  = React.useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
+  const [mode,            setMode]             = React.useState<VoiceMode>('idle')
+  const [transcript,      setTranscript]       = React.useState('')
+  const [response,        setResponse]         = React.useState('')
+  const [errorMessage,    setErrorMessage]     = React.useState('')
+  const [messages,        setMessages]         = React.useState<ConsoleChatMessage[]>([])
+  const [isSession,       setIsSession]        = React.useState(false)
+  const [isStandby,       setIsStandby]        = React.useState(false)
+  const [voiceSettings,   setVoiceSettingsSt]  = React.useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
+  const [voiceEngineMode, setVoiceEngineMode]  = React.useState<VoiceEngineMode>('off')
 
   React.useEffect(() => { setVoiceSettingsSt(loadVoiceSettings()) }, [])
 
@@ -215,9 +321,12 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const messagesRef        = React.useRef<ConsoleChatMessage[]>([])
   const voiceSettingsRef   = React.useRef<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
   const pathnameRef        = React.useRef(pathname)
+  const realtimeSessionRef = React.useRef<any>(null)
+  const voiceEngineModeRef = React.useRef<VoiceEngineMode>('off')
 
-  React.useEffect(() => { voiceSettingsRef.current = voiceSettings }, [voiceSettings])
-  React.useEffect(() => { pathnameRef.current      = pathname },      [pathname])
+  React.useEffect(() => { voiceSettingsRef.current = voiceSettings },    [voiceSettings])
+  React.useEffect(() => { pathnameRef.current      = pathname },         [pathname])
+  React.useEffect(() => { voiceEngineModeRef.current = voiceEngineMode }, [voiceEngineMode])
 
   const isSpeechSupported = React.useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -284,6 +393,11 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     browserTTS.stop()
     setModeSync('idle')
     setErrorMessage('')
+    try { realtimeSessionRef.current?.close?.() }      catch {}
+    try { realtimeSessionRef.current?.disconnect?.() } catch {}
+    realtimeSessionRef.current = null
+    setVoiceEngineMode('off')
+    voiceEngineModeRef.current = 'off'
   }, [clearActivityTimers, setModeSync])
 
   const stopSession = React.useCallback(() => {
@@ -295,6 +409,11 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     browserTTS.stop()
     setModeSync('idle')
     setErrorMessage('')
+    try { realtimeSessionRef.current?.close?.() }      catch {}
+    try { realtimeSessionRef.current?.disconnect?.() } catch {}
+    realtimeSessionRef.current = null
+    setVoiceEngineMode('off')
+    voiceEngineModeRef.current = 'off'
   }, [clearActivityTimers, setModeSync])
 
   const finishWithError = React.useCallback((msg: string) => {
@@ -505,7 +624,68 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     }
   }, [executeAction, finishWithError, addMessage, speakAndMaybeResume, clearActivityTimers, scheduleStandby, setModeSync])
 
+  // ─── CONSOLE Realtime接続 ─────────────────────────────────────
+  const connectRealtime = React.useCallback(async () => {
+    if (realtimeSessionRef.current) return
+    if (voiceEngineModeRef.current === 'realtime-connecting') return
+
+    setVoiceEngineMode('realtime-connecting')
+    voiceEngineModeRef.current = 'realtime-connecting'
+
+    try {
+      const tokenRes = await fetch('/api/ai/console-realtime-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify({ model: RT_MODEL }),
+      })
+      if (!tokenRes.ok) throw new Error('token_failed')
+      const { clientSecret } = await tokenRes.json()
+      if (!clientSecret) throw new Error('no_token')
+
+      const { RealtimeAgent, RealtimeSession } = await import('@openai/agents/realtime') as any
+      const tools   = buildConsoleRealtimeTools(router)
+      const agent   = new RealtimeAgent({ name: 'JARVIS Console Realtime', instructions: RT_SYSTEM_PROMPT, model: RT_MODEL, tools })
+      const session = new RealtimeSession(agent, { model: RT_MODEL })
+
+      session.on?.('connected', () => { setVoiceEngineMode('realtime'); voiceEngineModeRef.current = 'realtime'; setModeSync('listening') })
+      session.on?.('disconnected', () => {
+        realtimeSessionRef.current = null
+        if (isSessionRef.current) {
+          setVoiceEngineMode('browser'); voiceEngineModeRef.current = 'browser'
+          setTimeout(() => { if (isSessionRef.current && voiceEngineModeRef.current === 'browser') startListeningRef.current() }, 800)
+        } else { setVoiceEngineMode('off'); voiceEngineModeRef.current = 'off'; setModeSync('idle') }
+      })
+      session.on?.('error', () => {
+        realtimeSessionRef.current = null; setVoiceEngineMode('browser'); voiceEngineModeRef.current = 'browser'
+        if (isSessionRef.current) startListeningRef.current()
+      })
+      session.on?.('agent_start_speech',  () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('speaking') })
+      session.on?.('agent_end_speech',    () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('listening') })
+      session.on?.('user_start_speech',   () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('listening') })
+      session.on?.('user_end_speech',     () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('processing') })
+      session.on?.('tool_call_start',     () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('working') })
+      session.on?.('tool_call_end',       () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('processing') })
+      session.on?.('user_transcription_done',  (text: string) => { if (text?.trim()) { setTranscript(text.trim()); addMessage('user', text.trim()) } })
+      session.on?.('agent_transcription_done', (text: string) => { if (text?.trim()) { setResponse(text.trim()); addMessage('assistant', text.trim()) } })
+
+      await session.connect({ apiKey: clientSecret })
+      realtimeSessionRef.current = session
+
+    } catch (err) {
+      console.error('[console-realtime]', err)
+      setVoiceEngineMode('browser'); voiceEngineModeRef.current = 'browser'
+      if (isSessionRef.current) setTimeout(() => startListeningRef.current(), 400)
+    }
+  }, [router, addMessage, setModeSync])
+
+  const disconnectRealtime = React.useCallback(() => {
+    try { realtimeSessionRef.current?.close?.() }      catch {}
+    try { realtimeSessionRef.current?.disconnect?.() } catch {}
+    realtimeSessionRef.current = null
+    setVoiceEngineMode('off'); voiceEngineModeRef.current = 'off'
+  }, [])
+
   const startListening = React.useCallback(() => {
+    if (voiceEngineModeRef.current === 'realtime' || voiceEngineModeRef.current === 'realtime-connecting') return
     if (!isSpeechSupported) { finishWithError('このブラウザでは音声入力を利用できません。'); return }
     if (modeRef.current === 'speaking') { browserTTS.stop(); setModeSync('idle'); return }
     if (modeRef.current === 'processing') return
@@ -566,13 +746,13 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   React.useEffect(() => { startListeningRef.current = startListening }, [startListening])
 
   const startSession = React.useCallback(() => {
-    if (!isSpeechSupported) { finishWithError('このブラウザでは音声入力を利用できません。'); return }
     isSessionRef.current = true
     setIsSession(true)
     setIsStandby(false)
     scheduleStandby()
-    startListeningRef.current()
-  }, [isSpeechSupported, finishWithError, scheduleStandby])
+    // Realtime優先。失敗時はBrowser STTへ自動fallback。
+    connectRealtime()
+  }, [scheduleStandby, connectRealtime])
 
   // ─── Phase P5: ページ遷移後の自然な次Action提案 ──────────────
   const prevPathRef = React.useRef(pathname)
@@ -636,10 +816,12 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const value = React.useMemo<ConsoleVoiceContextValue>(() => ({
     mode, isSession, isStandby, transcript, response, errorMessage, messages,
     voiceSettings, setVoiceSettings, isSpeechSupported,
+    voiceEngineMode, connectRealtime, disconnectRealtime,
     startListening, stopAll, startSession, stopSession, handleUtterance,
   }), [
     mode, isSession, isStandby, transcript, response, errorMessage, messages,
     voiceSettings, setVoiceSettings, isSpeechSupported,
+    voiceEngineMode, connectRealtime, disconnectRealtime,
     startListening, stopAll, startSession, stopSession, handleUtterance,
   ])
 
