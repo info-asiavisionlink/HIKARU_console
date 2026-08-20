@@ -233,7 +233,7 @@ propose_action の使い方:
 export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
   name:         'JARVIS Console',
   instructions: CONSOLE_SYSTEM_PROMPT,
-  model:        'gpt-4o',
+  model:        'gpt-4o-mini',
   tools:        [
     getDashboardTool,
     getProjectsTool,

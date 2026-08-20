@@ -44,8 +44,16 @@ export interface ConsoleChatMessage {
 
 // ─── セッション設定 ──────────────────────────────────────────
 const SESSION_STOP_RE    = /^(終了|やめて|止めて|ストップ|セッション終了|会話終了|閉じて|おしまい|終わり)$/
-const CONFIRM_YES_RE     = /^(はい|うん|ええ|そうです|お願い|お願いします|確認|実行|よろしく|よろしい|OK|オーケー|いいよ|いいです)$/i
-const CONFIRM_NO_RE      = /^(いいえ|やめて|キャンセル|やめる|いや|ノー|やっぱりやめ|やっぱり)$/i
+const CONFIRM_YES_WORDS  = ['はい', 'うん', 'ええ', 'そうです', 'お願い', 'よろしく', 'よろし', 'OK', 'ok', 'オーケー', 'いいよ', 'いいです', 'いい', 'やって', 'してください', '確認', '実行']
+const CONFIRM_NO_WORDS   = ['いいえ', 'やめて', 'キャンセル', 'やめる', 'いや', 'ノー', 'やっぱり', 'なし', '取消']
+function isConfirmYes(text: string): boolean {
+  if (text.length > 25) return false
+  return CONFIRM_YES_WORDS.some(w => text.includes(w))
+}
+function isConfirmNo(text: string): boolean {
+  if (text.length > 25) return false
+  return CONFIRM_NO_WORDS.some(w => text.includes(w))
+}
 const STANDBY_MS         = 60_000
 const SESSION_TIMEOUT_MS = 5 * 60_000
 
@@ -382,11 +390,11 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       setIsStandby(false)
       setTranscript(utterance)
       addMessage('user', utterance)
-      if (CONFIRM_YES_RE.test(utterance.trim())) {
+      if (isConfirmYes(utterance.trim())) {
         await executeConfirmedAction(pending)
         return
       }
-      if (CONFIRM_NO_RE.test(utterance.trim())) {
+      if (isConfirmNo(utterance.trim())) {
         conversationCtxRef.current = { ...conversationCtxRef.current, pendingConfirmation: undefined }
         const msg = 'キャンセルしました。'
         setResponse(msg)
@@ -508,8 +516,20 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         } else {
           finishWithError('音声が検出されませんでした。')
         }
+      } else if (e.error === 'aborted') {
+        if (isSessionRef.current) {
+          setModeSync('idle')
+          setTimeout(() => { if (isSessionRef.current) startListeningRef.current() }, 500)
+        } else {
+          setModeSync('idle')
+        }
       } else {
-        finishWithError('音声認識でエラーが発生しました。')
+        if (isSessionRef.current) {
+          setModeSync('idle')
+          setTimeout(() => { if (isSessionRef.current) startListeningRef.current() }, 800)
+        } else {
+          finishWithError('音声認識でエラーが発生しました。')
+        }
       }
     }
     rec.onend = () => {
@@ -570,6 +590,18 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       return
     }
   }, [pathname, addMessage, speakAndMaybeResume])
+
+  // ─── ページ遷移後の音声認識フェイルセーフ復旧 ──────────────────
+  React.useEffect(() => {
+    if (!isSessionRef.current) return
+    const timer = setTimeout(() => {
+      if (isSessionRef.current && modeRef.current === 'idle') {
+        startListeningRef.current()
+      }
+    }, 700)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   // Logout クリーンアップ
   React.useEffect(() => {

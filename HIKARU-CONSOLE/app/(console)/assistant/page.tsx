@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Mic, MicOff, X, Radio, Settings, Volume2 } from 'lucide-react'
+import { X, Radio, Settings, Volume2 } from 'lucide-react'
 import { useConsoleJarvis }      from '@/lib/voice/ConsoleVoiceContext'
 import { browserTTS }            from '@/lib/voice/tts/browser'
 import { VOICE_ASSISTANT_NAME }  from '@/lib/voice/config'
@@ -221,7 +221,7 @@ export default function ConsoleAssistantPage() {
   const {
     mode, errorMessage, messages, isSpeechSupported,
     isSession, isStandby,
-    startListening, stopAll, handleUtterance,
+    handleUtterance,
     startSession, stopSession,
     voiceSettings, setVoiceSettings,
   } = useConsoleJarvis()
@@ -370,42 +370,29 @@ export default function ConsoleAssistantPage() {
             </div>
           )}
 
-          {/* Mic buttons */}
-          <div className="flex items-center gap-4 flex-wrap justify-center">
-            <div className="flex flex-col items-center gap-1">
-              <button
-                onClick={() => { if (isActive || isProc) { stopAll(); } else { startListening() } }}
-                disabled={isProc || isSession}
-                className="flex h-16 w-16 items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-40"
-                style={{
-                  background: isActive ? 'oklch(0.62 0.24 22)' : `linear-gradient(135deg, ${G}, ${GB})`,
-                  boxShadow: isActive ? '0 0 24px oklch(0.62 0.24 22 / 0.5)' : `0 0 24px ${G}55`,
-                }}
-                aria-label={isActive ? '停止' : '1回話す'}
-              >
-                {isActive ? <MicOff className="h-7 w-7 text-white" /> : <Mic className="h-7 w-7" style={{ color: 'oklch(0.06 0.003 260)' }} />}
-              </button>
-              <span className="text-[10px]" style={{ color: GD }}>1回話す</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-1">
-              <button
-                onClick={() => { if (isSession) stopSession(); else startSession() }}
-                disabled={isProc}
-                className="flex h-16 w-16 items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-40"
-                style={{
-                  background: isSession ? `${G}20` : `${G}10`,
-                  border: `2px solid ${isSession ? G : `${G}30`}`,
-                  boxShadow: isSession ? `0 0 20px ${G}50` : 'none',
-                }}
-                aria-label={isSession ? '会話終了' : 'ハンズフリー開始'}
-              >
-                <Radio className="h-6 w-6" style={{ color: isSession ? GB : GD }} />
-              </button>
-              <span className="text-[10px]" style={{ color: GD }}>
-                {isSession ? (isStandby ? 'スタンバイ中' : '会話中') : 'ハンズフリー'}
-              </span>
-            </div>
+          {/* Session button */}
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => { if (isSession) stopSession(); else startSession() }}
+              disabled={isProc}
+              className="flex h-20 w-20 items-center justify-center rounded-full transition-all duration-200 active:scale-90 disabled:opacity-40"
+              style={{
+                background: isSession
+                  ? (isActive ? 'oklch(0.62 0.24 22)' : `${G}20`)
+                  : `linear-gradient(135deg, ${G}, ${GB})`,
+                border: isSession ? `2px solid ${G}` : 'none',
+                boxShadow: isSession ? `0 0 24px ${G}50` : `0 0 30px ${G}55`,
+              }}
+              aria-label={isSession ? '会話終了' : 'ハンズフリー開始'}
+            >
+              <Radio className="h-8 w-8" style={{ color: isSession ? GB : 'oklch(0.06 0.003 260)' }} />
+            </button>
+            <span className="text-[11px] font-bold" style={{ color: isSession ? GB : GD }}>
+              {isSession ? (isStandby ? 'スタンバイ中' : '会話中 — タップで終了') : 'ハンズフリー開始'}
+            </span>
+            <span className="text-[9px]" style={{ color: GD }}>
+              {isSession ? '「終了」と言うかタップ' : '自動で聞き続けます'}
+            </span>
           </div>
 
           {/* Mobile Quick Commands */}
