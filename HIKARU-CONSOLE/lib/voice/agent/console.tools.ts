@@ -126,7 +126,7 @@ const getProjectDetail: ConsoleAgentTool = {
 
 const getProjectAssignments: ConsoleAgentTool = {
   name:        'get_project_assignments',
-  description: '指定IDの案件担当者数・種別を取得する。',
+  description: '指定IDの案件担当者を実名で取得する。担当追加/変更/削除前にも使う。',
   safetyLevel: 1,
   parameters: {
     type: 'object',
@@ -140,16 +140,181 @@ const getProjectAssignments: ConsoleAgentTool = {
       const res  = await apiFetch(`/api/projects/${projectId}/assignments`, ctx)
       if (!res.ok) return { success: false, text: '担当者情報を取得できませんでした。' }
       const data = await res.json()
-      const assignments = Array.isArray(data?.data) ? data.data : []
-      if (assignments.length === 0) return { success: true, text: 'この案件に担当者はいません。' }
-      const empCount     = assignments.filter((a: any) => a.assignee_type === 'employee').length
-      const partnerCount = assignments.filter((a: any) => a.assignee_type === 'partner').length
+      const assignments: { assignee_type: string; assignee_id: string }[] = Array.isArray(data?.data) ? data.data : []
+      if (assignments.length === 0) return { success: true, text: 'この案件に担当者はいません。', data: { assignments: [] } }
+
+      const empIds     = assignments.filter(a => a.assignee_type === 'employee').map(a => a.assignee_id)
+      const partnerIds = assignments.filter(a => a.assignee_type === 'partner').map(a => a.assignee_id)
+      const empMap     = new Map<string, string>()
+      const partnerMap = new Map<string, string>()
+
+      await Promise.all([
+        empIds.length > 0
+          ? apiFetch('/api/employees?pageSize=200', ctx).then(r => r.json()).then(d => {
+              for (const e of (d.data ?? [])) empMap.set(e.id, e.name ?? e.id)
+            }).catch(() => {})
+          : Promise.resolve(),
+        partnerIds.length > 0
+          ? apiFetch('/api/partners?pageSize=200', ctx).then(r => r.json()).then(d => {
+              for (const p of (d.data ?? [])) partnerMap.set(p.id, p.company_name ?? p.contact_person_name ?? p.id)
+            }).catch(() => {})
+          : Promise.resolve(),
+      ])
+
+      const empNames:     string[] = empIds.map(id => empMap.get(id)).filter((n): n is string => !!n)
+      const partnerNames: string[] = partnerIds.map(id => partnerMap.get(id)).filter((n): n is string => !!n)
+      const unknownCount = assignments.length - empNames.length - partnerNames.length
+
       const parts: string[] = []
-      if (empCount     > 0) parts.push(`従業員${empCount}名`)
-      if (partnerCount > 0) parts.push(`協力業者${partnerCount}名`)
-      return { success: true, text: `担当: ${parts.join('、')}（合計${assignments.length}名）` }
+      if (empNames.length     > 0) parts.push(`従業員: ${empNames.join('、')}`)
+      if (partnerNames.length > 0) parts.push(`協力業者: ${partnerNames.join('、')}`)
+      if (unknownCount        > 0) parts.push(`${unknownCount}名の名前を確認できませんでした。`)
+
+      const items = assignments.map(a => {
+        const nameMap = a.assignee_type === 'employee' ? empMap : partnerMap
+        const label   = `${a.assignee_type === 'employee' ? '従業員' : '協力業者'}: ${nameMap.get(a.assignee_id) ?? '不明'}`
+        return { id: a.assignee_id, label }
+      })
+
+      return {
+        success: true,
+        text:    parts.join('、'),
+        items,
+        data:    { assignments },
+      }
     } catch {
       return { success: false, text: '担当者情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const resolvePerson: ConsoleAgentTool = {
+  name:        'resolve_person',
+  description: '名前キーワードで従業員・協力業者を検索し候補を返す。担当追加/変更前に必ず使う。AI生成ID禁止。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: { name: { type: 'string', description: '検索する名前キーワード' } },
+    required:   ['name'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const name = params.name as string
+    if (!name?.trim()) return { success: false, text: '名前が必要です。' }
+    try {
+      const [empRes, partnerRes] = await Promise.all([
+        apiFetch(`/api/employees?search=${encodeURIComponent(name)}&pageSize=10`, ctx),
+        apiFetch(`/api/partners?search=${encodeURIComponent(name)}&pageSize=10`, ctx),
+      ])
+      const empData     = empRes.ok     ? await empRes.json()     : { data: [] }
+      const partnerData = partnerRes.ok ? await partnerRes.json() : { data: [] }
+      const employees:  any[] = empData.data     ?? []
+      const partners:   any[] = partnerData.data ?? []
+      const total = employees.length + partners.length
+
+      if (total === 0) return { success: true, text: `「${name}」という担当者は見つかりませんでした。` }
+
+      const items = [
+        ...employees.map((e: any) => ({ id: e.id, label: `従業員: ${e.name}` })),
+        ...partners.map((p: any) => ({ id: p.id, label: `協力業者: ${p.company_name ?? p.contact_person_name}` })),
+      ]
+
+      if (total === 1) {
+        const onlyItem = items[0]
+        const type     = employees.length > 0 ? 'employee' : 'partner'
+        const resName  = employees.length > 0 ? employees[0].name : (partners[0].company_name ?? partners[0].contact_person_name)
+        return {
+          success: true,
+          text:    `1名見つかりました。${onlyItem.label}`,
+          items,
+          data:    { resolved: { type, id: onlyItem.id, name: resName } },
+        }
+      }
+      return { success: true, text: `「${name}」で${total}名見つかりました。どの方ですか？`, items }
+    } catch {
+      return { success: false, text: '検索中にエラーが発生しました。' }
+    }
+  },
+}
+
+const resolveClient: ConsoleAgentTool = {
+  name:        'resolve_client',
+  description: '顧客名で検索しclient_idを返す。案件作成/編集前に必ず使う。新規顧客登録は行わない。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: { name: { type: 'string', description: '顧客名キーワード' } },
+    required:   ['name'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const name = params.name as string
+    if (!name?.trim()) return { success: false, text: '顧客名が必要です。' }
+    try {
+      const res = await apiFetch(`/api/clients?search=${encodeURIComponent(name)}&pageSize=10`, ctx)
+      if (!res.ok) return { success: false, text: '顧客情報を取得できませんでした。' }
+      const data    = await res.json()
+      const clients: any[] = data.clients ?? []
+
+      if (clients.length === 0) {
+        return { success: true, text: `「${name}」という顧客は見つかりませんでした。新規顧客の登録は管理画面から行ってください。` }
+      }
+      const items = clients.map((c: any) => ({ id: c.id, label: c.name }))
+      if (clients.length === 1) {
+        return {
+          success: true,
+          text:    `顧客「${clients[0].name}」が見つかりました。`,
+          items,
+          data:    { clientId: clients[0].id, clientName: clients[0].name },
+        }
+      }
+      return { success: true, text: `「${name}」に一致する顧客が${clients.length}件あります。どの顧客ですか？`, items }
+    } catch {
+      return { success: false, text: '顧客検索中にエラーが発生しました。' }
+    }
+  },
+}
+
+const resolveStore: ConsoleAgentTool = {
+  name:        'resolve_store',
+  description: '店舗名で検索しstore_idを返す。client_idが決まっている場合は指定する。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      name:      { type: 'string', description: '店舗名キーワード' },
+      client_id: { type: 'string', description: '顧客ID（指定するとその顧客の店舗に絞り込む）' },
+    },
+    required: ['name'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const name     = params.name      as string
+    const clientId = params.client_id as string | undefined
+    if (!name?.trim()) return { success: false, text: '店舗名が必要です。' }
+    try {
+      const q = new URLSearchParams({ search: name, pageSize: '10' })
+      if (clientId) q.set('client_id', clientId)
+      const res = await apiFetch(`/api/stores?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '店舗情報を取得できませんでした。' }
+      const data   = await res.json()
+      const stores: any[] = data.stores ?? []
+
+      if (stores.length === 0) {
+        return { success: true, text: `「${name}」という店舗は見つかりませんでした。` }
+      }
+      const items = stores.map((s: any) => ({
+        id:    s.id,
+        label: s.clients?.name ? `${s.name}（${s.clients.name}）` : s.name,
+      }))
+      if (stores.length === 1) {
+        return {
+          success: true,
+          text:    `店舗「${stores[0].name}」が見つかりました。`,
+          items,
+          data:    { storeId: stores[0].id, storeName: stores[0].name, clientId: stores[0].client_id },
+        }
+      }
+      return { success: true, text: `「${name}」に一致する店舗が${stores.length}件あります。どの店舗ですか？`, items }
+    } catch {
+      return { success: false, text: '店舗検索中にエラーが発生しました。' }
     }
   },
 }
@@ -352,6 +517,9 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getProjects,
   getProjectDetail,
   getProjectAssignments,
+  resolvePerson,
+  resolveClient,
+  resolveStore,
   getNotifications,
   getPendingExpenses,
   getExpenseDetail,

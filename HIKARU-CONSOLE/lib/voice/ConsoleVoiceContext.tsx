@@ -38,7 +38,7 @@ analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=
 NavigationせずにDataツールを使う。
 「案件一覧」「案件教えて」「進行中案件」「スポット案件」→ get_projects（status/project_type/search指定可）
 「1件目の詳細」「この案件の詳細」→ get_project_detail（project_idを指定）
-「担当者は？」→ get_project_assignments（project_idを指定）
+「担当者は？」→ get_project_assignments（project_idを指定）→ 実名を返す
 「経費教えて」「承認待ちの経費」→ get_pending_expenses（申請者・金額・カテゴリ付きで返す）
 「1件目の詳細」「この経費の詳細」→ get_expense_detail（expense_idを指定）
 「勤怠教えて」→ get_pending_attendance
@@ -48,31 +48,64 @@ NavigationせずにDataツールを使う。
 
 ## Project Create/Status（重要手順）
 1. 対象案件が不明な場合 → 「どの案件ですか？」と聞く。勝手に選ばない。
-2. ステータス変更: execute_confirmed_action(console.update_project_status, {projectId, status}) — status: active/paused/completed/cancelled
-3. 案件作成: nameを確認してから execute_confirmed_action(console.create_project, {name, project_type, start_date})
-4. 案件削除は音声で実行不可。「案件削除は管理画面から操作してください。」と答える。
-5. 担当者名の表示は担当件数のみ（名前解決は別途管理画面を案内）
+2. ステータス変更: 確認後 execute_confirmed_action(console.update_project_status, {projectId, status}) — status: active/paused/completed/cancelled
+3. 案件削除は音声で実行不可。「案件削除は管理画面から操作してください。」と答える。
+
+## 担当者操作（add/remove/replace）（重要）
+担当者ID・名前は必ず resolve_person で解決する。AI生成ID絶対禁止。
+
+担当追加:
+1. get_project_assignments でprojectId確認・現在担当取得
+2. resolve_person(name) → 1件確定 or 複数は選択させる
+3. 重複確認（すでに担当なら追加しない）
+4. 確認文: 「この案件に○○さんを担当として追加します。よろしいですか？」
+5. 確認後: execute_confirmed_action(console.add_assignment, {projectId, assignee_type, assignee_id, assignee_name})
+
+担当削除:
+1. get_project_assignments で現在担当取得・対象特定
+2. 確認文: 「○○さんをこの案件の担当から外します。よろしいですか？」
+3. 確認後: execute_confirmed_action(console.remove_assignment, {projectId, assignee_type, assignee_id, assignee_name})
+
+担当変更（from→to）:
+1. 両者をresolve_personで解決
+2. 確認文: 「○○さんから△△さんに担当を変更します。よろしいですか？」
+3. 確認後: execute_confirmed_action(console.replace_assignment, {projectId, from_type, from_id, from_name, to_type, to_id, to_name})
+
+## 案件作成（完全版）
+1. 案件名・種別(spot/recurring/hotel)を確認
+2. 顧客名が分かる場合: resolve_client(name) → clientId確定
+3. 店舗名が分かる場合: resolve_store(name, client_id) → storeId確定
+4. 確認文: 「○○株式会社、○○店、スポット案件『○○』を8月25日開始で登録します。よろしいですか？」
+5. 確認後: execute_confirmed_action(console.create_project, {name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes?})
+
+## 案件編集
+1. 対象案件のprojectIdを確認（get_projects等）
+2. get_project_detailで現在値を確認してから変更内容を確認
+3. 確認後: execute_confirmed_action(console.update_project, {projectId, [変更フィールド]: 値})
+変更可能フィールド: name / project_type / start_date / end_date / location_name / address / notes / client_id / store_id
 
 ## Expense Approve/Reject（重要手順）
 1. まずget_pending_expensesかget_expense_detailで対象expenseIdを確認する
 2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
-3. 承認: execute_confirmed_action(action='console.approve_expense', params={expenseId})
-4. 却下: 却下理由を先にユーザーから聞く → execute_confirmed_action(action='console.reject_expense', params={expenseId, reject_reason})
+3. 承認: 確認後 execute_confirmed_action(action='console.approve_expense', params={expenseId})
+4. 却下: 却下理由を先にユーザーから聞く → 確認後 execute_confirmed_action(action='console.reject_expense', params={expenseId, reject_reason})
 5. 確認文例（承認）: 「田中さんの交通費1,200円を承認します。よろしいですか？」
-6. 確認文例（却下）: 「田中さんの交通費1,200円を理由『領収書未添付』で却下します。よろしいですか？」
 
 ## 売上・利益・期間のルール（厳守）
 - 売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。
-- 「利益は？」「儲けは？」→ Tool不使用。「現在HIKARUに登録されている情報だけでは正確な利益は算出できません。原価・人件費等の全情報が必要です。」と答える。
-- 「先月の売上」「去年の売上」等、今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。追加API呼び出し禁止。
+- 「利益は？」→ Tool不使用。「現在HIKARUに登録されている情報だけでは正確な利益は算出できません。」と答える。
+- 「先月の売上」等、今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。
 
 ## Write操作（最重要）
-承認・却下操作は必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。
-確認なしに実行ツールを呼ばない。
+全てのWriteは必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。確認なしに実行ツールを呼ばない。
 
 ## actionとparamsの対応
 - console.update_project_status → params: { projectId, status }
-- console.create_project        → params: { name, project_type, start_date }
+- console.create_project        → params: { name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes? }
+- console.update_project        → params: { projectId, [変更フィールド]: 値 }
+- console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
+- console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
+- console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
 - console.approve_expense       → params: { expenseId }
 - console.reject_expense        → params: { expenseId, reject_reason }
 - console.approve_attendance    → params: { correctionId }`
@@ -169,7 +202,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_project_assignments',
-      description: '指定IDの案件担当者数・種別を取得する。',
+      description: '指定IDの案件担当者を実名で取得する。担当追加/変更/削除前にも使う。',
       parameters: {
         type: 'object',
         properties: { project_id: { type: 'string', description: '案件のID' } },
@@ -179,14 +212,118 @@ function buildConsoleRealtimeTools(
         if (!project_id) return '案件IDが必要です。'
         const data = await apiFetch(`/api/projects/${project_id}/assignments`)
         if (!data) return '担当者情報を取得できませんでした。'
-        const assignments = Array.isArray(data?.data) ? data.data : []
-        if (assignments.length === 0) return 'この案件に担当者はいません。'
-        const empCount     = assignments.filter((a: any) => a.assignee_type === 'employee').length
-        const partnerCount = assignments.filter((a: any) => a.assignee_type === 'partner').length
-        const parts: string[] = []
-        if (empCount     > 0) parts.push(`従業員${empCount}名`)
-        if (partnerCount > 0) parts.push(`協力業者${partnerCount}名`)
-        return `担当: ${parts.join('、')}（合計${assignments.length}名）。詳細は管理画面の担当者タブを確認してください。`
+        const assignments: { assignee_type: string; assignee_id: string }[] = Array.isArray(data?.data) ? data.data : []
+        if (assignments.length === 0) return `この案件に担当者はいません。[project_id:${project_id}|assignments:[]]`
+
+        const empIds     = assignments.filter(a => a.assignee_type === 'employee').map(a => a.assignee_id)
+        const partnerIds = assignments.filter(a => a.assignee_type === 'partner').map(a => a.assignee_id)
+        const empMap     = new Map<string, string>()
+        const partnerMap = new Map<string, string>()
+
+        await Promise.all([
+          empIds.length > 0
+            ? apiFetch('/api/employees?pageSize=200').then(d => {
+                if (d) for (const e of (d.data ?? [])) empMap.set(e.id, e.name ?? e.id)
+              }).catch(() => {})
+            : Promise.resolve(),
+          partnerIds.length > 0
+            ? apiFetch('/api/partners?pageSize=200').then(d => {
+                if (d) for (const p of (d.data ?? [])) partnerMap.set(p.id, p.company_name ?? p.contact_person_name ?? p.id)
+              }).catch(() => {})
+            : Promise.resolve(),
+        ])
+
+        const empNames:     string[] = empIds.map(id => empMap.get(id)).filter((n): n is string => !!n)
+        const partnerNames: string[] = partnerIds.map(id => partnerMap.get(id)).filter((n): n is string => !!n)
+        const unknownCount = assignments.length - empNames.length - partnerNames.length
+        const lines: string[] = []
+        if (empNames.length     > 0) lines.push(`従業員: ${empNames.join('、')}`)
+        if (partnerNames.length > 0) lines.push(`協力業者: ${partnerNames.join('、')}`)
+        if (unknownCount        > 0) lines.push(`${unknownCount}名の名前を確認できませんでした。`)
+
+        const assignmentList = assignments.map(a => {
+          const nameMap = a.assignee_type === 'employee' ? empMap : partnerMap
+          return `${a.assignee_type}:${a.assignee_id}:${nameMap.get(a.assignee_id) ?? '不明'}`
+        }).join(', ')
+
+        return `担当: ${lines.join('、')} [project_id:${project_id}|assignments:${assignmentList}]`
+      },
+    }),
+    toolFactory({
+      name: 'resolve_person',
+      description: '名前キーワードで従業員・協力業者を検索し候補を返す。担当追加/変更前に必ず使う。AI生成ID禁止。',
+      parameters: {
+        type: 'object',
+        properties: { name: { type: 'string', description: '検索する名前キーワード' } },
+        required: ['name'], additionalProperties: false,
+      },
+      execute: async ({ name }: { name: string }) => {
+        if (!name?.trim()) return '名前が必要です。'
+        const [empData, partnerData] = await Promise.all([
+          apiFetch(`/api/employees?search=${encodeURIComponent(name)}&pageSize=10`),
+          apiFetch(`/api/partners?search=${encodeURIComponent(name)}&pageSize=10`),
+        ])
+        const employees: any[] = empData?.data     ?? []
+        const partners:  any[] = partnerData?.data ?? []
+        const total = employees.length + partners.length
+        if (total === 0) return `「${name}」という担当者は見つかりませんでした。`
+        const candidates = [
+          ...employees.map((e: any) => `employee:${e.id}:${e.name}`),
+          ...partners.map((p: any) => `partner:${p.id}:${p.company_name ?? p.contact_person_name}`),
+        ].join(' / ')
+        if (total === 1) {
+          const type    = employees.length > 0 ? 'employee' : 'partner'
+          const id      = employees.length > 0 ? employees[0].id : partners[0].id
+          const resName = employees.length > 0 ? employees[0].name : (partners[0].company_name ?? partners[0].contact_person_name)
+          return `1名確定: ${type}:${id}:${resName} [resolved:${type}:${id}:${resName}]`
+        }
+        return `「${name}」で${total}名見つかりました。どの方ですか？ [candidates: ${candidates}]`
+      },
+    }),
+    toolFactory({
+      name: 'resolve_client',
+      description: '顧客名で検索しclient_idを返す。案件作成/編集前に必ず使う。新規顧客登録は行わない。',
+      parameters: {
+        type: 'object',
+        properties: { name: { type: 'string', description: '顧客名キーワード' } },
+        required: ['name'], additionalProperties: false,
+      },
+      execute: async ({ name }: { name: string }) => {
+        if (!name?.trim()) return '顧客名が必要です。'
+        const data = await apiFetch(`/api/clients?search=${encodeURIComponent(name)}&pageSize=10`)
+        if (!data) return '顧客情報を取得できませんでした。'
+        const clients: any[] = data.clients ?? []
+        if (clients.length === 0) return `「${name}」という顧客は見つかりませんでした。新規顧客の登録は管理画面から行ってください。`
+        const list = clients.map((c: any) => `${c.id}:${c.name}`).join(' / ')
+        if (clients.length === 1) return `顧客「${clients[0].name}」確定 [clientId:${clients[0].id}|clientName:${clients[0].name}]`
+        return `「${name}」に一致する顧客が${clients.length}件あります。どの顧客ですか？ [candidates: ${list}]`
+      },
+    }),
+    toolFactory({
+      name: 'resolve_store',
+      description: '店舗名で検索しstore_idを返す。client_idが決まっている場合は指定する。',
+      parameters: {
+        type: 'object',
+        properties: {
+          name:      { type: 'string', description: '店舗名キーワード' },
+          client_id: { type: 'string', description: '顧客ID（指定するとその顧客の店舗に絞り込む）' },
+        },
+        required: ['name'], additionalProperties: false,
+      },
+      execute: async ({ name, client_id }: { name: string; client_id?: string }) => {
+        if (!name?.trim()) return '店舗名が必要です。'
+        const q = new URLSearchParams({ search: name, pageSize: '10' })
+        if (client_id) q.set('client_id', client_id)
+        const data = await apiFetch(`/api/stores?${q}`)
+        if (!data) return '店舗情報を取得できませんでした。'
+        const stores: any[] = data.stores ?? []
+        if (stores.length === 0) return `「${name}」という店舗は見つかりませんでした。`
+        const list = stores.map((s: any) => {
+          const cn = s.clients?.name ?? ''
+          return `${s.id}:${s.name}${cn ? `(${cn})` : ''}`
+        }).join(' / ')
+        if (stores.length === 1) return `店舗「${stores[0].name}」確定 [storeId:${stores[0].id}|storeName:${stores[0].name}|clientId:${stores[0].client_id}]`
+        return `「${name}」に一致する店舗が${stores.length}件あります。どの店舗ですか？ [candidates: ${list}]`
       },
     }),
     toolFactory({
@@ -300,7 +437,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],

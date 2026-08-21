@@ -104,24 +104,32 @@ export async function POST(req: NextRequest) {
 
       // ─── L4: create_project ───────────────────────────────
       case 'console.create_project': {
-        const { name, project_type, start_date, end_date, location_name } = params
+        const { name, project_type, start_date, end_date, location_name, client_id, store_id, address, notes } = params
         if (!name?.trim()) return Response.json({ error: '案件名は必須です' }, { status: 400 })
 
         const validTypes = ['spot', 'recurring', 'hotel']
         const pType = project_type && validTypes.includes(project_type) ? project_type : 'spot'
 
-        const body: Record<string, string | null | undefined> = {
+        const createBody: Record<string, string | null> = {
           name:          name.trim(),
           project_type:  pType,
           start_date:    start_date    || null,
           end_date:      end_date      || null,
           location_name: location_name || null,
+          client_id:     client_id     || null,
+          store_id:      store_id      || null,
+          address:       address       || null,
+          notes:         notes         || null,
+        }
+        // null値のキーを削除（不要なnullをAPIへ送らない）
+        for (const k of Object.keys(createBody)) {
+          if (createBody[k] === null) delete createBody[k]
         }
 
         const res = await fetch(`${req.nextUrl.origin}/api/projects`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
-          body:    JSON.stringify(body),
+          body:    JSON.stringify(createBody),
         })
         const data = await res.json()
         logConsoleAudit({
@@ -135,7 +143,7 @@ export async function POST(req: NextRequest) {
         const projectId = data?.project?.id
         if (!projectId) return Response.json({ error: '案件IDを取得できませんでした。' }, { status: 500 })
 
-        // Read-back: 作成確認
+        // Read-back: 作成確認 + 送信フィールドと照合
         const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}`, {
           headers: { Cookie: req.headers.get('cookie') ?? '' },
         })
@@ -144,9 +152,239 @@ export async function POST(req: NextRequest) {
           if (!verifyData?.project?.id) {
             return Response.json({ error: '案件登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
           }
+          const p = verifyData.project
+          if (p.name !== name.trim() || p.project_type !== pType) {
+            return Response.json({ error: '案件登録の内容を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
         }
 
         return Response.json({ success: true, voiceReply: `案件「${name.trim()}」を登録しました。` })
+      }
+
+      // ─── L4: add_assignment ──────────────────────────────
+      case 'console.add_assignment': {
+        const { projectId, assignee_type, assignee_id, assignee_name } = params
+        if (!projectId)    return Response.json({ error: 'projectId required' }, { status: 400 })
+        if (!assignee_type || !['employee', 'partner'].includes(assignee_type))
+          return Response.json({ error: 'assignee_type must be employee or partner' }, { status: 400 })
+        if (!assignee_id)  return Response.json({ error: 'assignee_id required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: '現在の担当者情報を取得できませんでした。' }, { status: 500 })
+        const currentData = await currentRes.json()
+        const current: { assignee_type: string; assignee_id: string }[] = currentData.data ?? []
+
+        if (current.some(a => a.assignee_type === assignee_type && a.assignee_id === assignee_id)) {
+          return Response.json({ error: `${assignee_name ?? '対象の担当者'}はすでにこの案件の担当です。` }, { status: 400 })
+        }
+
+        const newAssignments = [...current, { assignee_type, assignee_id }]
+        const putRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ assignments: newAssignments }),
+        })
+        const putData = await putRes.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: putRes.ok ? 'success' : 'failed',
+          resourceType: 'project_assignment', resourceId: projectId,
+        })
+        if (!putRes.ok) return Response.json({ error: putData?.error ?? '担当者の追加に失敗しました。' }, { status: putRes.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const found = (verifyData.data ?? []).some((a: any) => a.assignee_type === assignee_type && a.assignee_id === assignee_id)
+          if (!found) {
+            return Response.json({ error: '担当者の追加を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `${assignee_name ?? '担当者'}をこの案件に追加しました。` })
+      }
+
+      // ─── L4: remove_assignment ───────────────────────────
+      case 'console.remove_assignment': {
+        const { projectId, assignee_type, assignee_id, assignee_name } = params
+        if (!projectId)   return Response.json({ error: 'projectId required' }, { status: 400 })
+        if (!assignee_type || !['employee', 'partner'].includes(assignee_type))
+          return Response.json({ error: 'assignee_type must be employee or partner' }, { status: 400 })
+        if (!assignee_id) return Response.json({ error: 'assignee_id required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: '現在の担当者情報を取得できませんでした。' }, { status: 500 })
+        const currentData = await currentRes.json()
+        const current: { assignee_type: string; assignee_id: string }[] = currentData.data ?? []
+
+        if (!current.some(a => a.assignee_type === assignee_type && a.assignee_id === assignee_id)) {
+          return Response.json({ error: `${assignee_name ?? '対象の担当者'}はこの案件の担当ではありません。` }, { status: 400 })
+        }
+
+        const newAssignments = current.filter(a => !(a.assignee_type === assignee_type && a.assignee_id === assignee_id))
+        const putRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ assignments: newAssignments }),
+        })
+        const putData = await putRes.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: putRes.ok ? 'success' : 'failed',
+          resourceType: 'project_assignment', resourceId: projectId,
+        })
+        if (!putRes.ok) return Response.json({ error: putData?.error ?? '担当者の解除に失敗しました。' }, { status: putRes.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const stillExists = (verifyData.data ?? []).some((a: any) => a.assignee_type === assignee_type && a.assignee_id === assignee_id)
+          if (stillExists) {
+            return Response.json({ error: '担当者の解除を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `${assignee_name ?? '担当者'}をこの案件の担当から外しました。` })
+      }
+
+      // ─── L4: replace_assignment ──────────────────────────
+      case 'console.replace_assignment': {
+        const { projectId, from_type, from_id, from_name, to_type, to_id, to_name } = params
+        if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 })
+        if (!from_type || !['employee', 'partner'].includes(from_type))
+          return Response.json({ error: 'from_type must be employee or partner' }, { status: 400 })
+        if (!to_type || !['employee', 'partner'].includes(to_type))
+          return Response.json({ error: 'to_type must be employee or partner' }, { status: 400 })
+        if (!from_id || !to_id) return Response.json({ error: 'from_id and to_id required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: '現在の担当者情報を取得できませんでした。' }, { status: 500 })
+        const currentData = await currentRes.json()
+        const current: { assignee_type: string; assignee_id: string }[] = currentData.data ?? []
+
+        if (!current.some(a => a.assignee_type === from_type && a.assignee_id === from_id)) {
+          return Response.json({ error: `${from_name ?? '変更前の担当者'}はこの案件の担当ではありません。` }, { status: 400 })
+        }
+        if (current.some(a => a.assignee_type === to_type && a.assignee_id === to_id)) {
+          return Response.json({ error: `${to_name ?? '変更後の担当者'}はすでにこの案件の担当です。` }, { status: 400 })
+        }
+
+        const newAssignments = current
+          .filter(a => !(a.assignee_type === from_type && a.assignee_id === from_id))
+          .concat([{ assignee_type: to_type, assignee_id: to_id }])
+
+        const putRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ assignments: newAssignments }),
+        })
+        const putData = await putRes.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: putRes.ok ? 'success' : 'failed',
+          resourceType: 'project_assignment', resourceId: projectId,
+        })
+        if (!putRes.ok) return Response.json({ error: putData?.error ?? '担当者の変更に失敗しました。' }, { status: putRes.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/assignments`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const updated    = verifyData.data ?? []
+          const toExists   = updated.some((a: any) => a.assignee_type === to_type   && a.assignee_id === to_id)
+          const fromGone   = !updated.some((a: any) => a.assignee_type === from_type && a.assignee_id === from_id)
+          if (!toExists || !fromGone) {
+            return Response.json({ error: '担当者の変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `担当者を${from_name ?? '変更前の方'}から${to_name ?? '変更後の方'}に変更しました。` })
+      }
+
+      // ─── L4: update_project ──────────────────────────────
+      case 'console.update_project': {
+        const { projectId } = params
+        if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 })
+
+        const ALLOWED_FIELDS = ['name', 'project_type', 'start_date', 'end_date', 'location_name', 'address', 'notes', 'client_id', 'store_id'] as const
+        const VALID_TYPES    = ['spot', 'recurring', 'hotel']
+
+        const updateBody: Record<string, string | null> = {}
+        for (const field of ALLOWED_FIELDS) {
+          const val = params[field]
+          if (val === undefined) continue
+          if (field === 'project_type' && !VALID_TYPES.includes(val)) continue
+          updateBody[field] = val || null
+        }
+
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'project', resourceId: projectId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '案件の更新に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const p          = verifyData?.project
+          if (p) {
+            for (const [key, val] of Object.entries(updateBody)) {
+              if (val !== null && p[key] !== val) {
+                return Response.json({ error: '案件の更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+              }
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        if (updateBody.name)          changedParts.push(`案件名を「${updateBody.name}」に`)
+        if (updateBody.start_date)    changedParts.push(`開始日を${updateBody.start_date}に`)
+        if (updateBody.end_date)      changedParts.push(`終了日を${updateBody.end_date}に`)
+        if (updateBody.location_name) changedParts.push(`場所を「${updateBody.location_name}」に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : '案件情報を更新しました。',
+        })
       }
 
       // ─── L4: approve_expense ──────────────────────────────

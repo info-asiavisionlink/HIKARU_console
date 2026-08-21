@@ -111,23 +111,145 @@ const getProjectDetailTool = tool({
 
 const getProjectAssignmentsTool = tool({
   name:        'get_project_assignments',
-  description: '指定IDの案件担当者数・種別を取得する。',
+  description: '指定IDの案件担当者を実名で取得する。担当追加/変更/削除前にも使う。',
   parameters:  z.object({ project_id: z.string().describe('案件のID') }),
   execute: async ({ project_id }, runCtx) => {
-    const ctx  = runCtx!.context as ConsoleAgentSDKContext
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
     try {
       const res  = await apiGet(`/api/projects/${project_id}/assignments`, ctx)
       if (!res.ok) return '担当者情報を取得できませんでした。'
       const data = await res.json()
-      const assignments = Array.isArray(data?.data) ? data.data : []
-      if (assignments.length === 0) return 'この案件に担当者はいません。'
-      const empCount     = assignments.filter((a: any) => a.assignee_type === 'employee').length
-      const partnerCount = assignments.filter((a: any) => a.assignee_type === 'partner').length
-      const parts: string[] = []
-      if (empCount     > 0) parts.push(`従業員${empCount}名`)
-      if (partnerCount > 0) parts.push(`協力業者${partnerCount}名`)
-      return `担当: ${parts.join('、')}（合計${assignments.length}名）`
+      const assignments: { assignee_type: string; assignee_id: string }[] = Array.isArray(data?.data) ? data.data : []
+      if (assignments.length === 0) return `この案件に担当者はいません。[assignments:[]|project_id:${project_id}]`
+
+      const empIds     = assignments.filter(a => a.assignee_type === 'employee').map(a => a.assignee_id)
+      const partnerIds = assignments.filter(a => a.assignee_type === 'partner').map(a => a.assignee_id)
+      const empMap     = new Map<string, string>()
+      const partnerMap = new Map<string, string>()
+
+      await Promise.all([
+        empIds.length > 0
+          ? apiGet('/api/employees?pageSize=200', ctx).then(r => r.json()).then(d => {
+              for (const e of (d.data ?? [])) empMap.set(e.id, e.name ?? e.id)
+            }).catch(() => {})
+          : Promise.resolve(),
+        partnerIds.length > 0
+          ? apiGet('/api/partners?pageSize=200', ctx).then(r => r.json()).then(d => {
+              for (const p of (d.data ?? [])) partnerMap.set(p.id, p.company_name ?? p.contact_person_name ?? p.id)
+            }).catch(() => {})
+          : Promise.resolve(),
+      ])
+
+      const empNames:     string[] = empIds.map(id => empMap.get(id)).filter((n): n is string => !!n)
+      const partnerNames: string[] = partnerIds.map(id => partnerMap.get(id)).filter((n): n is string => !!n)
+      const unknownCount = assignments.length - empNames.length - partnerNames.length
+
+      const lines: string[] = []
+      if (empNames.length     > 0) lines.push(`従業員: ${empNames.join('、')}`)
+      if (partnerNames.length > 0) lines.push(`協力業者: ${partnerNames.join('、')}`)
+      if (unknownCount        > 0) lines.push(`${unknownCount}名の名前を確認できませんでした。`)
+
+      const assignmentList = assignments.map(a => {
+        const nameMap = a.assignee_type === 'employee' ? empMap : partnerMap
+        return `${a.assignee_type}:${a.assignee_id}:${nameMap.get(a.assignee_id) ?? '不明'}`
+      }).join(', ')
+
+      return `担当: ${lines.join('、')} [project_id:${project_id}|assignments:${assignmentList}]`
     } catch { return '担当者情報の取得中にエラーが発生しました。' }
+  },
+})
+
+const resolvePersonTool = tool({
+  name:        'resolve_person',
+  description: '名前キーワードで従業員・協力業者を検索し候補を返す。担当追加/変更前に必ず使う。AI生成ID禁止。',
+  parameters:  z.object({ name: z.string().describe('検索する名前キーワード') }),
+  execute: async ({ name }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!name?.trim()) return '名前が必要です。'
+    try {
+      const [empRes, partnerRes] = await Promise.all([
+        apiGet(`/api/employees?search=${encodeURIComponent(name)}&pageSize=10`, ctx),
+        apiGet(`/api/partners?search=${encodeURIComponent(name)}&pageSize=10`, ctx),
+      ])
+      const empData     = empRes.ok     ? await empRes.json()     : { data: [] }
+      const partnerData = partnerRes.ok ? await partnerRes.json() : { data: [] }
+      const employees:  any[] = empData.data     ?? []
+      const partners:   any[] = partnerData.data ?? []
+      const total = employees.length + partners.length
+
+      if (total === 0) return `「${name}」という担当者は見つかりませんでした。`
+
+      const candidates = [
+        ...employees.map((e: any) => `employee:${e.id}:${e.name}`),
+        ...partners.map((p: any) => `partner:${p.id}:${p.company_name ?? p.contact_person_name}`),
+      ].join(' / ')
+
+      if (total === 1) {
+        const type    = employees.length > 0 ? 'employee' : 'partner'
+        const id      = employees.length > 0 ? employees[0].id : partners[0].id
+        const resName = employees.length > 0 ? employees[0].name : (partners[0].company_name ?? partners[0].contact_person_name)
+        return `1名確定: ${type}:${id}:${resName} [resolved:${type}:${id}:${resName}]`
+      }
+      return `「${name}」で${total}名見つかりました。どの方ですか？ [candidates: ${candidates}]`
+    } catch { return '検索中にエラーが発生しました。' }
+  },
+})
+
+const resolveClientTool = tool({
+  name:        'resolve_client',
+  description: '顧客名で検索しclient_idを返す。案件作成/編集前に必ず使う。新規顧客登録は行わない。',
+  parameters:  z.object({ name: z.string().describe('顧客名キーワード') }),
+  execute: async ({ name }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!name?.trim()) return '顧客名が必要です。'
+    try {
+      const res = await apiGet(`/api/clients?search=${encodeURIComponent(name)}&pageSize=10`, ctx)
+      if (!res.ok) return '顧客情報を取得できませんでした。'
+      const data    = await res.json()
+      const clients: any[] = data.clients ?? []
+
+      if (clients.length === 0) {
+        return `「${name}」という顧客は見つかりませんでした。新規顧客の登録は管理画面から行ってください。`
+      }
+      const list = clients.map((c: any) => `${c.id}:${c.name}`).join(' / ')
+      if (clients.length === 1) {
+        return `顧客「${clients[0].name}」確定 [clientId:${clients[0].id}|clientName:${clients[0].name}]`
+      }
+      return `「${name}」に一致する顧客が${clients.length}件あります。どの顧客ですか？ [candidates: ${list}]`
+    } catch { return '顧客検索中にエラーが発生しました。' }
+  },
+})
+
+const resolveStoreTool = tool({
+  name:        'resolve_store',
+  description: '店舗名で検索しstore_idを返す。client_idが決まっている場合は指定する。',
+  parameters:  z.object({
+    name:      z.string().describe('店舗名キーワード'),
+    client_id: z.string().optional().describe('顧客ID（指定するとその顧客の店舗に絞り込む）'),
+  }),
+  execute: async ({ name, client_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!name?.trim()) return '店舗名が必要です。'
+    try {
+      const q = new URLSearchParams({ search: name, pageSize: '10' })
+      if (client_id) q.set('client_id', client_id)
+      const res = await apiGet(`/api/stores?${q}`, ctx)
+      if (!res.ok) return '店舗情報を取得できませんでした。'
+      const data   = await res.json()
+      const stores: any[] = data.stores ?? []
+
+      if (stores.length === 0) return `「${name}」という店舗は見つかりませんでした。`
+
+      const list = stores.map((s: any) => {
+        const clientName = s.clients?.name ?? ''
+        return `${s.id}:${s.name}${clientName ? `(${clientName})` : ''}`
+      }).join(' / ')
+
+      if (stores.length === 1) {
+        return `店舗「${stores[0].name}」確定 [storeId:${stores[0].id}|storeName:${stores[0].name}|clientId:${stores[0].client_id}]`
+      }
+      return `「${name}」に一致する店舗が${stores.length}件あります。どの店舗ですか？ [candidates: ${list}]`
+    } catch { return '店舗検索中にエラーが発生しました。' }
   },
 })
 
@@ -284,10 +406,10 @@ const getQualitySummaryTool = tool({
 
 const proposeActionTool = tool({
   name:        'propose_action',
-  description: 'L4 Write操作（経費承認・勤怠修正承認等）をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
+  description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.approve_expense / console.approve_attendance 等'),
-    params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（expenseId, correctionId等）'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_expense'),
+    params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
   execute: async ({ action, params = {}, confirmationMessage }) => {
@@ -324,36 +446,64 @@ const navigateTool = tool({
 const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
 清掃業務管理システムの管理者・マネージャーをサポートする音声アシスタントです。
 
-## 役割
-- 案件・顧客・従業員・協力業者の状況確認
-- 承認待ち経費・勤怠修正の件数確認
-- 品質評価サマリーの確認
-- 必要なページへのナビゲーション提案
-- 経費申請・勤怠修正申請の承認（Confirmation必須）
-
 ## 重要なルール
-- Toolで取得した情報のみを事実として扱う
+- Toolで取得した情報のみを事実として扱う。ID・名前をAIで生成しない。
 - 2〜3文以内で音声向けに簡潔に回答する
 - 売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。
 - 「利益は？」→ Tool不使用。「現在HIKARUに登録されている情報だけでは正確な利益は算出できません。」と答える。
 - 「先月の売上」等の今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。
 
-## Write操作のルール（重要）
-承認操作（経費承認・勤怠修正承認）は必ずpropose_actionを使う。
-直接実行は禁止。必ず管理者の確認を取ること。
-
-propose_action の使い方:
-1. まずRead Toolで承認対象のID・詳細を確認する（例: get_pending_expenses）
-2. propose_actionを呼ぶ（action, params, confirmationMessage を指定）
-3. finalOutputに確認文を書く（例: 「田中さんの3,200円交通費を承認します。よろしいですか？」）
-4. 管理者が「はい」と言ったら自動的にServerが実行する
+## Write操作のルール（最重要）
+全てのWriteはpropose_actionを使う。直接実行禁止。必ず管理者の確認を取ること。
+propose_action → finalOutputに確認文 → 管理者「はい」→ Serverが実行。
 
 ## Project 操作手順
 1. get_projects で一覧取得（status/project_type/search指定可）→ project_id確認
-2. 詳細は get_project_detail、担当者は get_project_assignments
+2. 詳細は get_project_detail、担当者実名は get_project_assignments
 3. ステータス変更: propose_action(console.update_project_status, {projectId, status: active/paused/completed/cancelled})
-4. 案件作成: nameを確認してから propose_action(console.create_project, {name, project_type, start_date})
-5. 案件削除は音声実行不可。「管理画面から操作してください。」と答える。
+4. 案件削除は音声実行不可。「管理画面から操作してください。」と答える。
+
+## 担当者操作（add/remove/replace）
+担当者ID・名前は必ずresolve_personで解決する。AI生成ID禁止。
+
+担当追加:
+1. get_project_assignments でprojectId確認・現在の担当者取得
+2. resolve_person(name) → 候補確認（1件確定 or 複数の場合は選択してもらう）
+3. 重複確認（すでに担当なら追加しない）
+4. propose_action(console.add_assignment, {projectId, assignee_type, assignee_id, assignee_name})
+   確認文例: 「この案件に田中さんを担当として追加します。よろしいですか？」
+
+担当削除:
+1. get_project_assignments で現在の担当者取得
+2. 対象をresolve_personまたはassignment一覧から特定
+3. propose_action(console.remove_assignment, {projectId, assignee_type, assignee_id, assignee_name})
+   確認文例: 「田中さんをこの案件の担当から外します。よろしいですか？」
+
+担当変更（from→to）:
+1. 両者をresolve_personで解決
+2. propose_action(console.replace_assignment, {projectId, from_type, from_id, from_name, to_type, to_id, to_name})
+   確認文例: 「田中さんから佐藤さんに担当を変更します。よろしいですか？」
+
+## 案件作成（完全版）
+1. 案件名・種別(spot/recurring/hotel)を確認
+2. 顧客名が分かる場合: resolve_client(name) → clientId確定
+3. 店舗名が分かる場合: resolve_store(name, client_id) → storeId確定
+4. propose_action(console.create_project, {name, project_type, start_date, end_date, location_name, client_id, store_id, notes})
+   確認文例: 「ABC株式会社、銀座店、スポット案件『床清掃』を8月25日開始で登録します。よろしいですか？」
+5. 情報が不足している場合は確認に進む前に聞く。勝手に登録しない。
+
+## 案件編集
+1. 対象案件のprojectIdを確認（get_projects等）
+2. 現在値を get_project_detail で確認してから変更内容をユーザーに確認
+3. 顧客/店舗変更の場合は resolve_client / resolve_store で解決
+4. propose_action(console.update_project, {projectId, [変更フィールド]: 値})
+   確認文例: 「『○○案件』の開始日を8月25日から8月30日に変更します。よろしいですか？」
+変更可能フィールド: name / project_type / start_date / end_date / location_name / address / notes / client_id / store_id
+
+## 顧客・店舗 Resolution
+- resolve_client: 1件確定→clientId使用。複数→どの顧客か聞く。0件→「見つかりませんでした」
+- resolve_store: clientId決定後にclient_id指定で絞り込む
+- 解決前にpropose_actionを呼ばない。新規顧客・店舗を勝手に作らない。
 
 ## Expense Approve/Reject 手順
 1. get_pending_expenses か get_expense_detail で対象IDを確認する
@@ -361,15 +511,20 @@ propose_action の使い方:
 3. 却下の場合は必ず理由をユーザーから先に聞く（APIが却下理由必須のため）
 
 ## propose_actionのactionとparamsの対応
-- console.update_project_status → params: { projectId, status }            「○○案件を稼働中に変更します。よろしいですか？」
-- console.create_project        → params: { name, project_type, start_date } 「○○スポット案件を登録します。よろしいですか？」
-- console.approve_expense       → params: { expenseId }                     「〇〇さんの〇〇円の経費申請を承認します。よろしいですか？」
-- console.reject_expense        → params: { expenseId, reject_reason }      「〇〇さんの〇〇円を理由『...』で却下します。よろしいですか？」
-- console.approve_attendance    → params: { correctionId }                  「〇〇さんの勤怠修正申請を承認します。よろしいですか？」
+- console.update_project_status → params: { projectId, status }
+- console.create_project        → params: { name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes? }
+- console.update_project        → params: { projectId, [変更フィールド]: 値 }
+- console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
+- console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
+- console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
+- console.approve_expense       → params: { expenseId }
+- console.reject_expense        → params: { expenseId, reject_reason }
+- console.approve_attendance    → params: { correctionId }
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
-「全部承認して」等はエラーとして説明すること。`
+「全部承認して」等はエラーとして説明すること。
+案件削除は音声禁止。「管理画面から操作してください。」と答える。`
 
 export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
   name:         'JARVIS Console',
@@ -380,6 +535,9 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getProjectsTool,
     getProjectDetailTool,
     getProjectAssignmentsTool,
+    resolvePersonTool,
+    resolveClientTool,
+    resolveStoreTool,
     getNotificationsTool,
     getPendingExpensesTool,
     getExpenseDetailTool,
