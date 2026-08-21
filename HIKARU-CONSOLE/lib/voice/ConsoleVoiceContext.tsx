@@ -729,28 +729,43 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
 
       // ── v0.17 正式イベント ──────────────────────────────────────
       // v0.15以前の connected/agent_start_speech 等はv0.17に存在しない。
+      // WebRTC modeでは audio_start / audio_interrupted は発火しない (WebSocket専用)。
+      // audio_stopped は response.output_audio.done → DataChannel経由で発火する。
+      // したがって mic mute は agent_start で開始し audio_stopped / agent_end で解除する。
       session.on?.('agent_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        // PROCESSING〜SPEAKING全体を保護: 回答生成開始時にmute、audio_stoppedでunmute。
+        muteMic(true)
+        console.log('[voice-audio] agent_start → mute')
         if (modeRef.current === 'listening' || modeRef.current === 'idle') setModeSync('processing')
       })
+      // audio_start: WebRTC modeでは発火しないがWebSocket fallback用に残す。
       session.on?.('audio_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
         isSpeakingRef.current = true
+        console.log('[voice-audio] audio_start (WebSocket fallback)')
         if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
         setModeSync('speaking')
       })
       session.on?.('audio_stopped', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
         isSpeakingRef.current = false
+        // audio完全終了後にunmute → Listening再開。WebRTC modeのunmuteはここが唯一の正規経路。
+        muteMic(false)
+        console.log('[voice-audio] audio_stopped → unmute → processing')
         setModeSync('processing')
         if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
         resumeTimerRef.current = setTimeout(() => {
           if (voiceEngineModeRef.current !== 'realtime') return
           if (modeRef.current !== 'processing') return
           setModeSync('listening')
+          console.log('[voice-audio] listening_restored')
         }, 300)
       })
       session.on?.('agent_end', (_ctx: unknown, _agent: unknown, output: string) => {
+        // 安全unmute: responseがcancel/error終了してaudio_stoppedが来ない場合の保護。
+        muteMic(false)
+        console.log('[voice-audio] agent_end → unmute(safety)')
         const text = (output ?? '').trim()
         if (!text) return
         const msgs = messagesRef.current
@@ -761,17 +776,23 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       })
       session.on?.('agent_tool_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        // agent_startで既にmute済み。二重muteは無害。
         muteMic(true)
+        console.log('[voice-audio] agent_tool_start → working (already muted)')
         setModeSync('working')
       })
       session.on?.('agent_tool_end', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
-        muteMic(false)
+        // muteは解除しない: audio_stoppedまでmute継続してJARVIS発話を保護する。
+        console.log('[voice-audio] agent_tool_end → processing (stay muted)')
         setModeSync('processing')
       })
+      // audio_interrupted: WebRTC modeでは発火しない (WebSocket専用)。safety unmute。
       session.on?.('audio_interrupted', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
         isSpeakingRef.current = false
+        muteMic(false)
+        console.log('[voice-audio] audio_interrupted → unmute → listening')
         if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
         setModeSync('listening')
       })
