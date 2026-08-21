@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server'
+import OpenAI from 'openai'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 
 // ============================================================
 // POST /api/ai/console-realtime-token — CONSOLE Realtime Ephemeral Token
-// System token endpoint とは完全分離。CONSOLE Admin認証のみ。
+// openai SDK v7: client.realtime.clientSecrets.create()
+// POST /v1/realtime/sessions は廃止済み。SDKメソッドを使用（Workerと同一方式）。
+// 認証: CONSOLE admin auth（getAuthContext）
 // ============================================================
 
 export const maxDuration = 15
@@ -26,30 +29,29 @@ export async function POST(req: NextRequest) {
   const voice = body.voice ?? 'alloy'
 
   try {
-    const res = await fetch('https://api.openai.com/v1/realtime/sessions', {
-      method:  'POST',
-      headers: {
-        Authorization:  `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+    const openai = new OpenAI({ apiKey })
+
+    // openai SDK v7: realtime.clientSecrets.create() でEphemeral Tokenを発行
+    const secret = await openai.realtime.clientSecrets.create({
+      session: {
+        type:  'realtime',
+        model: model as 'gpt-4o-realtime-preview',
+        audio: {
+          output: { voice: voice as 'alloy' },
+        },
       },
-      body: JSON.stringify({ model, voice }),
+      expires_after: { anchor: 'created_at', seconds: 600 },
     })
 
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[console-realtime-token]', err)
-      return Response.json({ error: 'Failed to create realtime session' }, { status: 502 })
-    }
-
-    const session = await res.json()
     return Response.json({
-      clientSecret: session?.client_secret?.value ?? null,
-      sessionId:    session?.id ?? null,
+      clientSecret: secret.value,
+      sessionId:    (secret.session as { id?: string })?.id ?? null,
       model,
       voice,
     })
   } catch (err) {
-    console.error('[console-realtime-token]', err)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[console-realtime-token]', msg)
+    return Response.json({ error: msg }, { status: 500 })
   }
 }
