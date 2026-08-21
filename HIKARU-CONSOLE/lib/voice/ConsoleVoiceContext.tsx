@@ -1085,14 +1085,18 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       session.on?.('audio_stopped', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
         isSpeakingRef.current = false
-        muteMic(false)
+        // Root Cause Fix: DO NOT unmute immediately after audio_stopped.
+        // Mic was previously opened before the 300ms timer fired, giving the
+        // server VAD a window to capture speaker echo and generate phantom turns.
+        // Fix: keep mic muted until after the echo cooldown, then unmute + set listening atomically.
         setModeSync('processing')
         if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
         resumeTimerRef.current = setTimeout(() => {
           if (voiceEngineModeRef.current !== 'realtime') return
           if (modeRef.current !== 'processing') return
+          muteMic(false)
           setModeSync('listening')
-        }, 300)
+        }, 700)
       })
       session.on?.('agent_end', (_ctx: unknown, _agent: unknown, output: string) => {
         // agent_endでunmuteしない: audio_stoppedを唯一の正規unmute経路とする。
