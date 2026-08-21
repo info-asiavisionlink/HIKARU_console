@@ -387,6 +387,114 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // ─── L4: create_client ───────────────────────────────
+      case 'console.create_client': {
+        const { name, code, phone, email, address, contact_name, notes } = params
+        if (!name?.trim()) return Response.json({ error: '顧客名は必須です' }, { status: 400 })
+
+        const createBody: Record<string, string> = { name: name.trim() }
+        if (code?.trim())         createBody.code         = code.trim()
+        if (phone?.trim())        createBody.phone        = phone.trim()
+        if (email?.trim())        createBody.email        = email.trim()
+        if (address?.trim())      createBody.address      = address.trim()
+        if (contact_name?.trim()) createBody.contact_name = contact_name.trim()
+        if (notes?.trim())        createBody.notes        = notes.trim()
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/clients`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'client',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '顧客登録に失敗しました。' }, { status: res.status })
+
+        const clientId = data?.client?.id
+        if (!clientId) return Response.json({ error: '顧客IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/clients/${clientId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const c = verifyData?.data
+          if (!c?.id || c.name !== name.trim()) {
+            return Response.json({ error: '顧客登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `顧客「${name.trim()}」を登録しました。` })
+      }
+
+      // ─── L4: update_client ───────────────────────────────
+      case 'console.update_client': {
+        const { clientId } = params
+        if (!clientId) return Response.json({ error: 'clientId required' }, { status: 400 })
+
+        const ALLOWED_CLIENT_FIELDS = ['name', 'code', 'phone', 'email', 'address', 'contact_name', 'notes', 'is_active'] as const
+        const updateBody: Record<string, string | boolean | null> = {}
+        for (const field of ALLOWED_CLIENT_FIELDS) {
+          const val = params[field]
+          if (val === undefined) continue
+          if (field === 'is_active') {
+            updateBody[field] = val === 'true'
+          } else {
+            updateBody[field] = val || null
+          }
+        }
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/clients/${clientId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'client', resourceId: clientId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '顧客情報の更新に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/clients/${clientId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const c = verifyData?.data
+          if (c) {
+            for (const [key, val] of Object.entries(updateBody)) {
+              if (val !== null && key !== 'is_active' && c[key] !== val) {
+                return Response.json({ error: '顧客情報の更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+              }
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        if (typeof updateBody.name         === 'string' && updateBody.name)         changedParts.push(`顧客名を「${updateBody.name}」に`)
+        if (typeof updateBody.phone        === 'string' && updateBody.phone)        changedParts.push(`電話番号を「${updateBody.phone}」に`)
+        if (typeof updateBody.email        === 'string' && updateBody.email)        changedParts.push(`メールを「${updateBody.email}」に`)
+        if (typeof updateBody.address      === 'string' && updateBody.address)      changedParts.push(`住所を「${updateBody.address}」に`)
+        if (typeof updateBody.contact_name === 'string' && updateBody.contact_name) changedParts.push(`担当者を「${updateBody.contact_name}」に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : '顧客情報を更新しました。',
+        })
+      }
+
       // ─── L4: approve_expense ──────────────────────────────
       case 'console.approve_expense': {
         const { expenseId } = params

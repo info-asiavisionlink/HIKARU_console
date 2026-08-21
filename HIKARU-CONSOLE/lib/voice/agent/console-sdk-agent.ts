@@ -404,6 +404,103 @@ const getQualitySummaryTool = tool({
   },
 })
 
+// ─── Client Tools ────────────────────────────────────────────
+
+const getClientsTool = tool({
+  name:        'get_clients',
+  description: '顧客・取引先の一覧や状況を確認する。「顧客一覧教えて」「取引先どんな会社ある？」「ABC社って登録されてる？」「何社取引してる？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+  parameters:  z.object({
+    search: z.string().optional().describe('顧客名・コード・メールで検索'),
+  }),
+  execute: async ({ search }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (search) q.set('search', search)
+      const res  = await apiGet(`/api/clients?${q}`, ctx)
+      if (!res.ok) return '顧客情報を取得できませんでした。'
+      const data    = await res.json()
+      const clients: any[] = data.clients ?? []
+      const total   = data.count ?? clients.length
+      if (total === 0) return search ? `「${search}」という顧客は見つかりませんでした。` : '顧客は登録されていません。'
+      const items = clients.slice(0, 5).map((c: any, i: number) => {
+        const status = c.is_active === false ? '停止中' : '稼働中'
+        return `${i + 1}件目: ${c.name}${c.code ? `（${c.code}）` : ''}、${status} [id:${c.id}]`
+      }).join(' / ')
+      return `顧客${total}社。${items}`
+    } catch { return '顧客一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getClientDetailTool = tool({
+  name:        'get_client_detail',
+  description: '指定した顧客の詳細情報（連絡先・住所・担当者等）を取得する。「この会社の情報教えて」「電話番号は？」「メールアドレスは？」「住所は？」等。一覧でIDを確認後に使う。',
+  parameters:  z.object({ client_id: z.string().describe('顧客のID') }),
+  execute: async ({ client_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!client_id) return '顧客IDが必要です。'
+    try {
+      const res  = await apiGet(`/api/clients/${client_id}`, ctx)
+      if (!res.ok) return '顧客情報を取得できませんでした。'
+      const data = await res.json()
+      const c    = data?.data
+      if (!c) return '顧客が見つかりませんでした。'
+      const status   = c.is_active === false ? '停止中' : '稼働中'
+      const phone    = c.phone    ? `、電話: ${c.phone}`         : ''
+      const email    = c.email    ? `、メール: ${c.email}`       : ''
+      const address  = c.address  ? `、住所: ${c.address}`       : ''
+      const contact  = c.contact_name ? `、担当: ${c.contact_name}` : ''
+      const notes    = c.notes    ? `、備考: ${c.notes}`         : ''
+      return `顧客詳細 — ${c.name}${c.code ? `（${c.code}）` : ''}、${status}${phone}${email}${address}${contact}${notes} [id:${client_id}]`
+    } catch { return '顧客詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const getClientStoresTool = tool({
+  name:        'get_client_stores',
+  description: '指定した顧客に紐づく店舗一覧を取得する。「この会社の店舗教えて」「このお客さんの拠点は？」「どこに店舗ある？」等。',
+  parameters:  z.object({ client_id: z.string().describe('顧客のID') }),
+  execute: async ({ client_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!client_id) return '顧客IDが必要です。'
+    try {
+      const res  = await apiGet(`/api/stores?client_id=${client_id}&pageSize=20`, ctx)
+      if (!res.ok) return '店舗情報を取得できませんでした。'
+      const data   = await res.json()
+      const stores: any[] = data.stores ?? []
+      if (stores.length === 0) return 'この顧客に紐づく店舗は登録されていません。'
+      const items = stores.slice(0, 8).map((s: any, i: number) =>
+        `${i + 1}件目: ${s.name}${s.address ? `、${s.address}` : ''} [id:${s.id}]`
+      ).join(' / ')
+      return `店舗${stores.length}件。${items}`
+    } catch { return '店舗情報の取得中にエラーが発生しました。' }
+  },
+})
+
+const getClientProjectsTool = tool({
+  name:        'get_client_projects',
+  description: '指定した顧客に紐づく案件一覧を取得する。「この会社の案件教えて」「この顧客の仕事は？」「今この会社で動いてる現場ある？」等。',
+  parameters:  z.object({ client_id: z.string().describe('顧客のID') }),
+  execute: async ({ client_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!client_id) return '顧客IDが必要です。'
+    try {
+      const res  = await apiGet(`/api/projects?client_id=${client_id}&pageSize=10`, ctx)
+      if (!res.ok) return '案件情報を取得できませんでした。'
+      const data     = await res.json()
+      const projects: any[] = data.projects ?? []
+      const total    = data.count ?? projects.length
+      if (total === 0) return 'この顧客に紐づく案件はありません。'
+      const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+      const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+      const items = projects.slice(0, 5).map((p: any, i: number) =>
+        `${i + 1}件目: ${p.name}、${PT[p.project_type] ?? p.project_type}、${ST[p.status] ?? p.status} [id:${p.id}]`
+      ).join(' / ')
+      return `案件${total}件。${items}`
+    } catch { return '案件情報の取得中にエラーが発生しました。' }
+  },
+})
+
 const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
@@ -476,6 +573,17 @@ propose_action → finalOutputに確認文 → 管理者「はい」→ Server�
 3. ステータス変更: propose_action(console.update_project_status, {projectId, status: active/paused/completed/cancelled})
 4. 案件削除は音声実行不可。「管理画面から操作してください。」と答える。
 
+## 顧客操作手順
+顧客一覧: get_clients（search指定可）→ clientId確認
+顧客詳細: get_client_detail（clientIdが必要）
+顧客の店舗: get_client_stores（clientIdが必要）
+顧客の案件: get_client_projects（clientIdが必要）
+顧客登録: name確認後 → propose_action(console.create_client, {name, phone?, email?, address?, contact_name?, notes?})
+  確認文例: 「ABC株式会社、担当者田中様で登録します。よろしいですか？」
+顧客編集: get_client_detailで現在値確認 → propose_action(console.update_client, {clientId, [変更フィールド]: 値})
+  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
+顧客削除: 音声で実行不可。「管理画面から操作してください。」と答える。
+
 ## 担当者操作（add/remove/replace）
 担当者ID・名前は必ずresolve_personで解決する。AI生成ID禁止。
 
@@ -530,6 +638,8 @@ propose_action → finalOutputに確認文 → 管理者「はい」→ Server�
 - console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
 - console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
 - console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
+- console.create_client         → params: { name, code?, phone?, email?, address?, contact_name?, notes? }
+- console.update_client         → params: { clientId, [変更フィールド]: 値 } ※変更可: name/code/phone/email/address/contact_name/notes/is_active
 - console.approve_expense       → params: { expenseId }
 - console.reject_expense        → params: { expenseId, reject_reason }
 - console.approve_attendance    → params: { correctionId }
@@ -551,6 +661,10 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     resolvePersonTool,
     resolveClientTool,
     resolveStoreTool,
+    getClientsTool,
+    getClientDetailTool,
+    getClientStoresTool,
+    getClientProjectsTool,
     getNotificationsTool,
     getPendingExpensesTool,
     getExpenseDetailTool,

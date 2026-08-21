@@ -59,6 +59,18 @@ NavigationせずにDataツールを使う。
 ダッシュボード → get_dashboard_summary
 売上・未入金・未請求 → get_revenue_summary（navigationしない）
 
+## 顧客操作手順
+顧客一覧: get_clients（search指定可）→ clientId確認
+顧客詳細: get_client_detail（clientIdが必要）
+顧客の店舗: get_client_stores（clientIdが必要）
+顧客の案件: get_client_projects（clientIdが必要）
+顧客登録: name確認後 → 確認後 execute_confirmed_action(console.create_client, {name, phone?, email?, address?, contact_name?, notes?})
+  確認文例: 「ABC株式会社、担当者田中様で登録します。よろしいですか？」
+顧客編集: get_client_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_client, {clientId, [変更フィールド]: 値})
+  変更可能: name/code/phone/email/address/contact_name/notes/is_active
+  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
+顧客削除: 音声で実行不可。「管理画面から操作してください。」と答える。
+
 ## Project Create/Status（重要手順）
 1. 対象案件が不明な場合 → 「どの案件ですか？」と聞く。勝手に選ばない。
 2. ステータス変更: 確認後 execute_confirmed_action(console.update_project_status, {projectId, status}) — status: active/paused/completed/cancelled
@@ -339,6 +351,96 @@ function buildConsoleRealtimeTools(
         return `「${name}」に一致する店舗が${stores.length}件あります。どの店舗ですか？ [candidates: ${list}]`
       },
     }),
+    // ─── Client Tools ──────────────────────────────────────
+    toolFactory({
+      name: 'get_clients',
+      description: '顧客・取引先の一覧や状況を確認する。「顧客一覧教えて」「取引先どんな会社ある？」「ABC社って登録されてる？」「何社取引してる？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      parameters: {
+        type: 'object',
+        properties: { search: { type: 'string', description: '顧客名・コード・メールで検索' } },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ search }: { search?: string }) => {
+        const q = new URLSearchParams({ pageSize: '10' })
+        if (search) q.set('search', search)
+        const data = await apiFetch(`/api/clients?${q}`)
+        if (!data) return '顧客情報を取得できませんでした。'
+        const clients: any[] = data.clients ?? []
+        const total = data.count ?? clients.length
+        if (total === 0) return search ? `「${search}」という顧客は見つかりませんでした。` : '顧客は登録されていません。'
+        const items = clients.slice(0, 5).map((c: any, i: number) => {
+          const status = c.is_active === false ? '停止中' : '稼働中'
+          return `${i + 1}件目: ${c.name}${c.code ? `（${c.code}）` : ''}、${status} [id:${c.id}]`
+        }).join(' / ')
+        return `顧客${total}社。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_client_detail',
+      description: '指定した顧客の詳細情報（連絡先・住所・担当者等）を取得する。「この会社の情報教えて」「電話番号は？」「メールアドレスは？」「住所は？」等。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { client_id: { type: 'string', description: '顧客のID' } },
+        required: ['client_id'], additionalProperties: false,
+      },
+      execute: async ({ client_id }: { client_id: string }) => {
+        if (!client_id) return '顧客IDが必要です。'
+        const data = await apiFetch(`/api/clients/${client_id}`)
+        if (!data) return '顧客情報を取得できませんでした。'
+        const c = data?.data
+        if (!c) return '顧客が見つかりませんでした。'
+        const status = c.is_active === false ? '停止中' : '稼働中'
+        const parts: string[] = [`顧客詳細 — ${c.name}${c.code ? `（${c.code}）` : ''}、${status}`]
+        if (c.contact_name) parts.push(`担当: ${c.contact_name}`)
+        if (c.phone)        parts.push(`電話: ${c.phone}`)
+        if (c.email)        parts.push(`メール: ${c.email}`)
+        if (c.address)      parts.push(`住所: ${c.address}`)
+        return `${parts.join('、')} [id:${client_id}]`
+      },
+    }),
+    toolFactory({
+      name: 'get_client_stores',
+      description: '指定した顧客に紐づく店舗一覧を取得する。「この会社の店舗教えて」「このお客さんの拠点は？」「どこに店舗ある？」等。',
+      parameters: {
+        type: 'object',
+        properties: { client_id: { type: 'string', description: '顧客のID' } },
+        required: ['client_id'], additionalProperties: false,
+      },
+      execute: async ({ client_id }: { client_id: string }) => {
+        if (!client_id) return '顧客IDが必要です。'
+        const data = await apiFetch(`/api/stores?client_id=${client_id}&pageSize=20`)
+        if (!data) return '店舗情報を取得できませんでした。'
+        const stores: any[] = data.stores ?? []
+        if (stores.length === 0) return 'この顧客に紐づく店舗は登録されていません。'
+        const items = stores.slice(0, 8).map((s: any, i: number) =>
+          `${i + 1}件目: ${s.name}${s.address ? `、${s.address}` : ''} [id:${s.id}]`
+        ).join(' / ')
+        return `店舗${stores.length}件。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_client_projects',
+      description: '指定した顧客に紐づく案件一覧を取得する。「この会社の案件教えて」「この顧客の仕事は？」「今この会社で動いてる現場ある？」等。',
+      parameters: {
+        type: 'object',
+        properties: { client_id: { type: 'string', description: '顧客のID' } },
+        required: ['client_id'], additionalProperties: false,
+      },
+      execute: async ({ client_id }: { client_id: string }) => {
+        if (!client_id) return '顧客IDが必要です。'
+        const data = await apiFetch(`/api/projects?client_id=${client_id}&pageSize=10`)
+        if (!data) return '案件情報を取得できませんでした。'
+        const projects: any[] = data.projects ?? []
+        const total = data.count ?? projects.length
+        if (total === 0) return 'この顧客に紐づく案件はありません。'
+        const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+        const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+        const items = projects.slice(0, 5).map((p: any, i: number) =>
+          `${i + 1}件目: ${p.name}、${PT[p.project_type] ?? p.project_type}、${ST[p.status] ?? p.status} [id:${p.id}]`
+        ).join(' / ')
+        return `案件${total}件。${items}`
+      },
+    }),
     toolFactory({
       name: 'get_pending_expenses', description: '承認待ちの経費申請一覧を取得する。「経費申請来てる？」「まだ処理してない経費ある？」「お金の申請が上がってる？」等に使う。データを取得する場合に使う（画面を開く場合はnavigate_toを使う）。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
@@ -450,7 +552,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],

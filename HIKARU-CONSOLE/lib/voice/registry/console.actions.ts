@@ -152,6 +152,14 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '案件の基本情報（名称・種別・日程・場所・メモ等）を編集する（Confirmation必須）',
   },
+  'console.create_client': {
+    level: 4 as const,
+    description: '顧客・取引先を新規登録する（顧客名必須、Confirmation必須）',
+  },
+  'console.update_client': {
+    level: 4 as const,
+    description: '顧客・取引先の基本情報を編集する（Confirmation必須）',
+  },
   'console.approve_expense': {
     level: 4 as const,
     description: '経費申請を承認する',

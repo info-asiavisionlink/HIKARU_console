@@ -511,6 +511,131 @@ const navigate: ConsoleAgentTool = {
   },
 }
 
+// ─── Client Tools ────────────────────────────────────────────
+
+const getClients: ConsoleAgentTool = {
+  name:        'get_clients',
+  description: '顧客・取引先の一覧や状況を確認する。「顧客一覧教えて」「取引先どんな会社ある？」「ABC社って登録されてる？」「何社取引してる？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { search: { type: 'string', description: '顧客名・コード・メールで検索' } },
+    required:   [],
+  },
+  async execute(params, ctx): Promise<import('./types').ToolResult> {
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (params.search) q.set('search', params.search)
+      const res  = await apiFetch(`/api/clients?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '顧客情報を取得できませんでした。' }
+      const data    = await res.json()
+      const clients: any[] = data.clients ?? []
+      const total   = data.count ?? clients.length
+      if (total === 0) return { success: true, text: params.search ? `「${params.search}」という顧客は見つかりませんでした。` : '顧客は登録されていません。', items: [] }
+      const items = clients.slice(0, 5).map((c: any, i: number) => ({
+        id:    c.id,
+        label: `${i + 1}件目: ${c.name}${c.code ? `（${c.code}）` : ''}、${c.is_active === false ? '停止中' : '稼働中'}`,
+      }))
+      return { success: true, text: `顧客が${total}社あります。`, items, data: { total } }
+    } catch {
+      return { success: false, text: '顧客一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getClientDetail: ConsoleAgentTool = {
+  name:        'get_client_detail',
+  description: '指定した顧客の詳細情報（連絡先・住所・担当者等）を取得する。「この会社の情報教えて」「電話番号は？」「メールアドレスは？」「住所は？」等。一覧でIDを確認後に使う。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { client_id: { type: 'string', description: '顧客のID' } },
+    required:   ['client_id'],
+  },
+  async execute(params, ctx): Promise<import('./types').ToolResult> {
+    const clientId = params.client_id
+    if (!clientId) return { success: false, text: '顧客IDが必要です。' }
+    try {
+      const res  = await apiFetch(`/api/clients/${clientId}`, ctx)
+      if (!res.ok) return { success: false, text: '顧客情報を取得できませんでした。' }
+      const data = await res.json()
+      const c    = data?.data
+      if (!c) return { success: false, text: '顧客が見つかりませんでした。' }
+      const status  = c.is_active === false ? '停止中' : '稼働中'
+      const parts: string[] = [`顧客詳細 — ${c.name}${c.code ? `（${c.code}）` : ''}、${status}`]
+      if (c.contact_name) parts.push(`担当: ${c.contact_name}`)
+      if (c.phone)        parts.push(`電話: ${c.phone}`)
+      if (c.email)        parts.push(`メール: ${c.email}`)
+      if (c.address)      parts.push(`住所: ${c.address}`)
+      if (c.notes)        parts.push(`備考: ${c.notes}`)
+      return { success: true, text: parts.join('、'), items: [{ id: clientId, label: `ID: ${clientId}` }] }
+    } catch {
+      return { success: false, text: '顧客詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getClientStores: ConsoleAgentTool = {
+  name:        'get_client_stores',
+  description: '指定した顧客に紐づく店舗一覧を取得する。「この会社の店舗教えて」「このお客さんの拠点は？」「どこに店舗ある？」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { client_id: { type: 'string', description: '顧客のID' } },
+    required:   ['client_id'],
+  },
+  async execute(params, ctx): Promise<import('./types').ToolResult> {
+    const clientId = params.client_id
+    if (!clientId) return { success: false, text: '顧客IDが必要です。' }
+    try {
+      const res    = await apiFetch(`/api/stores?client_id=${clientId}&pageSize=20`, ctx)
+      if (!res.ok) return { success: false, text: '店舗情報を取得できませんでした。' }
+      const data   = await res.json()
+      const stores: any[] = data.stores ?? []
+      if (stores.length === 0) return { success: true, text: 'この顧客に紐づく店舗は登録されていません。', items: [] }
+      const items = stores.slice(0, 8).map((s: any, i: number) => ({
+        id:    s.id,
+        label: `${i + 1}件目: ${s.name}${s.address ? `、${s.address}` : ''}`,
+      }))
+      return { success: true, text: `店舗が${stores.length}件あります。`, items }
+    } catch {
+      return { success: false, text: '店舗情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getClientProjects: ConsoleAgentTool = {
+  name:        'get_client_projects',
+  description: '指定した顧客に紐づく案件一覧を取得する。「この会社の案件教えて」「この顧客の仕事は？」「今この会社で動いてる現場ある？」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { client_id: { type: 'string', description: '顧客のID' } },
+    required:   ['client_id'],
+  },
+  async execute(params, ctx): Promise<import('./types').ToolResult> {
+    const clientId = params.client_id
+    if (!clientId) return { success: false, text: '顧客IDが必要です。' }
+    try {
+      const res      = await apiFetch(`/api/projects?client_id=${clientId}&pageSize=10`, ctx)
+      if (!res.ok) return { success: false, text: '案件情報を取得できませんでした。' }
+      const data     = await res.json()
+      const projects: any[] = data.projects ?? []
+      const total    = data.count ?? projects.length
+      if (total === 0) return { success: true, text: 'この顧客に紐づく案件はありません。', items: [] }
+      const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+      const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+      const items = projects.slice(0, 5).map((p: any, i: number) => ({
+        id:    p.id,
+        label: `${i + 1}件目: ${p.name}、${PT[p.project_type] ?? p.project_type}、${ST[p.status] ?? p.status}`,
+      }))
+      return { success: true, text: `案件が${total}件あります。`, items, data: { total } }
+    } catch {
+      return { success: false, text: '案件情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Registry ────────────────────────────────────────────────
 export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getDashboardSummary,
@@ -520,6 +645,10 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   resolvePerson,
   resolveClient,
   resolveStore,
+  getClients,
+  getClientDetail,
+  getClientStores,
+  getClientProjects,
   getNotifications,
   getPendingExpenses,
   getExpenseDetail,

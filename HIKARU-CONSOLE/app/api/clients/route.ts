@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 
+// POST /api/clients — 顧客新規登録（JARVIS Voice + UI共用）
+export async function POST(req: NextRequest) {
+  const auth = await getAuthContext()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // company_id / id / created_at はサーバー側で決定しBody不信
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { company_id: _cid, id: _id, created_at: _ca, updated_at: _ua, ...safeBody } = await req.json()
+
+  if (!safeBody.name?.trim()) {
+    return NextResponse.json({ error: '顧客名は必須です' }, { status: 400 })
+  }
+
+  const { data, error } = await auth.adminClient
+    .from('clients')
+    .insert({ ...safeBody, company_id: auth.companyId })
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ client: data }, { status: 201 })
+}
+
 export async function GET(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) {
