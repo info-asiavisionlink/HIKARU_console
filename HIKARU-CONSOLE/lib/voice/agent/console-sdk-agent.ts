@@ -631,7 +631,9 @@ const getEmployeeShiftsTool = tool({
     try {
       const now = new Date()
       const from   = date_from ?? now.toISOString().slice(0, 10)
-      const toDate = date_to ?? (() => { const d = new Date(now); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })()
+      const endDate = new Date(now)
+      endDate.setDate(endDate.getDate() + 7)
+      const toDate = date_to ?? endDate.toISOString().slice(0, 10)
       const q    = new URLSearchParams({ employee_id, date_from: from, date_to: toDate })
       const res  = await apiGet(`/api/shifts?${q}`, ctx)
       if (!res.ok) return 'シフト情報を取得できませんでした。'

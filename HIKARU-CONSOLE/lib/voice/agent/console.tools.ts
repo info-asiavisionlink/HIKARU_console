@@ -794,9 +794,11 @@ const getEmployeeShifts: ConsoleAgentTool = {
     const empId = params.employee_id
     if (!empId) return { success: false, text: '従業員IDが必要です。' }
     try {
-      const now    = new Date()
-      const from   = params.date_from ?? now.toISOString().slice(0, 10)
-      const toDate = params.date_to ?? (() => { const d = new Date(now); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })()
+      const now     = new Date()
+      const from    = params.date_from ?? now.toISOString().slice(0, 10)
+      const endDate = new Date(now)
+      endDate.setDate(endDate.getDate() + 7)
+      const toDate  = params.date_to ?? endDate.toISOString().slice(0, 10)
       const q      = new URLSearchParams({ employee_id: empId, date_from: from, date_to: toDate })
       const res    = await apiFetch(`/api/shifts?${q}`, ctx)
       if (!res.ok) return { success: false, text: 'シフト情報を取得できませんでした。' }
