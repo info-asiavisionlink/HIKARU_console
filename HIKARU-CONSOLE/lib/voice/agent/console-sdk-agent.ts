@@ -91,7 +91,7 @@ const getNotificationsTool = tool({
 
 const getPendingExpensesTool = tool({
   name:        'get_pending_expenses',
-  description: '承認待ちの経費申請件数と一覧を確認する',
+  description: '承認待ちの経費申請一覧（申請者・金額・カテゴリ・日付・ID）を取得する',
   parameters:  z.object({}),
   execute: async (_, runCtx) => {
     const ctx   = runCtx!.context as ConsoleAgentSDKContext
@@ -102,8 +102,40 @@ const getPendingExpensesTool = tool({
       // API: { expenses: [...], kpi: {...} }
       const items = Array.isArray(data?.expenses) ? data.expenses : []
       if (items.length === 0) return '承認待ちの経費申請はありません。'
-      return `承認待ちの経費申請が${items.length}件あります。`
+      const CATS: Record<string, string> = { transport: '交通費', parking: '駐車料', supplies: '備品費', consumables: '消耗品費', other: 'その他' }
+      const list = items.slice(0, 5).map((e: any, i: number) => {
+        const name = e.profiles?.name ?? '申請者不明'
+        const cat  = CATS[e.category] ?? e.category ?? 'その他'
+        const amt  = `${Number(e.amount ?? 0).toLocaleString('ja-JP')}円`
+        const date = e.expense_date ? `、${e.expense_date}` : ''
+        return `${i + 1}件目: ${name}、${cat}、${amt}${date} [id:${e.id}]`
+      }).join(' / ')
+      return `承認待ち経費が${items.length}件あります。${list}`
     } catch { return '経費申請の取得中にエラーが発生しました。' }
+  },
+})
+
+const getExpenseDetailTool = tool({
+  name:        'get_expense_detail',
+  description: '指定IDの経費申請詳細を取得する。一覧でIDを確認後に使う。',
+  parameters:  z.object({ expense_id: z.string().describe('経費申請のID') }),
+  execute: async ({ expense_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res  = await apiGet(`/api/expenses/${expense_id}`, ctx)
+      if (!res.ok) return '経費詳細を取得できませんでした。'
+      const data = await res.json()
+      const exp  = data?.expense
+      if (!exp) return '経費情報が見つかりませんでした。'
+      const CATS: Record<string, string> = { transport: '交通費', parking: '駐車料', supplies: '備品費', consumables: '消耗品費', other: 'その他' }
+      const name = exp.profiles?.name ?? '申請者不明'
+      const cat  = CATS[exp.category] ?? exp.category ?? 'その他'
+      const amt  = `${Number(exp.amount ?? 0).toLocaleString('ja-JP')}円`
+      const date = exp.expense_date ? `、${exp.expense_date}` : ''
+      const desc = exp.description ? `、用途: ${exp.description}` : (exp.title ? `、件名: ${exp.title}` : '')
+      const stat = exp.status ?? '不明'
+      return `経費詳細 — ${name}、${cat}、${amt}${date}${desc}、ステータス: ${stat}、ID: ${expense_id}`
+    } catch { return '経費詳細の取得中にエラーが発生しました。' }
   },
 })
 
@@ -256,9 +288,15 @@ propose_action の使い方:
 3. finalOutputに確認文を書く（例: 「田中さんの3,200円交通費を承認します。よろしいですか？」）
 4. 管理者が「はい」と言ったら自動的にServerが実行する
 
+## Expense Approve/Reject 手順
+1. get_pending_expenses か get_expense_detail で対象IDを確認する
+2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
+3. 却下の場合は必ず理由をユーザーから先に聞く（APIが却下理由必須のため）
+
 ## propose_actionのactionとparamsの対応
-- console.approve_expense    → params: { expenseId }    「〇〇さんの〇〇円の経費申請を承認します。よろしいですか？」
-- console.approve_attendance → params: { correctionId } 「〇〇さんの勤怠修正申請を承認します。よろしいですか？」
+- console.approve_expense    → params: { expenseId }                     「〇〇さんの〇〇円の経費申請を承認します。よろしいですか？」
+- console.reject_expense     → params: { expenseId, reject_reason }      「〇〇さんの〇〇円を理由『...』で却下します。よろしいですか？」
+- console.approve_attendance → params: { correctionId }                  「〇〇さんの勤怠修正申請を承認します。よろしいですか？」
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -273,6 +311,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getProjectsTool,
     getNotificationsTool,
     getPendingExpensesTool,
+    getExpenseDetailTool,
     getPendingAttendanceTool,
     getPendingRequestsTool,
     getRevenueTool,

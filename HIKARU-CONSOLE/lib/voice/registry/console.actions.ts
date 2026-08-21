@@ -32,6 +32,10 @@ export const CONSOLE_ACTIONS = {
     level: 1 as const,
     description: '勤怠修正申請の承認待ち件数を確認',
   },
+  'console.get_expense_detail': {
+    level: 1 as const,
+    description: '指定した経費申請の詳細（申請者・金額・カテゴリ・日付・内容・ステータス）を取得',
+  },
   'console.get_revenue': {
     level: 1 as const,
     description: '今月売上・今年売上・未入金・未請求をHIKARU登録データから確認',
@@ -119,6 +123,10 @@ export const CONSOLE_ACTIONS = {
   'console.approve_expense': {
     level: 4 as const,
     description: '経費申請を承認する',
+  },
+  'console.reject_expense': {
+    level: 4 as const,
+    description: '経費申請を却下する（却下理由必須）',
   },
   'console.approve_attendance': {
     level: 4 as const,

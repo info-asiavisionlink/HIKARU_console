@@ -67,7 +67,19 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         const data = await res.json()
         // API: { expenses: [...], kpi: {...} }
         const items = Array.isArray(data?.expenses) ? data.expenses : []
-        return none(items.length === 0 ? '承認待ちの経費申請はありません。' : `承認待ちの経費申請が${items.length}件あります。`)
+        if (items.length === 0) return none('承認待ちの経費申請はありません。')
+        const CATS: Record<string, string> = { transport: '交通費', parking: '駐車料', supplies: '備品費', consumables: '消耗品費', other: 'その他' }
+        const list = items.slice(0, 3).map((e: any, i: number) => {
+          const name = e.profiles?.name ?? '申請者不明'
+          const cat  = CATS[e.category] ?? 'その他'
+          const amt  = `${Number(e.amount ?? 0).toLocaleString('ja-JP')}円`
+          return `${i + 1}件目: ${name}、${cat}、${amt}`
+        }).join('。')
+        return none(`承認待ち経費が${items.length}件あります。${list}`)
+      }
+      case 'console.get_expense_detail': {
+        // L1 handlerはIDを持たないため一覧参照を案内する
+        return none('経費詳細を確認するには、まず「承認待ちの経費教えて」で一覧を取得してください。')
       }
       case 'console.get_pending_attendance': {
         const res = await fetch('/api/attendance/corrections?status=pending', { credentials: 'include' })

@@ -79,7 +79,51 @@ export async function POST(req: NextRequest) {
           resourceType: 'expense', resourceId: expenseId,
         })
         if (!res.ok) return Response.json({ error: data?.error ?? '経費申請の承認に失敗しました。' }, { status: res.status })
+
+        // Read-back: DB上のstatusを確認してからsuccessとする（FAKE_SUCCESS防止）
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/expenses/${expenseId}`, {
+          headers: { Cookie: req.headers.get('cookie') ?? '' },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.expense?.status !== 'approved') {
+            return Response.json({ error: '承認処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
         return Response.json({ success: true, voiceReply: '経費申請を承認しました。' })
+      }
+
+      // ─── L4: reject_expense ───────────────────────────────
+      case 'console.reject_expense': {
+        const { expenseId, reject_reason } = params
+        if (!expenseId) return Response.json({ error: 'expenseId required' }, { status: 400 })
+        if (!reject_reason?.trim()) return Response.json({ error: '却下理由は必須です' }, { status: 400 })
+
+        const res = await fetch(`${req.nextUrl.origin}/api/expenses/${expenseId}/reject`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
+          body:    JSON.stringify({ reject_reason: reject_reason.trim() }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'expense', resourceId: expenseId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '経費申請の却下に失敗しました。' }, { status: res.status })
+
+        // Read-back: DB上のstatusを確認してからsuccessとする（FAKE_SUCCESS防止）
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/expenses/${expenseId}`, {
+          headers: { Cookie: req.headers.get('cookie') ?? '' },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.expense?.status !== 'rejected') {
+            return Response.json({ error: '却下処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+        return Response.json({ success: true, voiceReply: '経費申請を却下しました。' })
       }
 
       // ─── L4: approve_attendance ───────────────────────────

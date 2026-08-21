@@ -102,9 +102,14 @@ const getNotifications: ConsoleAgentTool = {
   },
 }
 
+const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  transport: '交通費', parking: '駐車料', supplies: '備品費',
+  consumables: '消耗品費', other: 'その他',
+}
+
 const getPendingExpenses: ConsoleAgentTool = {
   name:        'get_pending_expenses',
-  description: '承認待ちの経費申請件数と一覧を確認する',
+  description: '承認待ちの経費申請一覧（申請者・金額・カテゴリ・日付・ID）を取得する',
   safetyLevel: 1,
   parameters:  { type: 'object', properties: {}, required: [] },
   async execute(_, ctx): Promise<ToolResult> {
@@ -116,17 +121,53 @@ const getPendingExpenses: ConsoleAgentTool = {
       const items = Array.isArray(data?.expenses) ? data.expenses : []
       if (items.length === 0) return { success: true, text: '承認待ちの経費申請はありません。' }
       const listItems = items.slice(0, 5).map(
-        (e: { id: string; amount?: number; title?: string }, i: number) => ({
-          id: e.id, label: `${i + 1}件目: ${e.title ?? `¥${e.amount ?? '?'}`}`,
+        (e: { id: string; amount?: number; title?: string; category?: string; expense_date?: string; profiles?: { name?: string } }, i: number) => ({
+          id:    e.id,
+          label: `${i + 1}件目: ${e.profiles?.name ?? '申請者不明'}、${EXPENSE_CATEGORY_LABELS[e.category ?? ''] ?? 'その他'}、${Number(e.amount ?? 0).toLocaleString('ja-JP')}円${e.expense_date ? `、${e.expense_date}` : ''}`,
         })
       )
       return {
         success: true,
-        text:    `承認待ちの経費申請が${items.length}件あります。`,
+        text:    `承認待ち経費が${items.length}件あります。`,
         items:   listItems,
       }
     } catch {
       return { success: false, text: '経費申請の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getExpenseDetail: ConsoleAgentTool = {
+  name:        'get_expense_detail',
+  description: '指定IDの経費申請詳細を取得する。一覧でIDを確認後に使う。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { expense_id: { type: 'string', description: '経費申請のID' } },
+    required: ['expense_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const expenseId = params.expense_id as string
+    if (!expenseId) return { success: false, text: '経費IDが必要です。' }
+    try {
+      const res  = await apiFetch(`/api/expenses/${expenseId}`, ctx)
+      if (!res.ok) return { success: false, text: '経費詳細を取得できませんでした。' }
+      const data = await res.json()
+      const exp  = data?.expense
+      if (!exp) return { success: false, text: '経費情報が見つかりませんでした。' }
+      const name = exp.profiles?.name ?? '申請者不明'
+      const cat  = EXPENSE_CATEGORY_LABELS[exp.category] ?? exp.category ?? 'その他'
+      const amt  = `${Number(exp.amount ?? 0).toLocaleString('ja-JP')}円`
+      const date = exp.expense_date ? `、${exp.expense_date}` : ''
+      const desc = exp.description ? `、用途: ${exp.description}` : (exp.title ? `、件名: ${exp.title}` : '')
+      const stat = exp.status ?? '不明'
+      return {
+        success: true,
+        text: `経費詳細 — ${name}、${cat}、${amt}${date}${desc}、ステータス: ${stat}`,
+        items: [{ id: expenseId, label: `ID: ${expenseId}` }],
+      }
+    } catch {
+      return { success: false, text: '経費詳細の取得中にエラーが発生しました。' }
     }
   },
 }
@@ -234,6 +275,7 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getProjects,
   getNotifications,
   getPendingExpenses,
+  getExpenseDetail,
   getPendingAttendance,
   getPendingRequests,
   getRevenueSummary,

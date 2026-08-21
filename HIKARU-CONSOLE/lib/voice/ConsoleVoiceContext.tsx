@@ -36,11 +36,20 @@ analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=
 
 ## Data Read（「教えて」「確認して」「何件」）
 NavigationせずにDataツールを使う。
-「経費教えて」→ get_pending_expenses（navigationしない）
+「経費教えて」「承認待ちの経費」→ get_pending_expenses（申請者・金額・カテゴリ付きで返す）
+「1件目の詳細」「この経費の詳細」→ get_expense_detail（expense_idを指定）
 「勤怠教えて」→ get_pending_attendance
 「通知教えて」→ get_notifications
 「ダッシュボード教えて」→ get_dashboard_summary
 「売上は？」「今月売上」「今年売上」「未入金」「未請求」「売上状況」→ get_revenue_summary（navigationしない）
+
+## Expense Approve/Reject（重要手順）
+1. まずget_pending_expensesかget_expense_detailで対象expenseIdを確認する
+2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
+3. 承認: execute_confirmed_action(action='console.approve_expense', params={expenseId})
+4. 却下: 却下理由を先にユーザーから聞く → execute_confirmed_action(action='console.reject_expense', params={expenseId, reject_reason})
+5. 確認文例（承認）: 「田中さんの交通費1,200円を承認します。よろしいですか？」
+6. 確認文例（却下）: 「田中さんの交通費1,200円を理由『領収書未添付』で却下します。よろしいですか？」
 
 ## 売上・利益・期間のルール（厳守）
 - 売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。
@@ -48,11 +57,12 @@ NavigationせずにDataツールを使う。
 - 「先月の売上」「去年の売上」等、今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。追加API呼び出し禁止。
 
 ## Write操作（最重要）
-承認操作（経費承認・勤怠承認等）は必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。
+承認・却下操作は必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。
 確認なしに実行ツールを呼ばない。
 
 ## actionとparamsの対応
 - console.approve_expense    → params: { expenseId }
+- console.reject_expense     → params: { expenseId, reject_reason }
 - console.approve_attendance → params: { correctionId }`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
@@ -83,7 +93,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_pending_expenses', description: '承認待ちの経費申請件数と一覧・IDを確認する',
+      name: 'get_pending_expenses', description: '承認待ちの経費申請一覧（申請者・金額・カテゴリ・日付・ID）を取得する',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/expenses?status=submitted')
@@ -91,8 +101,38 @@ function buildConsoleRealtimeTools(
         // API: { expenses: [...], kpi: {...} }
         const items = Array.isArray(data?.expenses) ? data.expenses : []
         if (items.length === 0) return '承認待ちの経費申請はありません。'
-        const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.title ?? `¥${e.amount}`} [id:${e.id}]`).join(', ')
-        return `承認待ちの経費申請が${items.length}件あります。${list}`
+        const CATS: Record<string, string> = { transport: '交通費', parking: '駐車料', supplies: '備品費', consumables: '消耗品費', other: 'その他' }
+        const list = items.slice(0, 5).map((e: any, i: number) => {
+          const name = e.profiles?.name ?? '申請者不明'
+          const cat  = CATS[e.category] ?? e.category ?? 'その他'
+          const amt  = `${Number(e.amount ?? 0).toLocaleString('ja-JP')}円`
+          const date = e.expense_date ? `、${e.expense_date}` : ''
+          return `${i + 1}件目: ${name}、${cat}、${amt}${date} [id:${e.id}]`
+        }).join(' / ')
+        return `承認待ち経費が${items.length}件あります。${list}`
+      },
+    }),
+    toolFactory({
+      name: 'get_expense_detail', description: '指定IDの経費申請詳細を取得する。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { expense_id: { type: 'string', description: '経費申請のID' } },
+        required: ['expense_id'], additionalProperties: false,
+      },
+      execute: async ({ expense_id }: { expense_id: string }) => {
+        if (!expense_id) return '経費IDが必要です。'
+        const data = await apiFetch(`/api/expenses/${expense_id}`)
+        if (!data) return '経費詳細を取得できませんでした。'
+        const exp = data?.expense
+        if (!exp) return '経費情報が見つかりませんでした。'
+        const CATS: Record<string, string> = { transport: '交通費', parking: '駐車料', supplies: '備品費', consumables: '消耗品費', other: 'その他' }
+        const name = exp.profiles?.name ?? '申請者不明'
+        const cat  = CATS[exp.category] ?? exp.category ?? 'その他'
+        const amt  = `${Number(exp.amount ?? 0).toLocaleString('ja-JP')}円`
+        const date = exp.expense_date ? `、${exp.expense_date}` : ''
+        const desc = exp.description ? `、用途: ${exp.description}` : (exp.title ? `、件名: ${exp.title}` : '')
+        const stat = exp.status ?? '不明'
+        return `経費詳細 — ${name}、${cat}、${amt}${date}${desc}、ステータス: ${stat}、ID: ${expense_id}`
       },
     }),
     toolFactory({
@@ -163,7 +203,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.approve_expense', 'console.approve_attendance'] },
+          action: { type: 'string', enum: ['console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
@@ -326,6 +366,10 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         // API: { corrections: [...] }
         const items = Array.isArray(data?.corrections) ? data.corrections : []
         return none(items.length === 0 ? '承認待ちの勤怠修正申請はありません。' : `承認待ちの勤怠修正申請が${items.length}件あります。`)
+      }
+      case 'console.get_expense_detail': {
+        // L1 handlerはIDを持たないため、一覧を先に確認するよう案内する
+        return none('経費詳細を確認するには、まず「承認待ちの経費教えて」で一覧を取得してください。')
       }
       case 'console.get_revenue': {
         const res = await fetch('/api/dashboard', { credentials: 'include' })
