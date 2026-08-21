@@ -48,7 +48,7 @@ const PROJECT_STATUS_LABELS_L1: Record<string, string> = { active: '稼働中', 
 
 const getProjects: ConsoleAgentTool = {
   name:        'get_projects',
-  description: '案件一覧を取得する。status/project_type/searchでFilter可能。',
+  description: '案件・現場・仕事の一覧や状況を確認する。「案件教えて」「今どんな仕事が入ってる？」「進行中の現場は？」「スポットの案件だけ見たい」等。画面を開く依頼ではなく情報を求める場合に使う。',
   safetyLevel: 1,
   parameters: {
     type:       'object',
@@ -321,7 +321,7 @@ const resolveStore: ConsoleAgentTool = {
 
 const getNotifications: ConsoleAgentTool = {
   name:        'get_notifications',
-  description: '管理者向け通知・未読件数を確認する',
+  description: '管理者向け通知・未読件数を確認する。「通知ある？」「何か連絡来てる？」「未読メッセージある？」等に使う。',
   safetyLevel: 1,
   parameters:  { type: 'object', properties: {}, required: [] },
   async execute(_, ctx): Promise<ToolResult> {
@@ -351,7 +351,7 @@ const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
 
 const getPendingExpenses: ConsoleAgentTool = {
   name:        'get_pending_expenses',
-  description: '承認待ちの経費申請一覧（申請者・金額・カテゴリ・日付・ID）を取得する',
+  description: '承認待ちの経費申請一覧を取得する。「経費申請来てる？」「まだ処理してない経費ある？」「お金の申請が上がってる？」「経費確認して」等に使う。データを取得する場合に使う（画面を開く場合はnavigateを使う）。',
   safetyLevel: 1,
   parameters:  { type: 'object', properties: {}, required: [] },
   async execute(_, ctx): Promise<ToolResult> {
@@ -416,7 +416,7 @@ const getExpenseDetail: ConsoleAgentTool = {
 
 const getPendingAttendance: ConsoleAgentTool = {
   name:        'get_pending_attendance',
-  description: '勤怠修正申請の承認待ち件数を確認する',
+  description: '勤怠修正申請の承認待ちを確認する。「勤怠修正来てる？」「勤務時間の直しの申請ある？」「修正申請何件？」等に使う。',
   safetyLevel: 1,
   parameters:  { type: 'object', properties: {}, required: [] },
   async execute(_, ctx): Promise<ToolResult> {
@@ -462,7 +462,7 @@ const getPendingRequests: ConsoleAgentTool = {
 
 const getRevenueSummary: ConsoleAgentTool = {
   name:        'get_revenue_summary',
-  description: '売上情報（今月売上・今年売上・未入金・未請求）をHIKARU登録データから取得する',
+  description: '売上情報（今月・今年・未入金・未請求）をHIKARU登録データから取得する。「今月売上いくら？」「売上どんな感じ？」「まだ入ってきてないお金ある？」「未請求はいくら？」等に使う。利益計算・今月今年以外の期間は対応不可。',
   safetyLevel: 1,
   parameters:  { type: 'object', properties: {}, required: [] },
   async execute(_, ctx): Promise<ToolResult> {
@@ -493,7 +493,7 @@ const getRevenueSummary: ConsoleAgentTool = {
 
 const navigate: ConsoleAgentTool = {
   name:        'navigate',
-  description: '指定のページへ移動する',
+  description: '指定のページへ移動・画面を開く。「〜開いて」「〜の画面にして」「〜に移動して」等の画面操作依頼に使う。情報を確認したい場合は移動ではなくデータ取得ツールを使う。',
   safetyLevel: 2,
   parameters: {
     type:       'object',

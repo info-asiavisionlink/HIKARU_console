@@ -53,7 +53,7 @@ const PROJECT_STATUS_LABELS_SDK: Record<string, string> = { active: '稼働中',
 
 const getProjectsTool = tool({
   name:        'get_projects',
-  description: '案件一覧を取得する。status/project_type/searchでFilter可能。',
+  description: '案件・現場・仕事の一覧や状況を確認する。「案件教えて」「今どんな仕事が入ってる？」「今日動いてる現場ある？」「スポットの案件だけ見たい」等。画面を開く依頼ではなく情報を求める場合に使う。',
   parameters:  z.object({
     status:       z.string().optional().describe('active/paused/completed/cancelled等'),
     project_type: z.string().optional().describe('spot/recurring/hotel'),
@@ -255,7 +255,7 @@ const resolveStoreTool = tool({
 
 const getNotificationsTool = tool({
   name:        'get_notifications',
-  description: '管理者向け通知・未読件数を確認する',
+  description: '管理者向け通知・未読件数を確認する。「通知ある？」「何か連絡来てる？」「未読メッセージある？」等に使う。',
   parameters:  z.object({}),
   execute: async (_, runCtx) => {
     const ctx = runCtx!.context as ConsoleAgentSDKContext
@@ -273,7 +273,7 @@ const getNotificationsTool = tool({
 
 const getPendingExpensesTool = tool({
   name:        'get_pending_expenses',
-  description: '承認待ちの経費申請一覧（申請者・金額・カテゴリ・日付・ID）を取得する',
+  description: '承認待ちの経費申請一覧を取得する。「経費申請来てる？」「まだ処理してない経費ある？」「お金の申請が上がってる？」「経費確認して」等に使う。データを取得する場合に使う（画面を開く場合はnavigateを使う）。',
   parameters:  z.object({}),
   execute: async (_, runCtx) => {
     const ctx   = runCtx!.context as ConsoleAgentSDKContext
@@ -323,7 +323,7 @@ const getExpenseDetailTool = tool({
 
 const getPendingAttendanceTool = tool({
   name:        'get_pending_attendance',
-  description: '勤怠修正申請の承認待ち件数を確認する',
+  description: '勤怠修正申請の承認待ちを確認する。「勤怠修正来てる？」「勤務時間の直しの申請ある？」「修正申請何件？」等に使う。',
   parameters:  z.object({}),
   execute: async (_, runCtx) => {
     const ctx   = runCtx!.context as ConsoleAgentSDKContext
@@ -358,7 +358,7 @@ const getPendingRequestsTool = tool({
 
 const getRevenueTool = tool({
   name:        'get_revenue_summary',
-  description: '売上情報（今月売上・今年売上・未入金・未請求）をHIKARU登録データから取得する。売上・未入金・未請求の質問に使う。利益計算はしない。今月・今年以外の期間には対応しない。',
+  description: '売上情報（今月・今年・未入金・未請求）をHIKARU登録データから取得する。「今月売上いくら？」「売上どんな感じ？」「まだ入ってきてないお金ある？」「未請求はいくら？」等に使う。利益計算・今月今年以外の期間は対応不可。',
   parameters:  z.object({}),
   execute: async (_, runCtx) => {
     const ctx = runCtx!.context as ConsoleAgentSDKContext
@@ -430,7 +430,7 @@ const proposeActionTool = tool({
 
 const navigateTool = tool({
   name:        'navigate',
-  description: '指定のページへ移動する',
+  description: '指定のページへ移動・画面を開く。「〜開いて」「〜の画面にして」「〜に移動して」等の画面操作依頼に使う。情報を確認したい場合は移動ではなくデータ取得ツールを使う。',
   parameters:  z.object({
     action: z.string().describe('console.go_dashboard / console.open_projects 等'),
   }),
@@ -445,6 +445,19 @@ const navigateTool = tool({
 // ─── Agent（モジュールレベル1インスタンス）───────────────────
 const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
 清掃業務管理システムの管理者・マネージャーをサポートする音声アシスタントです。
+
+## 自然言語理解の原則
+ユーザーは機能名や画面名を正確に言わない。発話の意味・文脈から最適なToolを選ぶ。
+言い換え・口語・省略表現を理解すること。
+
+## Read vs Navigate の判断
+「〜教えて」「どうなってる？」「いくら？」「何件？」「誰が？」「ある？」→ データ取得Tool
+「〜開いて」「〜の画面にして」「〜に移動して」「〜見せて」→ navigate（データ取得しない）
+情報を聞いている場合はNavigationだけで済ませない。画面を開く依頼ではデータ取得Toolを勝手に使わない。
+
+## 未対応機能
+まだToolが接続されていない機能（在庫数・契約詳細・報告書内容等）を聞かれた場合:
+架空データを返さず「現在Voiceから確認する機能はまだ接続されていません。画面は開けます。」と答える。
 
 ## 重要なルール
 - Toolで取得した情報のみを事実として扱う。ID・名前をAIで生成しない。

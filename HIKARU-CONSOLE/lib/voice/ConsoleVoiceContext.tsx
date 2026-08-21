@@ -34,17 +34,30 @@ shifts=シフト管理 / attendance=勤怠管理 / expenses=経費管理 / invoi
 notifications=通知 / quality=品質管理 / manuals=マニュアル管理 / reports=報告書 /
 analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=設定 / back=前の画面
 
-## Data Read（「教えて」「確認して」「何件」）
+## 自然言語理解の原則
+ユーザーは機能名や画面名を正確に言わない。発話の意味・文脈から最適なToolを選ぶ。
+言い換え・口語・省略表現を理解すること。
+
+## Read vs Navigate の判断
+「〜教えて」「どうなってる？」「いくら？」「何件？」「誰が？」「ある？」→ データ取得Tool
+「〜開いて」「〜の画面にして」「〜に移動して」「〜見せて」→ navigate_to
+情報を聞いている場合はNavigationだけで済ませない。画面を開く依頼ではデータ取得Toolを勝手に使わない。
+
+## 未対応機能
+まだToolが接続されていない機能（在庫数・契約詳細・報告書内容等）を聞かれた場合:
+架空データを返さず「現在Voiceから確認する機能はまだ接続されていません。画面は開けます。」と答える。
+
+## Data Read（代表例 — 言い換えも意味から判断する）
 NavigationせずにDataツールを使う。
-「案件一覧」「案件教えて」「進行中案件」「スポット案件」→ get_projects（status/project_type/search指定可）
-「1件目の詳細」「この案件の詳細」→ get_project_detail（project_idを指定）
-「担当者は？」→ get_project_assignments（project_idを指定）→ 実名を返す
-「経費教えて」「承認待ちの経費」→ get_pending_expenses（申請者・金額・カテゴリ付きで返す）
-「1件目の詳細」「この経費の詳細」→ get_expense_detail（expense_idを指定）
-「勤怠教えて」→ get_pending_attendance
-「通知教えて」→ get_notifications
-「ダッシュボード教えて」→ get_dashboard_summary
-「売上は？」「今月売上」「今年売上」「未入金」「未請求」「売上状況」→ get_revenue_summary（navigationしない）
+案件・現場・仕事の状況 → get_projects（status/project_type/search指定可）
+案件詳細 → get_project_detail（project_idを指定）
+担当者 → get_project_assignments（project_idを指定）→ 実名を返す
+経費申請・処理待ちの申請 → get_pending_expenses（申請者・金額・カテゴリ付きで返す）
+経費詳細 → get_expense_detail（expense_idを指定）
+勤怠修正申請 → get_pending_attendance
+通知・連絡 → get_notifications
+ダッシュボード → get_dashboard_summary
+売上・未入金・未請求 → get_revenue_summary（navigationしない）
 
 ## Project Create/Status（重要手順）
 1. 対象案件が不明な場合 → 「どの案件ですか？」と聞く。勝手に選ばない。
@@ -139,7 +152,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_projects',
-      description: '案件一覧を取得する。status/project_type/searchでFilter可能。',
+      description: '案件・現場・仕事の一覧や状況を確認する。「案件教えて」「今どんな仕事が入ってる？」「今日動いてる現場ある？」「スポットの案件だけ見たい」等。画面を開く依頼ではなく情報を求める場合に使う。',
       parameters: {
         type: 'object',
         properties: {
@@ -327,7 +340,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_pending_expenses', description: '承認待ちの経費申請一覧（申請者・金額・カテゴリ・日付・ID）を取得する',
+      name: 'get_pending_expenses', description: '承認待ちの経費申請一覧を取得する。「経費申請来てる？」「まだ処理してない経費ある？」「お金の申請が上がってる？」等に使う。データを取得する場合に使う（画面を開く場合はnavigate_toを使う）。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/expenses?status=submitted')
@@ -370,7 +383,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_pending_attendance', description: '勤怠修正申請の承認待ちを確認する',
+      name: 'get_pending_attendance', description: '勤怠修正申請の承認待ちを確認する。「勤怠修正来てる？」「勤務時間の直しの申請ある？」「修正申請何件？」等に使う。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/attendance/corrections?status=pending')
@@ -383,7 +396,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_notifications', description: '管理者向け通知・未読件数を確認する',
+      name: 'get_notifications', description: '管理者向け通知・未読件数を確認する。「通知ある？」「何か連絡来てる？」「未読メッセージある？」等に使う。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/console-notifications')
@@ -394,7 +407,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_revenue_summary',
-      description: '売上情報（今月売上・今年売上・未入金・未請求）をHIKARU登録データから取得する。売上・未入金・未請求の質問に使う。利益計算はしない。今月・今年以外の期間には対応しない。',
+      description: '売上情報（今月・今年・未入金・未請求）をHIKARU登録データから取得する。「今月売上いくら？」「売上どんな感じ？」「まだ入ってきてないお金ある？」「未請求はいくら？」等に使う。利益計算・今月今年以外の期間は対応不可。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/dashboard')
@@ -415,7 +428,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name:        'navigate_to',
-      description: '管理画面の指定ページへ移動する。destination enumのみ使用。任意URLは使用不可。',
+      description: '管理画面の指定ページへ移動・画面を開く。「〜開いて」「〜の画面にして」「〜に移動して」等の画面操作依頼に使う。情報を確認したい場合は移動ではなくデータ取得ツールを使う。destination enumのみ使用。任意URLは使用不可。',
       parameters:  {
         type:       'object',
         properties: {
