@@ -36,6 +36,14 @@ export const CONSOLE_ACTIONS = {
     level: 1 as const,
     description: '指定した経費申請の詳細（申請者・金額・カテゴリ・日付・内容・ステータス）を取得',
   },
+  'console.get_project_detail': {
+    level: 1 as const,
+    description: '指定IDの案件詳細（名称・種別・ステータス・顧客・日程・場所・担当人数）を取得',
+  },
+  'console.get_project_assignments': {
+    level: 1 as const,
+    description: '指定IDの案件担当者一覧を取得',
+  },
   'console.get_revenue': {
     level: 1 as const,
     description: '今月売上・今年売上・未入金・未請求をHIKARU登録データから確認',
@@ -120,6 +128,14 @@ export const CONSOLE_ACTIONS = {
   },
 
   // ─── L4: Important Write（Confirmation必須・管理者権限確認）──
+  'console.update_project_status': {
+    level: 4 as const,
+    description: '案件のステータスを変更する（active/paused/completed/cancelled、Confirmation必須）',
+  },
+  'console.create_project': {
+    level: 4 as const,
+    description: '案件を新規登録する（案件名必須、Confirmation必須）',
+  },
   'console.approve_expense': {
     level: 4 as const,
     description: '経費申請を承認する',

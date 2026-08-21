@@ -48,26 +48,86 @@ const getDashboardTool = tool({
   },
 })
 
+const PROJECT_TYPE_LABELS_SDK: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+const PROJECT_STATUS_LABELS_SDK: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル', scheduled_confirmed: '予定確定', scheduled_unconfirmed: '予定未確定', billing_pending: '入金待ち' }
+
 const getProjectsTool = tool({
   name:        'get_projects',
-  description: '案件一覧を取得する',
+  description: '案件一覧を取得する。status/project_type/searchでFilter可能。',
   parameters:  z.object({
-    status: z.enum(['active', 'inactive', 'all']).optional(),
+    status:       z.string().optional().describe('active/paused/completed/cancelled等'),
+    project_type: z.string().optional().describe('spot/recurring/hotel'),
+    search:       z.string().optional().describe('案件名検索キーワード'),
   }),
-  execute: async ({ status }, runCtx) => {
+  execute: async ({ status, project_type, search }, runCtx) => {
     const ctx = runCtx!.context as ConsoleAgentSDKContext
     try {
-      const query = status && status !== 'all' ? `?status=${status}` : ''
-      const res   = await apiGet(`/api/projects${query}`, ctx)
+      const q = new URLSearchParams()
+      if (status)       q.set('status',       status)
+      if (project_type) q.set('project_type', project_type)
+      if (search)       q.set('search',       search)
+      const res  = await apiGet(`/api/projects?${q}`, ctx)
       if (!res.ok) return '案件一覧を取得できませんでした。'
-      const data = await res.json()
+      const data  = await res.json()
       // API: { projects: [...], count: N }
-      const list: Array<{ id: string; name: string }> = Array.isArray(data?.projects) ? data.projects : []
+      const list  = Array.isArray(data?.projects) ? data.projects : []
       const total = data?.count ?? list.length
       if (total === 0) return '案件はありません。'
-      const items = list.slice(0, 5).map((p, i) => `${i + 1}件目: ${p.name} (id:${p.id})`).join(', ')
-      return `案件が${total}件あります。${items}`
+      const items = list.slice(0, 5).map((p: any, i: number) => {
+        const type   = PROJECT_TYPE_LABELS_SDK[p.project_type] ?? p.project_type ?? '不明'
+        const stat   = PROJECT_STATUS_LABELS_SDK[p.status] ?? p.status ?? '不明'
+        const client = p.stores?.clients?.name ?? ''
+        const date   = p.start_date ? `、${p.start_date}` : ''
+        return `${i + 1}件目: ${p.name}、${type}、${stat}${client ? `、${client}` : ''}${date} [id:${p.id}]`
+      }).join(' / ')
+      return `案件${total}件。${items}`
     } catch { return '案件一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getProjectDetailTool = tool({
+  name:        'get_project_detail',
+  description: '指定IDの案件詳細を取得する。一覧でIDを確認後に使う。',
+  parameters:  z.object({ project_id: z.string().describe('案件のID') }),
+  execute: async ({ project_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res  = await apiGet(`/api/projects/${project_id}`, ctx)
+      if (!res.ok) return '案件詳細を取得できませんでした。'
+      const data = await res.json()
+      const p    = data?.project
+      if (!p) return '案件が見つかりませんでした。'
+      const type   = PROJECT_TYPE_LABELS_SDK[p.project_type] ?? p.project_type ?? '不明'
+      const stat   = PROJECT_STATUS_LABELS_SDK[p.status] ?? p.status ?? '不明'
+      const client = p.clients?.name ?? ''
+      const assigns = Array.isArray(p.project_assignments) ? p.project_assignments.length : 0
+      const start  = p.start_date ? `、開始: ${p.start_date}` : ''
+      const end    = p.end_date   ? `〜${p.end_date}` : ''
+      const loc    = p.location_name ? `、場所: ${p.location_name}` : ''
+      return `案件詳細 — ${p.name}、${type}、${stat}${client ? `、顧客: ${client}` : ''}${start}${end}${loc}、担当${assigns}名、ID: ${project_id}`
+    } catch { return '案件詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const getProjectAssignmentsTool = tool({
+  name:        'get_project_assignments',
+  description: '指定IDの案件担当者数・種別を取得する。',
+  parameters:  z.object({ project_id: z.string().describe('案件のID') }),
+  execute: async ({ project_id }, runCtx) => {
+    const ctx  = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res  = await apiGet(`/api/projects/${project_id}/assignments`, ctx)
+      if (!res.ok) return '担当者情報を取得できませんでした。'
+      const data = await res.json()
+      const assignments = Array.isArray(data?.data) ? data.data : []
+      if (assignments.length === 0) return 'この案件に担当者はいません。'
+      const empCount     = assignments.filter((a: any) => a.assignee_type === 'employee').length
+      const partnerCount = assignments.filter((a: any) => a.assignee_type === 'partner').length
+      const parts: string[] = []
+      if (empCount     > 0) parts.push(`従業員${empCount}名`)
+      if (partnerCount > 0) parts.push(`協力業者${partnerCount}名`)
+      return `担当: ${parts.join('、')}（合計${assignments.length}名）`
+    } catch { return '担当者情報の取得中にエラーが発生しました。' }
   },
 })
 
@@ -288,15 +348,24 @@ propose_action の使い方:
 3. finalOutputに確認文を書く（例: 「田中さんの3,200円交通費を承認します。よろしいですか？」）
 4. 管理者が「はい」と言ったら自動的にServerが実行する
 
+## Project 操作手順
+1. get_projects で一覧取得（status/project_type/search指定可）→ project_id確認
+2. 詳細は get_project_detail、担当者は get_project_assignments
+3. ステータス変更: propose_action(console.update_project_status, {projectId, status: active/paused/completed/cancelled})
+4. 案件作成: nameを確認してから propose_action(console.create_project, {name, project_type, start_date})
+5. 案件削除は音声実行不可。「管理画面から操作してください。」と答える。
+
 ## Expense Approve/Reject 手順
 1. get_pending_expenses か get_expense_detail で対象IDを確認する
 2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
 3. 却下の場合は必ず理由をユーザーから先に聞く（APIが却下理由必須のため）
 
 ## propose_actionのactionとparamsの対応
-- console.approve_expense    → params: { expenseId }                     「〇〇さんの〇〇円の経費申請を承認します。よろしいですか？」
-- console.reject_expense     → params: { expenseId, reject_reason }      「〇〇さんの〇〇円を理由『...』で却下します。よろしいですか？」
-- console.approve_attendance → params: { correctionId }                  「〇〇さんの勤怠修正申請を承認します。よろしいですか？」
+- console.update_project_status → params: { projectId, status }            「○○案件を稼働中に変更します。よろしいですか？」
+- console.create_project        → params: { name, project_type, start_date } 「○○スポット案件を登録します。よろしいですか？」
+- console.approve_expense       → params: { expenseId }                     「〇〇さんの〇〇円の経費申請を承認します。よろしいですか？」
+- console.reject_expense        → params: { expenseId, reject_reason }      「〇〇さんの〇〇円を理由『...』で却下します。よろしいですか？」
+- console.approve_attendance    → params: { correctionId }                  「〇〇さんの勤怠修正申請を承認します。よろしいですか？」
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -309,6 +378,8 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
   tools:        [
     getDashboardTool,
     getProjectsTool,
+    getProjectDetailTool,
+    getProjectAssignmentsTool,
     getNotificationsTool,
     getPendingExpensesTool,
     getExpenseDetailTool,

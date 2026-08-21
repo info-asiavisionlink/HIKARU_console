@@ -36,12 +36,22 @@ analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=
 
 ## Data Read（「教えて」「確認して」「何件」）
 NavigationせずにDataツールを使う。
+「案件一覧」「案件教えて」「進行中案件」「スポット案件」→ get_projects（status/project_type/search指定可）
+「1件目の詳細」「この案件の詳細」→ get_project_detail（project_idを指定）
+「担当者は？」→ get_project_assignments（project_idを指定）
 「経費教えて」「承認待ちの経費」→ get_pending_expenses（申請者・金額・カテゴリ付きで返す）
 「1件目の詳細」「この経費の詳細」→ get_expense_detail（expense_idを指定）
 「勤怠教えて」→ get_pending_attendance
 「通知教えて」→ get_notifications
 「ダッシュボード教えて」→ get_dashboard_summary
 「売上は？」「今月売上」「今年売上」「未入金」「未請求」「売上状況」→ get_revenue_summary（navigationしない）
+
+## Project Create/Status（重要手順）
+1. 対象案件が不明な場合 → 「どの案件ですか？」と聞く。勝手に選ばない。
+2. ステータス変更: execute_confirmed_action(console.update_project_status, {projectId, status}) — status: active/paused/completed/cancelled
+3. 案件作成: nameを確認してから execute_confirmed_action(console.create_project, {name, project_type, start_date})
+4. 案件削除は音声で実行不可。「案件削除は管理画面から操作してください。」と答える。
+5. 担当者名の表示は担当件数のみ（名前解決は別途管理画面を案内）
 
 ## Expense Approve/Reject（重要手順）
 1. まずget_pending_expensesかget_expense_detailで対象expenseIdを確認する
@@ -61,9 +71,11 @@ NavigationせずにDataツールを使う。
 確認なしに実行ツールを呼ばない。
 
 ## actionとparamsの対応
-- console.approve_expense    → params: { expenseId }
-- console.reject_expense     → params: { expenseId, reject_reason }
-- console.approve_attendance → params: { correctionId }`
+- console.update_project_status → params: { projectId, status }
+- console.create_project        → params: { name, project_type, start_date }
+- console.approve_expense       → params: { expenseId }
+- console.reject_expense        → params: { expenseId, reject_reason }
+- console.approve_attendance    → params: { correctionId }`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -90,6 +102,91 @@ function buildConsoleRealtimeTools(
           parts.push(`案件合計: ${data.projects.total}件`)
         if (data?.employees?.active != null) parts.push(`在籍従業員: ${data.employees.active}名`)
         return parts.length > 0 ? `現在: ${parts.join('、')}` : 'ダッシュボードを確認してください。'
+      },
+    }),
+    toolFactory({
+      name: 'get_projects',
+      description: '案件一覧を取得する。status/project_type/searchでFilter可能。',
+      parameters: {
+        type: 'object',
+        properties: {
+          status:       { type: 'string', description: 'active/paused/completed/cancelled等' },
+          project_type: { type: 'string', description: 'spot/recurring/hotel' },
+          search:       { type: 'string', description: '案件名検索キーワード' },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+      execute: async ({ status, project_type, search }: { status?: string; project_type?: string; search?: string }) => {
+        const q = new URLSearchParams()
+        if (status)       q.set('status',       status)
+        if (project_type) q.set('project_type', project_type)
+        if (search)       q.set('search',       search)
+        const data = await apiFetch(`/api/projects?${q}`)
+        if (!data) return '案件一覧を取得できませんでした。'
+        // API: { projects: [...], count: N }
+        const list  = Array.isArray(data?.projects) ? data.projects : []
+        const total = data?.count ?? list.length
+        if (total === 0) return '案件はありません。'
+        const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+        const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル', scheduled_confirmed: '予定確定', scheduled_unconfirmed: '予定未確定', billing_pending: '入金待ち' }
+        const items = list.slice(0, 5).map((p: any, i: number) => {
+          const type   = PT[p.project_type] ?? p.project_type ?? '不明'
+          const stat   = ST[p.status] ?? p.status ?? '不明'
+          const client = p.stores?.clients?.name ?? p.stores?.name ?? ''
+          const date   = p.start_date ? `、${p.start_date}` : ''
+          return `${i + 1}件目: ${p.name}、${type}、${stat}${client ? `、${client}` : ''}${date} [id:${p.id}]`
+        }).join(' / ')
+        const suffix = list.length < total ? `（最初の${list.length}件）` : ''
+        return `案件${total}件${suffix}。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_project_detail',
+      description: '指定IDの案件詳細を取得する。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { project_id: { type: 'string', description: '案件のID' } },
+        required: ['project_id'], additionalProperties: false,
+      },
+      execute: async ({ project_id }: { project_id: string }) => {
+        if (!project_id) return '案件IDが必要です。'
+        const data = await apiFetch(`/api/projects/${project_id}`)
+        if (!data) return '案件詳細を取得できませんでした。'
+        const p = data?.project
+        if (!p) return '案件が見つかりませんでした。'
+        const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+        const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル', scheduled_confirmed: '予定確定', scheduled_unconfirmed: '予定未確定', billing_pending: '入金待ち' }
+        const type   = PT[p.project_type] ?? p.project_type ?? '不明'
+        const stat   = ST[p.status] ?? p.status ?? '不明'
+        const client = p.clients?.name ?? ''
+        const assigns = Array.isArray(p.project_assignments) ? p.project_assignments.length : 0
+        const start  = p.start_date ? `、開始: ${p.start_date}` : ''
+        const end    = p.end_date   ? `〜${p.end_date}` : ''
+        const loc    = p.location_name ? `、場所: ${p.location_name}` : ''
+        return `案件詳細 — ${p.name}、${type}、${stat}${client ? `、顧客: ${client}` : ''}${start}${end}${loc}、担当${assigns}名、ID: ${project_id}`
+      },
+    }),
+    toolFactory({
+      name: 'get_project_assignments',
+      description: '指定IDの案件担当者数・種別を取得する。',
+      parameters: {
+        type: 'object',
+        properties: { project_id: { type: 'string', description: '案件のID' } },
+        required: ['project_id'], additionalProperties: false,
+      },
+      execute: async ({ project_id }: { project_id: string }) => {
+        if (!project_id) return '案件IDが必要です。'
+        const data = await apiFetch(`/api/projects/${project_id}/assignments`)
+        if (!data) return '担当者情報を取得できませんでした。'
+        const assignments = Array.isArray(data?.data) ? data.data : []
+        if (assignments.length === 0) return 'この案件に担当者はいません。'
+        const empCount     = assignments.filter((a: any) => a.assignee_type === 'employee').length
+        const partnerCount = assignments.filter((a: any) => a.assignee_type === 'partner').length
+        const parts: string[] = []
+        if (empCount     > 0) parts.push(`従業員${empCount}名`)
+        if (partnerCount > 0) parts.push(`協力業者${partnerCount}名`)
+        return `担当: ${parts.join('、')}（合計${assignments.length}名）。詳細は管理画面の担当者タブを確認してください。`
       },
     }),
     toolFactory({
@@ -203,7 +300,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
@@ -368,8 +465,13 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         return none(items.length === 0 ? '承認待ちの勤怠修正申請はありません。' : `承認待ちの勤怠修正申請が${items.length}件あります。`)
       }
       case 'console.get_expense_detail': {
-        // L1 handlerはIDを持たないため、一覧を先に確認するよう案内する
         return none('経費詳細を確認するには、まず「承認待ちの経費教えて」で一覧を取得してください。')
+      }
+      case 'console.get_project_detail': {
+        return none('案件詳細を確認するには、まず「案件一覧教えて」で一覧を取得してください。')
+      }
+      case 'console.get_project_assignments': {
+        return none('担当者を確認するには、まず「案件一覧教えて」で案件を選択してください。')
       }
       case 'console.get_revenue': {
         const res = await fetch('/api/dashboard', { credentials: 'include' })

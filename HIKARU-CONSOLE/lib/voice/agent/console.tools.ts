@@ -43,28 +43,39 @@ const getDashboardSummary: ConsoleAgentTool = {
   },
 }
 
+const PROJECT_TYPE_LABELS_L1: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+const PROJECT_STATUS_LABELS_L1: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル', scheduled_confirmed: '予定確定', scheduled_unconfirmed: '予定未確定', billing_pending: '入金待ち' }
+
 const getProjects: ConsoleAgentTool = {
   name:        'get_projects',
-  description: '案件一覧を取得する',
+  description: '案件一覧を取得する。status/project_type/searchでFilter可能。',
   safetyLevel: 1,
   parameters: {
     type:       'object',
     properties: {
-      status: { type: 'string', description: 'active / inactive / all', enum: ['active', 'inactive', 'all'] },
+      status:       { type: 'string', description: 'active/paused/completed/cancelled等' },
+      project_type: { type: 'string', description: 'spot/recurring/hotel' },
+      search:       { type: 'string', description: '案件名検索キーワード' },
     },
     required: [],
   },
   async execute(params, ctx): Promise<ToolResult> {
     try {
-      const query = params.status && params.status !== 'all' ? `?status=${params.status}` : ''
-      const res   = await apiFetch(`/api/projects${query}`, ctx)
+      const q = new URLSearchParams()
+      if (params.status)       q.set('status',       params.status)
+      if (params.project_type) q.set('project_type', params.project_type)
+      if (params.search)       q.set('search',       params.search)
+      const res   = await apiFetch(`/api/projects?${q}`, ctx)
       if (!res.ok) return { success: false, text: '案件一覧を取得できませんでした。' }
       const data  = await res.json()
       // API: { projects: [...], count: N }
-      const list: Array<{ id: string; name: string }> = Array.isArray(data?.projects) ? data.projects : []
+      const list  = Array.isArray(data?.projects) ? data.projects : []
       const total = data?.count ?? list.length
       if (total === 0) return { success: true, text: '案件はありません。', items: [] }
-      const items = list.slice(0, 5).map((p, i) => ({ id: p.id, label: `${i + 1}件目: ${p.name}` }))
+      const items = list.slice(0, 5).map((p: any, i: number) => ({
+        id:    p.id,
+        label: `${i + 1}件目: ${p.name}、${PROJECT_TYPE_LABELS_L1[p.project_type] ?? p.project_type ?? ''}、${PROJECT_STATUS_LABELS_L1[p.status] ?? p.status ?? ''}`,
+      }))
       return {
         success: true,
         text:    `案件が${total}件あります。`,
@@ -73,6 +84,72 @@ const getProjects: ConsoleAgentTool = {
       }
     } catch {
       return { success: false, text: '案件一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getProjectDetail: ConsoleAgentTool = {
+  name:        'get_project_detail',
+  description: '指定IDの案件詳細を取得する。一覧でIDを確認後に使う。',
+  safetyLevel: 1,
+  parameters: {
+    type: 'object',
+    properties: { project_id: { type: 'string', description: '案件のID' } },
+    required: ['project_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const projectId = params.project_id as string
+    if (!projectId) return { success: false, text: '案件IDが必要です。' }
+    try {
+      const res  = await apiFetch(`/api/projects/${projectId}`, ctx)
+      if (!res.ok) return { success: false, text: '案件詳細を取得できませんでした。' }
+      const data = await res.json()
+      const p    = data?.project
+      if (!p) return { success: false, text: '案件が見つかりませんでした。' }
+      const type   = PROJECT_TYPE_LABELS_L1[p.project_type] ?? p.project_type ?? '不明'
+      const stat   = PROJECT_STATUS_LABELS_L1[p.status] ?? p.status ?? '不明'
+      const client = p.clients?.name ?? ''
+      const assigns = Array.isArray(p.project_assignments) ? p.project_assignments.length : 0
+      const start  = p.start_date ? `、開始: ${p.start_date}` : ''
+      const end    = p.end_date   ? `〜${p.end_date}` : ''
+      const loc    = p.location_name ? `、場所: ${p.location_name}` : ''
+      return {
+        success: true,
+        text: `案件詳細 — ${p.name}、${type}、${stat}${client ? `、顧客: ${client}` : ''}${start}${end}${loc}、担当${assigns}名`,
+        items: [{ id: projectId, label: `ID: ${projectId}` }],
+      }
+    } catch {
+      return { success: false, text: '案件詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getProjectAssignments: ConsoleAgentTool = {
+  name:        'get_project_assignments',
+  description: '指定IDの案件担当者数・種別を取得する。',
+  safetyLevel: 1,
+  parameters: {
+    type: 'object',
+    properties: { project_id: { type: 'string', description: '案件のID' } },
+    required: ['project_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const projectId = params.project_id as string
+    if (!projectId) return { success: false, text: '案件IDが必要です。' }
+    try {
+      const res  = await apiFetch(`/api/projects/${projectId}/assignments`, ctx)
+      if (!res.ok) return { success: false, text: '担当者情報を取得できませんでした。' }
+      const data = await res.json()
+      const assignments = Array.isArray(data?.data) ? data.data : []
+      if (assignments.length === 0) return { success: true, text: 'この案件に担当者はいません。' }
+      const empCount     = assignments.filter((a: any) => a.assignee_type === 'employee').length
+      const partnerCount = assignments.filter((a: any) => a.assignee_type === 'partner').length
+      const parts: string[] = []
+      if (empCount     > 0) parts.push(`従業員${empCount}名`)
+      if (partnerCount > 0) parts.push(`協力業者${partnerCount}名`)
+      return { success: true, text: `担当: ${parts.join('、')}（合計${assignments.length}名）` }
+    } catch {
+      return { success: false, text: '担当者情報の取得中にエラーが発生しました。' }
     }
   },
 }
@@ -273,6 +350,8 @@ const navigate: ConsoleAgentTool = {
 export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getDashboardSummary,
   getProjects,
+  getProjectDetail,
+  getProjectAssignments,
   getNotifications,
   getPendingExpenses,
   getExpenseDetail,

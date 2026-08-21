@@ -62,6 +62,93 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (action) {
+      // ─── L4: update_project_status ───────────────────────
+      case 'console.update_project_status': {
+        const { projectId, status } = params
+        if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 })
+        if (!status)    return Response.json({ error: 'status required' }, { status: 400 })
+
+        const VALID_STATUSES = ['active', 'paused', 'completed', 'cancelled']
+        if (!VALID_STATUSES.includes(status)) {
+          return Response.json({ error: `statusはactive/paused/completed/cancelledのみ変更可能です` }, { status: 400 })
+        }
+
+        const res = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
+          body:    JSON.stringify({ status }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'project', resourceId: projectId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'ステータス変更に失敗しました。' }, { status: res.status })
+
+        // Read-back: DB上のstatusを確認してからsuccessとする
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}`, {
+          headers: { Cookie: req.headers.get('cookie') ?? '' },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.project?.status !== status) {
+            return Response.json({ error: 'ステータス変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const STATUS_LABELS: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+        return Response.json({ success: true, voiceReply: `案件を${STATUS_LABELS[status] ?? status}に変更しました。` })
+      }
+
+      // ─── L4: create_project ───────────────────────────────
+      case 'console.create_project': {
+        const { name, project_type, start_date, end_date, location_name } = params
+        if (!name?.trim()) return Response.json({ error: '案件名は必須です' }, { status: 400 })
+
+        const validTypes = ['spot', 'recurring', 'hotel']
+        const pType = project_type && validTypes.includes(project_type) ? project_type : 'spot'
+
+        const body: Record<string, string | null | undefined> = {
+          name:          name.trim(),
+          project_type:  pType,
+          start_date:    start_date    || null,
+          end_date:      end_date      || null,
+          location_name: location_name || null,
+        }
+
+        const res = await fetch(`${req.nextUrl.origin}/api/projects`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
+          body:    JSON.stringify(body),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'project',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '案件登録に失敗しました。' }, { status: res.status })
+
+        const projectId = data?.project?.id
+        if (!projectId) return Response.json({ error: '案件IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back: 作成確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}`, {
+          headers: { Cookie: req.headers.get('cookie') ?? '' },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (!verifyData?.project?.id) {
+            return Response.json({ error: '案件登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `案件「${name.trim()}」を登録しました。` })
+      }
+
       // ─── L4: approve_expense ──────────────────────────────
       case 'console.approve_expense': {
         const { expenseId } = params

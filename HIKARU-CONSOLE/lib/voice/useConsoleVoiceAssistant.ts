@@ -78,8 +78,13 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         return none(`承認待ち経費が${items.length}件あります。${list}`)
       }
       case 'console.get_expense_detail': {
-        // L1 handlerはIDを持たないため一覧参照を案内する
         return none('経費詳細を確認するには、まず「承認待ちの経費教えて」で一覧を取得してください。')
+      }
+      case 'console.get_project_detail': {
+        return none('案件詳細を確認するには、まず「案件一覧教えて」で一覧を取得してください。')
+      }
+      case 'console.get_project_assignments': {
+        return none('担当者を確認するには、まず「案件一覧教えて」で案件を選択してください。')
       }
       case 'console.get_pending_attendance': {
         const res = await fetch('/api/attendance/corrections?status=pending', { credentials: 'include' })
