@@ -198,6 +198,14 @@ function isConfirmNo(text: string): boolean {
   if (CONFIRM_NO_EXACT.has(t)) return true
   return CONFIRM_NO_STARTS.some(w => t.startsWith(w) || t.includes(w))
 }
+// ─── Interrupt Phrase検出（deterministic固定語彙・LLM不使用）────
+const INTERRUPT_WORDS = /^(やめ(て|ろ)?|止め(て|ろ)?|止まって|中止|キャンセル|待って|ストップ|stop|cancel|もういい|一旦止めて?)$/i
+function isInterruptPhrase(text: string): boolean {
+  const t = text.trim()
+  if (!t || t.length > 20) return false
+  return INTERRUPT_WORDS.test(t)
+}
+
 const STANDBY_MS         = 60_000
 const SESSION_TIMEOUT_MS = 5 * 60_000
 
@@ -245,6 +253,7 @@ export interface ConsoleVoiceContextValue {
   startSession:       () => void
   stopSession:        () => void
   handleUtterance:    (text: string) => Promise<void>
+  interrupt:          () => void
 }
 
 const ConsoleVoiceContext = React.createContext<ConsoleVoiceContextValue | null>(null)
@@ -364,6 +373,8 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const pathnameRef        = React.useRef(pathname)
   const realtimeSessionRef = React.useRef<any>(null)
   const voiceEngineModeRef = React.useRef<VoiceEngineMode>('off')
+  const isSpeakingRef      = React.useRef(false)
+  const turnIdRef          = React.useRef(0)
 
   React.useEffect(() => { voiceSettingsRef.current = voiceSettings },    [voiceSettings])
   React.useEffect(() => { pathnameRef.current      = pathname },         [pathname])
@@ -378,6 +389,19 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     modeRef.current = m
     setMode(m)
   }, [])
+
+  const muteMic = React.useCallback((mute: boolean) => {
+    try { (realtimeSessionRef.current as any)?.mute?.(mute) } catch {}
+  }, [])
+
+  const interrupt = React.useCallback(() => {
+    if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+    try { (realtimeSessionRef.current as any)?.interrupt?.() } catch {}
+    isSpeakingRef.current = false
+    muteMic(false)
+    turnIdRef.current++
+    setModeSync('listening')
+  }, [muteMic, setModeSync])
 
   const clearActivityTimers = React.useCallback(() => {
     if (standbyTimerRef.current)  clearTimeout(standbyTimerRef.current)
@@ -429,6 +453,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     clearActivityTimers()
     if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     isSessionRef.current = false
+    isSpeakingRef.current = false
     setIsSession(false)
     setIsStandby(false)
     recognitionRef.current?.abort()
@@ -446,6 +471,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     clearActivityTimers()
     if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     isSessionRef.current = false
+    isSpeakingRef.current = false
     setIsSession(false)
     setIsStandby(false)
     recognitionRef.current?.abort()
@@ -709,11 +735,13 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       })
       session.on?.('audio_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        isSpeakingRef.current = true
         if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
         setModeSync('speaking')
       })
       session.on?.('audio_stopped', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        isSpeakingRef.current = false
         setModeSync('processing')
         if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
         resumeTimerRef.current = setTimeout(() => {
@@ -733,21 +761,29 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       })
       session.on?.('agent_tool_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        muteMic(true)
         setModeSync('working')
       })
       session.on?.('agent_tool_end', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        muteMic(false)
         setModeSync('processing')
       })
       session.on?.('audio_interrupted', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        isSpeakingRef.current = false
         if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
         setModeSync('listening')
       })
       session.on?.('transport_event', (event: any) => {
         if (event?.type !== 'conversation.item.input_audio_transcription.completed') return
         const text = (event.transcript ?? '').trim()
-        if (text && voiceEngineModeRef.current === 'realtime') { setTranscript(text); addMessage('user', text) }
+        if (!text || voiceEngineModeRef.current !== 'realtime') return
+        setTranscript(text)
+        const m = modeRef.current
+        const isBusy = m === 'processing' || m === 'working' || m === 'speaking'
+        if (isBusy && !isInterruptPhrase(text)) return
+        addMessage('user', text)
       })
       session.on?.('error', (err: unknown) => {
         const msg = (err as any)?.error?.message ?? (err as Error)?.message ?? String(err)
@@ -805,7 +841,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         if (modeRef.current === 'error') { setModeSync('idle'); setErrorMessage('') }
       }, 6000)
     }
-  }, [router, addMessage, setModeSync, setIsSession, setIsStandby, setErrorMessage])
+  }, [router, addMessage, setModeSync, muteMic, setIsSession, setIsStandby, setErrorMessage])
 
   const disconnectRealtime = React.useCallback(() => {
     if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
@@ -950,11 +986,13 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     voiceSettings, setVoiceSettings, isSpeechSupported,
     voiceEngineMode, connectRealtime, disconnectRealtime,
     startListening, stopAll, startSession, stopSession, handleUtterance,
+    interrupt,
   }), [
     mode, isSession, isStandby, transcript, response, errorMessage, messages,
     voiceSettings, setVoiceSettings, isSpeechSupported,
     voiceEngineMode, connectRealtime, disconnectRealtime,
     startListening, stopAll, startSession, stopSession, handleUtterance,
+    interrupt,
   ])
 
   return (
