@@ -142,6 +142,32 @@ const getPendingRequestsTool = tool({
   },
 })
 
+const getRevenueTool = tool({
+  name:        'get_revenue_summary',
+  description: '売上情報（今月売上・今年売上・未入金・未請求）をHIKARU登録データから取得する。売上・未入金・未請求の質問に使う。利益計算はしない。今月・今年以外の期間には対応しない。',
+  parameters:  z.object({}),
+  execute: async (_, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res  = await apiGet('/api/dashboard', ctx)
+      if (!res.ok) return '売上情報を取得できませんでした。'
+      const data = await res.json()
+      const rev  = data?.revenue
+      if (!rev || typeof rev !== 'object') return '現在HIKARUに登録されている情報からは売上を確認できません。'
+      // API: revenue.this_month/this_year = 税込合計、unpaid = 請求済未入金、unbilled = 未請求
+      const fmt = (n: number): string => `${Math.round(n).toLocaleString('ja-JP')}円`
+      const parts: string[] = []
+      if (rev.this_month != null) parts.push(`今月の売上: ${fmt(rev.this_month)}`)
+      if (rev.this_year  != null) parts.push(`今年の売上: ${fmt(rev.this_year)}`)
+      if (rev.unpaid     != null) parts.push(`未入金: ${fmt(rev.unpaid)}`)
+      if (rev.unbilled   != null) parts.push(`未請求: ${fmt(rev.unbilled)}`)
+      return parts.length > 0
+        ? `HIKARUのデータ — ${parts.join('、')}`
+        : '売上情報を確認できませんでした。'
+    } catch { return '売上情報の取得中にエラーが発生しました。' }
+  },
+})
+
 const getQualitySummaryTool = tool({
   name:        'get_quality_summary',
   description: '今日・最近の品質評価サマリーを取得する。低スコア案件の確認等。',
@@ -216,6 +242,9 @@ const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタ�
 ## 重要なルール
 - Toolで取得した情報のみを事実として扱う
 - 2〜3文以内で音声向けに簡潔に回答する
+- 売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。
+- 「利益は？」→ Tool不使用。「現在HIKARUに登録されている情報だけでは正確な利益は算出できません。」と答える。
+- 「先月の売上」等の今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。
 
 ## Write操作のルール（重要）
 承認操作（経費承認・勤怠修正承認）は必ずpropose_actionを使う。
@@ -246,6 +275,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getPendingExpensesTool,
     getPendingAttendanceTool,
     getPendingRequestsTool,
+    getRevenueTool,
     getQualitySummaryTool,
     proposeActionTool,
     navigateTool,

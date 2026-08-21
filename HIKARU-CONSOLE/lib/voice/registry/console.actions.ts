@@ -32,6 +32,10 @@ export const CONSOLE_ACTIONS = {
     level: 1 as const,
     description: '勤怠修正申請の承認待ち件数を確認',
   },
+  'console.get_revenue': {
+    level: 1 as const,
+    description: '今月売上・今年売上・未入金・未請求をHIKARU登録データから確認',
+  },
 
   // ─── L2: Navigation ──────────────────────────────────────
   'console.go_dashboard': {

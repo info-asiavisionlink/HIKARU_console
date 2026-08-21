@@ -177,6 +177,37 @@ const getPendingRequests: ConsoleAgentTool = {
   },
 }
 
+const getRevenueSummary: ConsoleAgentTool = {
+  name:        'get_revenue_summary',
+  description: '売上情報（今月売上・今年売上・未入金・未請求）をHIKARU登録データから取得する',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/dashboard', ctx)
+      if (!res.ok) return { success: false, text: '売上情報を取得できませんでした。' }
+      const data = await res.json()
+      const rev  = data?.revenue
+      if (!rev || typeof rev !== 'object')
+        return { success: false, text: '現在HIKARUに登録されている情報からは売上を確認できません。' }
+      // API: revenue.this_month/this_year = 税込合計、unpaid = 請求済未入金、unbilled = 未請求
+      const fmt = (n: number): string => `${Math.round(n).toLocaleString('ja-JP')}円`
+      const parts: string[] = []
+      if (rev.this_month != null) parts.push(`今月の売上: ${fmt(rev.this_month)}`)
+      if (rev.this_year  != null) parts.push(`今年の売上: ${fmt(rev.this_year)}`)
+      if (rev.unpaid     != null) parts.push(`未入金: ${fmt(rev.unpaid)}`)
+      if (rev.unbilled   != null) parts.push(`未請求: ${fmt(rev.unbilled)}`)
+      return {
+        success: true,
+        text:    parts.length > 0 ? parts.join('、') : '売上情報を確認できませんでした。',
+        data:    rev,
+      }
+    } catch {
+      return { success: false, text: '売上情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 const navigate: ConsoleAgentTool = {
   name:        'navigate',
   description: '指定のページへ移動する',
@@ -205,6 +236,7 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getPendingExpenses,
   getPendingAttendance,
   getPendingRequests,
+  getRevenueSummary,
   navigate,
 ]
 

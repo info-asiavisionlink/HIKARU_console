@@ -40,6 +40,12 @@ NavigationせずにDataツールを使う。
 「勤怠教えて」→ get_pending_attendance
 「通知教えて」→ get_notifications
 「ダッシュボード教えて」→ get_dashboard_summary
+「売上は？」「今月売上」「今年売上」「未入金」「未請求」「売上状況」→ get_revenue_summary（navigationしない）
+
+## 売上・利益・期間のルール（厳守）
+- 売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。
+- 「利益は？」「儲けは？」→ Tool不使用。「現在HIKARUに登録されている情報だけでは正確な利益は算出できません。原価・人件費等の全情報が必要です。」と答える。
+- 「先月の売上」「去年の売上」等、今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。追加API呼び出し禁止。
 
 ## Write操作（最重要）
 承認操作（経費承認・勤怠承認等）は必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。
@@ -110,6 +116,27 @@ function buildConsoleRealtimeTools(
         if (!data) return '通知を取得できませんでした。'
         const unread = data.unread_count ?? 0
         return unread === 0 ? '未読の通知はありません。' : `未読の通知が${unread}件あります。`
+      },
+    }),
+    toolFactory({
+      name: 'get_revenue_summary',
+      description: '売上情報（今月売上・今年売上・未入金・未請求）をHIKARU登録データから取得する。売上・未入金・未請求の質問に使う。利益計算はしない。今月・今年以外の期間には対応しない。',
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      execute: async () => {
+        const data = await apiFetch('/api/dashboard')
+        if (!data) return '売上情報を取得できませんでした。'
+        const rev = data?.revenue
+        if (!rev || typeof rev !== 'object') return '現在HIKARUに登録されている情報からは売上を確認できません。'
+        // API: revenue.this_month/this_year = 税込合計、unpaid = 請求済未入金、unbilled = 未請求
+        const fmt = (n: number): string => `${Math.round(n).toLocaleString('ja-JP')}円`
+        const parts: string[] = []
+        if (rev.this_month != null) parts.push(`今月の売上: ${fmt(rev.this_month)}`)
+        if (rev.this_year  != null) parts.push(`今年の売上: ${fmt(rev.this_year)}`)
+        if (rev.unpaid     != null) parts.push(`未入金: ${fmt(rev.unpaid)}`)
+        if (rev.unbilled   != null) parts.push(`未請求: ${fmt(rev.unbilled)}`)
+        return parts.length > 0
+          ? `HIKARUのデータ — ${parts.join('、')}`
+          : '売上情報を確認できませんでした。'
       },
     }),
     toolFactory({
@@ -299,6 +326,23 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         // API: { corrections: [...] }
         const items = Array.isArray(data?.corrections) ? data.corrections : []
         return none(items.length === 0 ? '承認待ちの勤怠修正申請はありません。' : `承認待ちの勤怠修正申請が${items.length}件あります。`)
+      }
+      case 'console.get_revenue': {
+        const res = await fetch('/api/dashboard', { credentials: 'include' })
+        if (!res.ok) return none('売上情報を取得できませんでした。')
+        const data = await res.json()
+        const rev = data?.revenue
+        if (!rev || typeof rev !== 'object') return none('現在HIKARUに登録されている情報からは売上を確認できません。')
+        // API: revenue.this_month/this_year = 税込合計、unpaid = 請求済未入金、unbilled = 未請求
+        const fmt = (n: number): string => `${Math.round(n).toLocaleString('ja-JP')}円`
+        const parts: string[] = []
+        if (rev.this_month != null) parts.push(`今月の売上: ${fmt(rev.this_month)}`)
+        if (rev.this_year  != null) parts.push(`今年の売上: ${fmt(rev.this_year)}`)
+        if (rev.unpaid     != null) parts.push(`未入金: ${fmt(rev.unpaid)}`)
+        if (rev.unbilled   != null) parts.push(`未請求: ${fmt(rev.unbilled)}`)
+        return none(parts.length > 0
+          ? `売上情報 — ${parts.join('、')}`
+          : '売上情報を確認できませんでした。')
       }
       case 'console.get_dashboard':
         return none('ダッシュボードに最新情報を表示します。')

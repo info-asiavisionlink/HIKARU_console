@@ -77,6 +77,23 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         const items = Array.isArray(data?.corrections) ? data.corrections : []
         return none(items.length === 0 ? '承認待ちの勤怠修正申請はありません。' : `承認待ちの勤怠修正申請が${items.length}件あります。`)
       }
+      case 'console.get_revenue': {
+        const res = await fetch('/api/dashboard', { credentials: 'include' })
+        if (!res.ok) return none('売上情報を取得できませんでした。')
+        const data = await res.json()
+        const rev = data?.revenue
+        if (!rev || typeof rev !== 'object') return none('現在HIKARUに登録されている情報からは売上を確認できません。')
+        // API: revenue.this_month/this_year = 税込合計、unpaid = 請求済未入金、unbilled = 未請求
+        const fmt = (n: number): string => `${Math.round(n).toLocaleString('ja-JP')}円`
+        const parts: string[] = []
+        if (rev.this_month != null) parts.push(`今月の売上: ${fmt(rev.this_month)}`)
+        if (rev.this_year  != null) parts.push(`今年の売上: ${fmt(rev.this_year)}`)
+        if (rev.unpaid     != null) parts.push(`未入金: ${fmt(rev.unpaid)}`)
+        if (rev.unbilled   != null) parts.push(`未請求: ${fmt(rev.unbilled)}`)
+        return none(parts.length > 0
+          ? `売上情報 — ${parts.join('、')}`
+          : '売上情報を確認できませんでした。')
+      }
       case 'console.get_dashboard': {
         return none('ダッシュボードに最新情報を表示します。')
       }
