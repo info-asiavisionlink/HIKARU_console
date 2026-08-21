@@ -38,10 +38,11 @@ const getDashboardTool = tool({
       if (!res.ok) return 'ダッシュボード情報を取得できませんでした。'
       const data = await res.json()
       const parts: string[] = []
-      if (data?.activeProjects   != null) parts.push(`進行中案件: ${data.activeProjects}件`)
-      if (data?.pendingExpenses  != null) parts.push(`承認待ち経費: ${data.pendingExpenses}件`)
-      if (data?.pendingAttendance != null && data.pendingAttendance > 0)
-        parts.push(`勤怠修正申請: ${data.pendingAttendance}件`)
+      // API: { projects: { active, total, ... }, clients, employees, partners, revenue }
+      if (data?.projects?.active  != null) parts.push(`進行中案件: ${data.projects.active}件`)
+      if (data?.projects?.total   != null && data.projects.total !== data.projects.active)
+        parts.push(`案件合計: ${data.projects.total}件`)
+      if (data?.employees?.active != null) parts.push(`在籍従業員: ${data.employees.active}名`)
       return parts.length > 0 ? `現在の状況: ${parts.join('、')}` : 'ダッシュボードを確認してください。'
     } catch { return 'ダッシュボード情報の取得中にエラーが発生しました。' }
   },
@@ -60,10 +61,12 @@ const getProjectsTool = tool({
       const res   = await apiGet(`/api/projects${query}`, ctx)
       if (!res.ok) return '案件一覧を取得できませんでした。'
       const data = await res.json()
-      const list: Array<{ id: string; name: string }> = Array.isArray(data?.data) ? data.data : []
-      if (list.length === 0) return '案件はありません。'
+      // API: { projects: [...], count: N }
+      const list: Array<{ id: string; name: string }> = Array.isArray(data?.projects) ? data.projects : []
+      const total = data?.count ?? list.length
+      if (total === 0) return '案件はありません。'
       const items = list.slice(0, 5).map((p, i) => `${i + 1}件目: ${p.name} (id:${p.id})`).join(', ')
-      return `案件が${list.length}件あります。一覧: ${items}`
+      return `案件が${total}件あります。${items}`
     } catch { return '案件一覧の取得中にエラーが発生しました。' }
   },
 })
@@ -96,7 +99,8 @@ const getPendingExpensesTool = tool({
       const res   = await apiGet('/api/expenses?status=submitted', ctx)
       if (!res.ok) return '経費申請を確認できませんでした。'
       const data  = await res.json()
-      const items = Array.isArray(data?.data) ? data.data : []
+      // API: { expenses: [...], kpi: {...} }
+      const items = Array.isArray(data?.expenses) ? data.expenses : []
       if (items.length === 0) return '承認待ちの経費申請はありません。'
       return `承認待ちの経費申請が${items.length}件あります。`
     } catch { return '経費申請の取得中にエラーが発生しました。' }
@@ -113,7 +117,8 @@ const getPendingAttendanceTool = tool({
       const res   = await apiGet('/api/attendance/corrections?status=pending', ctx)
       if (!res.ok) return '勤怠修正申請を確認できませんでした。'
       const data  = await res.json()
-      const items = Array.isArray(data?.data) ? data.data : []
+      // API: { corrections: [...] }
+      const items = Array.isArray(data?.corrections) ? data.corrections : []
       if (items.length === 0) return '承認待ちの勤怠修正申請はありません。'
       return `承認待ちの勤怠修正申請が${items.length}件あります。`
     } catch { return '勤怠修正申請の取得中にエラーが発生しました。' }

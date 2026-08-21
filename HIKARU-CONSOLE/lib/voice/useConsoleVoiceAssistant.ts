@@ -65,14 +65,16 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         const res = await fetch('/api/expenses?status=submitted', { credentials: 'include' })
         if (!res.ok) return none('経費申請を確認できませんでした。')
         const data = await res.json()
-        const items = Array.isArray(data?.data) ? data.data : []
+        // API: { expenses: [...], kpi: {...} }
+        const items = Array.isArray(data?.expenses) ? data.expenses : []
         return none(items.length === 0 ? '承認待ちの経費申請はありません。' : `承認待ちの経費申請が${items.length}件あります。`)
       }
       case 'console.get_pending_attendance': {
         const res = await fetch('/api/attendance/corrections?status=pending', { credentials: 'include' })
         if (!res.ok) return none('勤怠修正申請を確認できませんでした。')
         const data = await res.json()
-        const items = Array.isArray(data?.data) ? data.data : []
+        // API: { corrections: [...] }
+        const items = Array.isArray(data?.corrections) ? data.corrections : []
         return none(items.length === 0 ? '承認待ちの勤怠修正申請はありません。' : `承認待ちの勤怠修正申請が${items.length}件あります。`)
       }
       case 'console.get_dashboard': {

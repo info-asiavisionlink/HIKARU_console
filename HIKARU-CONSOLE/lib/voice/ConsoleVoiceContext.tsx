@@ -68,9 +68,11 @@ function buildConsoleRealtimeTools(
         const data = await apiFetch('/api/dashboard')
         if (!data) return 'ダッシュボード情報を取得できませんでした。'
         const parts: string[] = []
-        if (data?.activeProjects  != null) parts.push(`進行中案件: ${data.activeProjects}件`)
-        if (data?.pendingExpenses != null) parts.push(`承認待ち経費: ${data.pendingExpenses}件`)
-        if (data?.pendingAttendance > 0)   parts.push(`勤怠修正申請: ${data.pendingAttendance}件`)
+        // API: { projects: { active, total, ... }, clients, employees, partners, revenue }
+        if (data?.projects?.active  != null) parts.push(`進行中案件: ${data.projects.active}件`)
+        if (data?.projects?.total   != null && data.projects.total !== data.projects.active)
+          parts.push(`案件合計: ${data.projects.total}件`)
+        if (data?.employees?.active != null) parts.push(`在籍従業員: ${data.employees.active}名`)
         return parts.length > 0 ? `現在: ${parts.join('、')}` : 'ダッシュボードを確認してください。'
       },
     }),
@@ -80,7 +82,8 @@ function buildConsoleRealtimeTools(
       execute: async () => {
         const data = await apiFetch('/api/expenses?status=submitted')
         if (!data) return '経費申請を確認できませんでした。'
-        const items = Array.isArray(data?.data) ? data.data : []
+        // API: { expenses: [...], kpi: {...} }
+        const items = Array.isArray(data?.expenses) ? data.expenses : []
         if (items.length === 0) return '承認待ちの経費申請はありません。'
         const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.title ?? `¥${e.amount}`} [id:${e.id}]`).join(', ')
         return `承認待ちの経費申請が${items.length}件あります。${list}`
@@ -92,9 +95,10 @@ function buildConsoleRealtimeTools(
       execute: async () => {
         const data = await apiFetch('/api/attendance/corrections?status=pending')
         if (!data) return '勤怠修正申請を確認できませんでした。'
-        const items = Array.isArray(data?.data) ? data.data : []
+        // API: { corrections: [...] }（enriched: correction + worker { name } + attendance_record）
+        const items = Array.isArray(data?.corrections) ? data.corrections : []
         if (items.length === 0) return '承認待ちの勤怠修正申請はありません。'
-        const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.worker_name ?? '従業員'} [id:${e.id}]`).join(', ')
+        const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.worker?.name ?? '従業員'} [id:${e.id}]`).join(', ')
         return `承認待ちの勤怠修正申請が${items.length}件あります。${list}`
       },
     }),
@@ -284,14 +288,16 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
         const res = await fetch('/api/expenses?status=submitted', { credentials: 'include' })
         if (!res.ok) return none('経費申請を確認できませんでした。')
         const data = await res.json()
-        const items = Array.isArray(data?.data) ? data.data : []
+        // API: { expenses: [...], kpi: {...} }
+        const items = Array.isArray(data?.expenses) ? data.expenses : []
         return none(items.length === 0 ? '承認待ちの経費申請はありません。' : `承認待ちの経費申請が${items.length}件あります。承認しますか？`)
       }
       case 'console.get_pending_attendance': {
         const res = await fetch('/api/attendance/corrections?status=pending', { credentials: 'include' })
         if (!res.ok) return none('勤怠修正申請を確認できませんでした。')
         const data = await res.json()
-        const items = Array.isArray(data?.data) ? data.data : []
+        // API: { corrections: [...] }
+        const items = Array.isArray(data?.corrections) ? data.corrections : []
         return none(items.length === 0 ? '承認待ちの勤怠修正申請はありません。' : `承認待ちの勤怠修正申請が${items.length}件あります。`)
       }
       case 'console.get_dashboard':
