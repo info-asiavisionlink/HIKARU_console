@@ -579,6 +579,149 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: '勤怠修正申請を承認しました。' })
       }
 
+      // ─── L4: create_employee ─────────────────────────────
+      case 'console.create_employee': {
+        const { name, phone, email, name_kana, hire_date, department, position, notes } = params
+        if (!name?.trim()) return Response.json({ error: '名前は必須です' }, { status: 400 })
+
+        const ALLOWED_EMP_CREATE = ['name', 'phone', 'email', 'name_kana', 'hire_date', 'department', 'position', 'notes'] as const
+        const createBody: Record<string, string | null> = {}
+        for (const field of ALLOWED_EMP_CREATE) {
+          const val = { name, phone, email, name_kana, hire_date, department, position, notes }[field]
+          if (val !== undefined) createBody[field] = val?.trim() || null
+        }
+        createBody.name = name.trim()
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/employees`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'employee',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '従業員登録に失敗しました。' }, { status: res.status })
+
+        const employeeId = data?.data?.id
+        if (!employeeId) return Response.json({ error: '従業員IDを取得できませんでした。' }, { status: 500 })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/employees/${employeeId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (!verifyData?.data?.id || verifyData.data.name !== name.trim()) {
+            return Response.json({ error: '従業員登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `従業員「${name.trim()}」を登録しました。ログインアカウントが必要な場合は管理画面から設定してください。` })
+      }
+
+      // ─── L4: update_employee ─────────────────────────────
+      case 'console.update_employee': {
+        const { employeeId } = params
+        if (!employeeId) return Response.json({ error: 'employeeId required' }, { status: 400 })
+
+        const ALLOWED_EMP_UPDATE = ['name', 'phone', 'email', 'name_kana', 'hire_date', 'department', 'position', 'notes'] as const
+        const updateBody: Record<string, string | null> = {}
+        for (const field of ALLOWED_EMP_UPDATE) {
+          const val = params[field]
+          if (val !== undefined) updateBody[field] = val?.trim() || null
+        }
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/employees/${employeeId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'employee', resourceId: employeeId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '従業員情報の更新に失敗しました。' }, { status: res.status })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/employees/${employeeId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const e = verifyData?.data
+          if (e) {
+            for (const [key, val] of Object.entries(updateBody)) {
+              if (val !== null && e[key] !== val) {
+                return Response.json({ error: '従業員情報の更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+              }
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        if (updateBody.name)       changedParts.push(`名前を「${updateBody.name}」に`)
+        if (updateBody.phone)      changedParts.push(`電話番号を「${updateBody.phone}」に`)
+        if (updateBody.email)      changedParts.push(`メールを「${updateBody.email}」に`)
+        if (updateBody.department) changedParts.push(`部署を「${updateBody.department}」に`)
+        if (updateBody.position)   changedParts.push(`役職を「${updateBody.position}」に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : '従業員情報を更新しました。',
+        })
+      }
+
+      // ─── L4: update_employee_status ──────────────────────
+      case 'console.update_employee_status': {
+        const { employeeId, status } = params
+        if (!employeeId) return Response.json({ error: 'employeeId required' }, { status: 400 })
+        if (!status)     return Response.json({ error: 'status required' }, { status: 400 })
+
+        const VALID_STATUSES = ['active', 'on_leave', 'resigned', 'suspended'] as const
+        if (!VALID_STATUSES.includes(status as typeof VALID_STATUSES[number])) {
+          return Response.json({ error: 'statusはactive/on_leave/resigned/suspendedのみ変更可能です' }, { status: 400 })
+        }
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/employees/${employeeId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ status }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'employee', resourceId: employeeId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'ステータス変更に失敗しました。' }, { status: res.status })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/employees/${employeeId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.data?.status !== status) {
+            return Response.json({ error: 'ステータス変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const STATUS_LABELS: Record<string, string> = {
+          active: '在籍中', on_leave: '休職中', resigned: '退職', suspended: '利用停止',
+        }
+        return Response.json({ success: true, voiceReply: `従業員のステータスを${STATUS_LABELS[status] ?? status}に変更しました。` })
+      }
+
       default:
         return Response.json({ error: 'unsupported action' }, { status: 400 })
     }

@@ -172,6 +172,18 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '勤怠修正申請を承認する',
   },
+  'console.create_employee': {
+    level: 4 as const,
+    description: '従業員を新規登録する（名前必須、Confirmation必須。パスワード・権限設定は管理画面から）',
+  },
+  'console.update_employee': {
+    level: 4 as const,
+    description: '従業員の基本情報（名前・電話・メール・部署・役職・備考等）を編集する（Confirmation必須）',
+  },
+  'console.update_employee_status': {
+    level: 4 as const,
+    description: '従業員のステータスを変更する（active/on_leave/resigned/suspended、Confirmation必須）',
+  },
 } as const
 
 export type ConsoleActionName = keyof typeof CONSOLE_ACTIONS

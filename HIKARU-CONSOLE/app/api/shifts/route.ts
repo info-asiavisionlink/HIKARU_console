@@ -9,10 +9,11 @@ export async function GET(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const p = req.nextUrl.searchParams
-  const dateFrom  = p.get('date_from')
-  const dateTo    = p.get('date_to')
-  const projectId = p.get('project_id')
-  const status    = p.get('status')
+  const dateFrom   = p.get('date_from')
+  const dateTo     = p.get('date_to')
+  const projectId  = p.get('project_id')
+  const status     = p.get('status')
+  const employeeId = p.get('employee_id')
 
   let query = auth.adminClient
     .from('shifts')
@@ -26,10 +27,11 @@ export async function GET(req: NextRequest) {
     .order('shift_date', { ascending: true })
     .order('start_time', { ascending: true })
 
-  if (dateFrom) query = query.gte('shift_date', dateFrom)
-  if (dateTo)   query = query.lte('shift_date', dateTo)
-  if (projectId) query = query.eq('project_id', projectId)
-  if (status)    query = query.eq('status', status)
+  if (dateFrom)   query = query.gte('shift_date', dateFrom)
+  if (dateTo)     query = query.lte('shift_date', dateTo)
+  if (projectId)  query = query.eq('project_id', projectId)
+  if (status)     query = query.eq('status', status)
+  if (employeeId) query = query.eq('employee_id', employeeId)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

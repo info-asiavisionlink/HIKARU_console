@@ -58,6 +58,34 @@ NavigationせずにDataツールを使う。
 通知・連絡 → get_notifications
 ダッシュボード → get_dashboard_summary
 売上・未入金・未請求 → get_revenue_summary（navigationしない）
+従業員一覧・スタッフ情報 → get_employees（search/status指定可）
+従業員詳細・連絡先 → get_employee_detail（employee_idを指定）
+従業員の担当案件 → get_employee_projects（employee_idを指定）
+従業員の勤怠概要 → get_employee_attendance_summary（employee_idを指定）
+従業員のシフト → get_employee_shifts（employee_idを指定）
+
+## 従業員操作手順
+従業員一覧: get_employees（search/status指定可）→ employeeId確認
+従業員詳細: get_employee_detail（employeeIdが必要）
+担当案件: get_employee_projects（employeeIdが必要）
+勤怠概要: get_employee_attendance_summary（employeeIdが必要）
+シフト: get_employee_shifts（employeeIdが必要）
+従業員登録: name確認後 → 確認後 execute_confirmed_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
+  確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
+  ※パスワード・ログイン設定は管理画面から実施。AIでパスワード生成禁止。
+従業員編集: get_employee_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_employee, {employeeId, [変更フィールド]: 値})
+  変更可能: name/phone/email/name_kana/hire_date/department/position/notes
+  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
+ステータス変更: 確認後 execute_confirmed_action(console.update_employee_status, {employeeId, status})
+  status値: active=在籍中 / on_leave=休職中 / resigned=退職 / suspended=利用停止
+  ※deleted（削除）は音声禁止。退職≠削除を混同しない。
+従業員削除: 音声で実行不可。「従業員削除は管理画面から操作してください。」と答える。
+権限変更（admin/worker）: 音声で実行不可。「権限変更は管理画面から操作してください。」と答える。
+
+## 従業員IDルール（最重要）
+employeeIdは必ずget_employeesのresultから取得する。AI生成employeeId禁止。
+同名従業員が複数いる場合: 「どの方ですか？」と聞いてから操作する。
+Write時は特に厳格に実IDを確認してから実行する。
 
 ## 顧客操作手順
 顧客一覧: get_clients（search指定可）→ clientId確認
@@ -131,9 +159,12 @@ NavigationせずにDataツールを使う。
 - console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
 - console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
 - console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
-- console.approve_expense       → params: { expenseId }
-- console.reject_expense        → params: { expenseId, reject_reason }
-- console.approve_attendance    → params: { correctionId }`
+- console.approve_expense          → params: { expenseId }
+- console.reject_expense           → params: { expenseId, reject_reason }
+- console.approve_attendance       → params: { correctionId }
+- console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
+- console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
+- console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -546,13 +577,157 @@ function buildConsoleRealtimeTools(
       execute: async ({ destination }: { destination: string }) =>
         executeConsoleNavigation(destination, router),
     }),
+    // ─── Employee Tools ─────────────────────────────────────
+    toolFactory({
+      name: 'get_employees',
+      description: '従業員・スタッフの一覧を取得する。「従業員一覧教えて」「今誰が登録されてる？」「スタッフどんな人いる？」「田中さんって登録されてる？」「何名いる？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      parameters: {
+        type: 'object',
+        properties: {
+          search: { type: 'string', description: '名前・名前かな・メール・社員番号で検索' },
+          status: { type: 'string', description: 'active=在籍中 / on_leave=休職中 / resigned=退職 / suspended=利用停止' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ search, status }: { search?: string; status?: string }) => {
+        const q = new URLSearchParams({ pageSize: '10' })
+        if (search) q.set('search', search)
+        if (status) q.set('status', status)
+        const data = await apiFetch(`/api/employees?${q}`)
+        if (!data) return '従業員情報を取得できませんでした。'
+        const employees: any[] = data.data ?? []
+        const total = data.count ?? employees.length
+        if (total === 0) return search ? `「${search}」という従業員は見つかりませんでした。` : '従業員は登録されていません。'
+        const ST: Record<string, string> = { active: '在籍中', on_leave: '休職中', resigned: '退職', suspended: '利用停止' }
+        const items = employees.slice(0, 5).map((e: any, i: number) => {
+          const num = e.employee_number ? `（${e.employee_number}）` : ''
+          const st  = ST[e.status] ?? e.status ?? '不明'
+          const dept = e.department ? `、${e.department}` : ''
+          return `${i + 1}件目: ${e.name}${num}、${st}${dept} [id:${e.id}]`
+        }).join(' / ')
+        return `従業員${total}名。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_employee_detail',
+      description: '指定した従業員の詳細情報（連絡先・役職・入社日・担当案件数等）を取得する。「田中さんの情報教えて」「この人の電話番号は？」「メールは？」「いつ入社した？」「この人の役職は？」等。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { employee_id: { type: 'string', description: '従業員のID' } },
+        required: ['employee_id'], additionalProperties: false,
+      },
+      execute: async ({ employee_id }: { employee_id: string }) => {
+        if (!employee_id) return '従業員IDが必要です。'
+        const data = await apiFetch(`/api/employees/${employee_id}`)
+        if (!data) return '従業員情報を取得できませんでした。'
+        const e = data?.data
+        if (!e) return '従業員が見つかりませんでした。'
+        const ST: Record<string, string> = { active: '在籍中', on_leave: '休職中', resigned: '退職', suspended: '利用停止' }
+        const parts: string[] = [`${e.name}${e.employee_number ? `（${e.employee_number}）` : ''}、${ST[e.status] ?? e.status ?? '不明'}`]
+        if (e.department) parts.push(`部署: ${e.department}`)
+        if (e.position)   parts.push(`役職: ${e.position}`)
+        if (e.phone)      parts.push(`電話: ${e.phone}`)
+        if (e.email)      parts.push(`メール: ${e.email}`)
+        if (e.hire_date)  parts.push(`入社: ${e.hire_date}`)
+        const assignCount = Array.isArray(e.assignments) ? e.assignments.length : 0
+        if (assignCount > 0) parts.push(`担当案件: ${assignCount}件`)
+        return `${parts.join('、')} [id:${employee_id}]`
+      },
+    }),
+    toolFactory({
+      name: 'get_employee_projects',
+      description: '指定した従業員が担当している案件一覧を取得する。「この人の担当案件は？」「田中さん今どの現場入ってる？」「この人の仕事は？」等。',
+      parameters: {
+        type: 'object',
+        properties: { employee_id: { type: 'string', description: '従業員のID' } },
+        required: ['employee_id'], additionalProperties: false,
+      },
+      execute: async ({ employee_id }: { employee_id: string }) => {
+        if (!employee_id) return '従業員IDが必要です。'
+        const data = await apiFetch(`/api/employees/${employee_id}`)
+        if (!data) return '従業員情報を取得できませんでした。'
+        const assignments: any[] = data?.data?.assignments ?? []
+        if (assignments.length === 0) return 'この従業員に紐づく担当案件はありません。'
+        const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+        const items = assignments.slice(0, 5).map((a: any, i: number) => {
+          const p = a.projects
+          if (!p) return `${i + 1}件目: 不明`
+          const st = ST[p.status] ?? p.status ?? '不明'
+          return `${i + 1}件目: ${p.name}、${st} [id:${p.id}]`
+        }).join(' / ')
+        return `担当案件${assignments.length}件。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_employee_attendance_summary',
+      description: '指定した従業員の勤怠概要（出勤日数・勤務時間）を取得する。「この人今月何日出勤した？」「田中さんの勤務状況は？」「この人今月どれくらい働いてる？」等。',
+      parameters: {
+        type: 'object',
+        properties: {
+          employee_id: { type: 'string', description: '従業員のID' },
+          year:        { type: 'string', description: '年（例: 2026）省略時は今年' },
+          month:       { type: 'string', description: '月（例: 8）省略時は今月' },
+        },
+        required: ['employee_id'], additionalProperties: false,
+      },
+      execute: async ({ employee_id, year, month }: { employee_id: string; year?: string; month?: string }) => {
+        if (!employee_id) return '従業員IDが必要です。'
+        const empData = await apiFetch(`/api/employees/${employee_id}`)
+        if (!empData) return '従業員情報を取得できませんでした。'
+        const e = empData?.data
+        if (!e) return '従業員が見つかりませんでした。'
+        if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため勤怠データを確認できません。`
+        const now = new Date()
+        const y = year  ?? String(now.getFullYear())
+        const m = month ?? String(now.getMonth() + 1)
+        const attData = await apiFetch(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`)
+        if (!attData) return '勤怠情報を取得できませんでした。'
+        const summary: any[] = attData.summary ?? []
+        const ws = summary.find((s: any) => s.worker_id === e.auth_user_id)
+        if (!ws) return `${e.name}さんの${m}月の勤怠記録はありません。`
+        const hours = Math.round(ws.totalWorkMins / 60 * 10) / 10
+        return `${e.name}さんの${m}月の勤怠: 出勤${ws.workDays}日、合計${hours}時間`
+      },
+    }),
+    toolFactory({
+      name: 'get_employee_shifts',
+      description: '指定した従業員のシフト一覧を取得する。「この人今週のシフトは？」「田中さん次いつ入ってる？」「この人明日入ってる？」「いつシフト入ってる？」等。',
+      parameters: {
+        type: 'object',
+        properties: {
+          employee_id: { type: 'string', description: '従業員のID' },
+          date_from:   { type: 'string', description: '開始日（YYYY-MM-DD）省略時は今日' },
+          date_to:     { type: 'string', description: '終了日（YYYY-MM-DD）省略時は1週間後' },
+        },
+        required: ['employee_id'], additionalProperties: false,
+      },
+      execute: async ({ employee_id, date_from, date_to }: { employee_id: string; date_from?: string; date_to?: string }) => {
+        if (!employee_id) return '従業員IDが必要です。'
+        const now = new Date()
+        const from = date_from ?? now.toISOString().slice(0, 10)
+        const toDate = date_to ?? (() => { const d = new Date(now); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })()
+        const q = new URLSearchParams({ employee_id, date_from: from, date_to: toDate })
+        const data = await apiFetch(`/api/shifts?${q}`)
+        if (!data) return 'シフト情報を取得できませんでした。'
+        const shifts: any[] = data.shifts ?? []
+        if (shifts.length === 0) return `この期間のシフトは登録されていません。`
+        const items = shifts.slice(0, 7).map((s: any) => {
+          const date  = s.shift_date ?? '不明'
+          const start = s.start_time ? s.start_time.slice(0, 5) : ''
+          const end   = s.end_time   ? s.end_time.slice(0, 5)   : ''
+          const proj  = s.projects?.name ?? ''
+          return `${date} ${start}〜${end}${proj ? `（${proj}）` : ''}`
+        }).join(' / ')
+        return `${shifts.length}件のシフト。${items}`
+      },
+    }),
     toolFactory({
       name: 'execute_confirmed_action',
       description: 'ユーザーが「はい」と確認した後にのみ呼ぶ。Server Auth再検証して実行。',
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],

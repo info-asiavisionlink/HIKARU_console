@@ -501,11 +501,159 @@ const getClientProjectsTool = tool({
   },
 })
 
+// ─── Employee Tools ─────────────────────────────────────────
+
+const getEmployeesTool = tool({
+  name:        'get_employees',
+  description: '従業員・スタッフの一覧を取得する。「従業員一覧教えて」「今誰が登録されてる？」「スタッフどんな人いる？」「田中さんって登録されてる？」等。',
+  parameters:  z.object({
+    search: z.string().optional().describe('名前・かな・メール・社員番号で検索'),
+    status: z.string().optional().describe('active/on_leave/resigned/suspended'),
+  }),
+  execute: async ({ search, status }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (search) q.set('search', search)
+      if (status) q.set('status', status)
+      const res  = await apiGet(`/api/employees?${q}`, ctx)
+      if (!res.ok) return '従業員情報を取得できませんでした。'
+      const data      = await res.json()
+      const employees: any[] = data.data ?? []
+      const total     = data.count ?? employees.length
+      if (total === 0) return search ? `「${search}」という従業員は見つかりませんでした。` : '従業員は登録されていません。'
+      const ST: Record<string, string> = { active: '在籍中', on_leave: '休職中', resigned: '退職', suspended: '利用停止' }
+      const items = employees.slice(0, 5).map((e: any, i: number) => {
+        const num = e.employee_number ? `（${e.employee_number}）` : ''
+        const dept = e.department ? `、${e.department}` : ''
+        return `${i + 1}件目: ${e.name}${num}、${ST[e.status] ?? e.status}${dept} [id:${e.id}]`
+      }).join(' / ')
+      return `従業員${total}名。${items}`
+    } catch { return '従業員一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getEmployeeDetailTool = tool({
+  name:        'get_employee_detail',
+  description: '指定した従業員の詳細情報（連絡先・役職・入社日等）を取得する。「田中さんの情報教えて」「電話番号は？」「この人の役職は？」「いつ入社した？」等。一覧でIDを確認後に使う。',
+  parameters:  z.object({ employee_id: z.string().describe('従業員のID') }),
+  execute: async ({ employee_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!employee_id) return '従業員IDが必要です。'
+    try {
+      const res  = await apiGet(`/api/employees/${employee_id}`, ctx)
+      if (!res.ok) return '従業員情報を取得できませんでした。'
+      const data = await res.json()
+      const e    = data?.data
+      if (!e) return '従業員が見つかりませんでした。'
+      const ST: Record<string, string> = { active: '在籍中', on_leave: '休職中', resigned: '退職', suspended: '利用停止' }
+      const parts: string[] = [`${e.name}${e.employee_number ? `（${e.employee_number}）` : ''}、${ST[e.status] ?? e.status}`]
+      if (e.department) parts.push(`部署: ${e.department}`)
+      if (e.position)   parts.push(`役職: ${e.position}`)
+      if (e.phone)      parts.push(`電話: ${e.phone}`)
+      if (e.email)      parts.push(`メール: ${e.email}`)
+      if (e.hire_date)  parts.push(`入社: ${e.hire_date}`)
+      const assignCount = Array.isArray(e.assignments) ? e.assignments.length : 0
+      if (assignCount > 0) parts.push(`担当案件: ${assignCount}件`)
+      return `${parts.join('、')} [id:${employee_id}]`
+    } catch { return '従業員詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const getEmployeeProjectsTool = tool({
+  name:        'get_employee_projects',
+  description: '指定した従業員が担当している案件を取得する。「この人の担当案件は？」「田中さん今どの現場入ってる？」「この人の仕事は？」等。',
+  parameters:  z.object({ employee_id: z.string().describe('従業員のID') }),
+  execute: async ({ employee_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!employee_id) return '従業員IDが必要です。'
+    try {
+      const res  = await apiGet(`/api/employees/${employee_id}`, ctx)
+      if (!res.ok) return '従業員情報を取得できませんでした。'
+      const data        = await res.json()
+      const assignments: any[] = data?.data?.assignments ?? []
+      if (assignments.length === 0) return 'この従業員に紐づく担当案件はありません。'
+      const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+      const items = assignments.slice(0, 5).map((a: any, i: number) => {
+        const p = a.projects
+        if (!p) return `${i + 1}件目: 不明`
+        return `${i + 1}件目: ${p.name}、${ST[p.status] ?? p.status} [id:${p.id}]`
+      }).join(' / ')
+      return `担当案件${assignments.length}件。${items}`
+    } catch { return '担当案件の取得中にエラーが発生しました。' }
+  },
+})
+
+const getEmployeeAttendanceTool = tool({
+  name:        'get_employee_attendance_summary',
+  description: '指定した従業員の勤怠概要（出勤日数・勤務時間）を取得する。「この人今月何日出勤した？」「田中さんの勤務状況は？」「今月の出勤状況は？」等。',
+  parameters:  z.object({
+    employee_id: z.string().describe('従業員のID'),
+    year:        z.string().optional().describe('年（例: 2026）省略時は今年'),
+    month:       z.string().optional().describe('月（例: 8）省略時は今月'),
+  }),
+  execute: async ({ employee_id, year, month }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!employee_id) return '従業員IDが必要です。'
+    try {
+      const empRes = await apiGet(`/api/employees/${employee_id}`, ctx)
+      if (!empRes.ok) return '従業員情報を取得できませんでした。'
+      const empData = await empRes.json()
+      const e = empData?.data
+      if (!e) return '従業員が見つかりませんでした。'
+      if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため勤怠データを確認できません。`
+      const now = new Date()
+      const y = year  ?? String(now.getFullYear())
+      const m = month ?? String(now.getMonth() + 1)
+      const attRes = await apiGet(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`, ctx)
+      if (!attRes.ok) return '勤怠情報を取得できませんでした。'
+      const attData  = await attRes.json()
+      const summary: any[] = attData.summary ?? []
+      const ws = summary.find((s: any) => s.worker_id === e.auth_user_id)
+      if (!ws) return `${e.name}さんの${m}月の勤怠記録はありません。`
+      const hours = Math.round(ws.totalWorkMins / 60 * 10) / 10
+      return `${e.name}さんの${m}月の勤怠: 出勤${ws.workDays}日、合計${hours}時間`
+    } catch { return '勤怠情報の取得中にエラーが発生しました。' }
+  },
+})
+
+const getEmployeeShiftsTool = tool({
+  name:        'get_employee_shifts',
+  description: '指定した従業員のシフト一覧を取得する。「この人今週のシフトは？」「田中さん次いつ入ってる？」「この人明日入ってる？」等。',
+  parameters:  z.object({
+    employee_id: z.string().describe('従業員のID'),
+    date_from:   z.string().optional().describe('開始日（YYYY-MM-DD）省略時は今日'),
+    date_to:     z.string().optional().describe('終了日（YYYY-MM-DD）省略時は1週間後'),
+  }),
+  execute: async ({ employee_id, date_from, date_to }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!employee_id) return '従業員IDが必要です。'
+    try {
+      const now = new Date()
+      const from   = date_from ?? now.toISOString().slice(0, 10)
+      const toDate = date_to ?? (() => { const d = new Date(now); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })()
+      const q    = new URLSearchParams({ employee_id, date_from: from, date_to: toDate })
+      const res  = await apiGet(`/api/shifts?${q}`, ctx)
+      if (!res.ok) return 'シフト情報を取得できませんでした。'
+      const data   = await res.json()
+      const shifts: any[] = data.shifts ?? []
+      if (shifts.length === 0) return 'この期間のシフトは登録されていません。'
+      const items = shifts.slice(0, 7).map((s: any) => {
+        const start = s.start_time ? s.start_time.slice(0, 5) : ''
+        const end   = s.end_time   ? s.end_time.slice(0, 5)   : ''
+        const proj  = s.projects?.name ?? ''
+        return `${s.shift_date} ${start}〜${end}${proj ? `（${proj}）` : ''}`
+      }).join(' / ')
+      return `${shifts.length}件のシフト。${items}`
+    } catch { return 'シフト情報の取得中にエラーが発生しました。' }
+  },
+})
+
 const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_expense'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status'),
     params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
@@ -631,23 +779,44 @@ propose_action → finalOutputに確認文 → 管理者「はい」→ Server�
 2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
 3. 却下の場合は必ず理由をユーザーから先に聞く（APIが却下理由必須のため）
 
+## 従業員操作手順
+従業員一覧: get_employees（search/status指定可）→ employeeId確認
+従業員詳細: get_employee_detail（employeeIdが必要）
+担当案件: get_employee_projects（employeeIdが必要）
+勤怠概要: get_employee_attendance_summary（employeeIdが必要）
+シフト: get_employee_shifts（employeeIdが必要）
+従業員登録: name確認後 → propose_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
+  確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
+  ※パスワード・ログイン設定は管理画面から。AIでパスワード生成禁止。
+従業員編集: get_employee_detailで現在値確認 → propose_action(console.update_employee, {employeeId, [変更フィールド]})
+  変更可能: name/phone/email/name_kana/hire_date/department/position/notes
+ステータス変更: propose_action(console.update_employee_status, {employeeId, status})
+  status: active/on_leave/resigned/suspended ※deletedは禁止
+従業員削除: 音声実行不可。「管理画面から操作してください。」と答える。
+権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
+employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
+
 ## propose_actionのactionとparamsの対応
-- console.update_project_status → params: { projectId, status }
-- console.create_project        → params: { name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes? }
-- console.update_project        → params: { projectId, [変更フィールド]: 値 }
-- console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
-- console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
-- console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
-- console.create_client         → params: { name, code?, phone?, email?, address?, contact_name?, notes? }
-- console.update_client         → params: { clientId, [変更フィールド]: 値 } ※変更可: name/code/phone/email/address/contact_name/notes/is_active
-- console.approve_expense       → params: { expenseId }
-- console.reject_expense        → params: { expenseId, reject_reason }
-- console.approve_attendance    → params: { correctionId }
+- console.update_project_status    → params: { projectId, status }
+- console.create_project           → params: { name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes? }
+- console.update_project           → params: { projectId, [変更フィールド]: 値 }
+- console.add_assignment           → params: { projectId, assignee_type, assignee_id, assignee_name }
+- console.remove_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
+- console.replace_assignment       → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
+- console.create_client            → params: { name, code?, phone?, email?, address?, contact_name?, notes? }
+- console.update_client            → params: { clientId, [変更フィールド]: 値 } ※変更可: name/code/phone/email/address/contact_name/notes/is_active
+- console.approve_expense          → params: { expenseId }
+- console.reject_expense           → params: { expenseId, reject_reason }
+- console.approve_attendance       → params: { correctionId }
+- console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
+- console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
+- console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
 「全部承認して」等はエラーとして説明すること。
-案件削除は音声禁止。「管理画面から操作してください。」と答える。`
+案件削除は音声禁止。「管理画面から操作してください。」と答える。
+従業員削除・権限変更は音声禁止。「管理画面から操作してください。」と答える。`
 
 export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
   name:         'JARVIS Console',
@@ -672,6 +841,11 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getPendingRequestsTool,
     getRevenueTool,
     getQualitySummaryTool,
+    getEmployeesTool,
+    getEmployeeDetailTool,
+    getEmployeeProjectsTool,
+    getEmployeeAttendanceTool,
+    getEmployeeShiftsTool,
     proposeActionTool,
     navigateTool,
   ],

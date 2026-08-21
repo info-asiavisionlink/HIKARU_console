@@ -636,6 +636,184 @@ const getClientProjects: ConsoleAgentTool = {
   },
 }
 
+// ─── Employee Tools ──────────────────────────────────────────
+
+const EMPLOYEE_STATUS_LABELS: Record<string, string> = { active: '在籍中', on_leave: '休職中', resigned: '退職', suspended: '利用停止' }
+
+const getEmployees: ConsoleAgentTool = {
+  name:        'get_employees',
+  description: '従業員・スタッフの一覧を取得する。「従業員一覧教えて」「今誰が登録されてる？」「スタッフどんな人いる？」「田中さんって登録されてる？」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: {
+      search: { type: 'string', description: '名前・かな・メール・社員番号で検索' },
+      status: { type: 'string', description: 'active/on_leave/resigned/suspended' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (params.search) q.set('search', params.search)
+      if (params.status) q.set('status', params.status)
+      const res       = await apiFetch(`/api/employees?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '従業員情報を取得できませんでした。' }
+      const data      = await res.json()
+      const employees: any[] = data.data ?? []
+      const total     = data.count ?? employees.length
+      if (total === 0) return { success: true, text: params.search ? `「${params.search}」という従業員は見つかりませんでした。` : '従業員は登録されていません。', items: [] }
+      const items = employees.slice(0, 5).map((e: any, i: number) => ({
+        id:    e.id,
+        label: `${i + 1}件目: ${e.name}${e.employee_number ? `（${e.employee_number}）` : ''}、${EMPLOYEE_STATUS_LABELS[e.status] ?? e.status}${e.department ? `、${e.department}` : ''}`,
+      }))
+      return { success: true, text: `従業員が${total}名います。`, items, data: { total } }
+    } catch {
+      return { success: false, text: '従業員一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getEmployeeDetail: ConsoleAgentTool = {
+  name:        'get_employee_detail',
+  description: '指定した従業員の詳細情報（連絡先・役職・入社日等）を取得する。「田中さんの情報教えて」「電話番号は？」「この人の役職は？」「いつ入社した？」等。一覧でIDを確認後に使う。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { employee_id: { type: 'string', description: '従業員のID' } },
+    required:   ['employee_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const empId = params.employee_id
+    if (!empId) return { success: false, text: '従業員IDが必要です。' }
+    try {
+      const res  = await apiFetch(`/api/employees/${empId}`, ctx)
+      if (!res.ok) return { success: false, text: '従業員情報を取得できませんでした。' }
+      const data = await res.json()
+      const e    = data?.data
+      if (!e) return { success: false, text: '従業員が見つかりませんでした。' }
+      const parts: string[] = [`${e.name}${e.employee_number ? `（${e.employee_number}）` : ''}、${EMPLOYEE_STATUS_LABELS[e.status] ?? e.status}`]
+      if (e.department) parts.push(`部署: ${e.department}`)
+      if (e.position)   parts.push(`役職: ${e.position}`)
+      if (e.phone)      parts.push(`電話: ${e.phone}`)
+      if (e.email)      parts.push(`メール: ${e.email}`)
+      if (e.hire_date)  parts.push(`入社: ${e.hire_date}`)
+      const assignCount = Array.isArray(e.assignments) ? e.assignments.length : 0
+      if (assignCount > 0) parts.push(`担当案件: ${assignCount}件`)
+      return { success: true, text: parts.join('、'), items: [{ id: empId, label: `ID: ${empId}` }] }
+    } catch {
+      return { success: false, text: '従業員詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getEmployeeProjects: ConsoleAgentTool = {
+  name:        'get_employee_projects',
+  description: '指定した従業員が担当している案件を取得する。「この人の担当案件は？」「田中さん今どの現場入ってる？」「この人の仕事は？」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { employee_id: { type: 'string', description: '従業員のID' } },
+    required:   ['employee_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const empId = params.employee_id
+    if (!empId) return { success: false, text: '従業員IDが必要です。' }
+    try {
+      const res         = await apiFetch(`/api/employees/${empId}`, ctx)
+      if (!res.ok) return { success: false, text: '従業員情報を取得できませんでした。' }
+      const data        = await res.json()
+      const assignments: any[] = data?.data?.assignments ?? []
+      if (assignments.length === 0) return { success: true, text: 'この従業員に紐づく担当案件はありません。', items: [] }
+      const ST: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+      const items = assignments.slice(0, 5).map((a: any, i: number) => {
+        const p = a.projects
+        return { id: p?.id ?? '', label: `${i + 1}件目: ${p?.name ?? '不明'}、${ST[p?.status] ?? p?.status ?? '不明'}` }
+      })
+      return { success: true, text: `担当案件が${assignments.length}件あります。`, items }
+    } catch {
+      return { success: false, text: '担当案件の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getEmployeeAttendanceSummary: ConsoleAgentTool = {
+  name:        'get_employee_attendance_summary',
+  description: '指定した従業員の勤怠概要（出勤日数・勤務時間）を取得する。「この人今月何日出勤した？」「田中さんの勤務状況は？」「今月の出勤状況は？」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: {
+      employee_id: { type: 'string', description: '従業員のID' },
+      year:        { type: 'string', description: '年（例: 2026）省略時は今年' },
+      month:       { type: 'string', description: '月（例: 8）省略時は今月' },
+    },
+    required: ['employee_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const empId = params.employee_id
+    if (!empId) return { success: false, text: '従業員IDが必要です。' }
+    try {
+      const empRes = await apiFetch(`/api/employees/${empId}`, ctx)
+      if (!empRes.ok) return { success: false, text: '従業員情報を取得できませんでした。' }
+      const empData = await empRes.json()
+      const e = empData?.data
+      if (!e) return { success: false, text: '従業員が見つかりませんでした。' }
+      if (!e.auth_user_id) return { success: true, text: `${e.name}さんはシステムアカウントがないため勤怠データを確認できません。` }
+      const now = new Date()
+      const y = params.year  ?? String(now.getFullYear())
+      const m = params.month ?? String(now.getMonth() + 1)
+      const attRes = await apiFetch(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`, ctx)
+      if (!attRes.ok) return { success: false, text: '勤怠情報を取得できませんでした。' }
+      const attData  = await attRes.json()
+      const summary: any[] = attData.summary ?? []
+      const ws = summary.find((s: any) => s.worker_id === e.auth_user_id)
+      if (!ws) return { success: true, text: `${e.name}さんの${m}月の勤怠記録はありません。` }
+      const hours = Math.round(ws.totalWorkMins / 60 * 10) / 10
+      return { success: true, text: `${e.name}さんの${m}月の勤怠: 出勤${ws.workDays}日、合計${hours}時間` }
+    } catch {
+      return { success: false, text: '勤怠情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getEmployeeShifts: ConsoleAgentTool = {
+  name:        'get_employee_shifts',
+  description: '指定した従業員のシフト一覧を取得する。「この人今週のシフトは？」「田中さん次いつ入ってる？」「この人明日入ってる？」「いつシフト入ってる？」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: {
+      employee_id: { type: 'string', description: '従業員のID' },
+      date_from:   { type: 'string', description: '開始日（YYYY-MM-DD）省略時は今日' },
+      date_to:     { type: 'string', description: '終了日（YYYY-MM-DD）省略時は1週間後' },
+    },
+    required: ['employee_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const empId = params.employee_id
+    if (!empId) return { success: false, text: '従業員IDが必要です。' }
+    try {
+      const now    = new Date()
+      const from   = params.date_from ?? now.toISOString().slice(0, 10)
+      const toDate = params.date_to ?? (() => { const d = new Date(now); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })()
+      const q      = new URLSearchParams({ employee_id: empId, date_from: from, date_to: toDate })
+      const res    = await apiFetch(`/api/shifts?${q}`, ctx)
+      if (!res.ok) return { success: false, text: 'シフト情報を取得できませんでした。' }
+      const data   = await res.json()
+      const shifts: any[] = data.shifts ?? []
+      if (shifts.length === 0) return { success: true, text: 'この期間のシフトは登録されていません。', items: [] }
+      const items = shifts.slice(0, 7).map((s: any) => ({
+        id:    s.id ?? '',
+        label: `${s.shift_date} ${s.start_time?.slice(0, 5) ?? ''}〜${s.end_time?.slice(0, 5) ?? ''}${s.projects?.name ? `（${s.projects.name}）` : ''}`,
+      }))
+      return { success: true, text: `${shifts.length}件のシフトがあります。`, items }
+    } catch {
+      return { success: false, text: 'シフト情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Registry ────────────────────────────────────────────────
 export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getDashboardSummary,
@@ -649,6 +827,11 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getClientDetail,
   getClientStores,
   getClientProjects,
+  getEmployees,
+  getEmployeeDetail,
+  getEmployeeProjects,
+  getEmployeeAttendanceSummary,
+  getEmployeeShifts,
   getNotifications,
   getPendingExpenses,
   getExpenseDetail,
