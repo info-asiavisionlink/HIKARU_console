@@ -16,7 +16,8 @@ import type {
 import type { ConsoleActionName } from '@/lib/voice/registry/console.actions'
 
 // ─── CONSOLE Realtime定数 ─────────────────────────────────────
-const RT_MODEL = 'gpt-4o-realtime-preview'
+// gpt-realtime-2.1 = @openai/agents-realtime v0.17 のデフォルトモデル（Worker準拠）。
+const RT_MODEL = 'gpt-realtime-2.1'
 
 const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
 管理者・マネージャーの業務をサポートする音声アシスタントです。

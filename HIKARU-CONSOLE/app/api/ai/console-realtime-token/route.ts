@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const secret = await openai.realtime.clientSecrets.create({
       session: {
         type:  'realtime',
-        model: model as 'gpt-4o-realtime-preview',
+        model: model as 'gpt-realtime-2.1',
         audio: {
           output: { voice: voice as 'alloy' },
         },
