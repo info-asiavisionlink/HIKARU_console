@@ -1,22 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 
-// POST /api/clients — 顧客新規登録（JARVIS Voice + UI共用）
+const ALLOWED_CLIENT_POST_FIELDS = ['name', 'code', 'phone', 'email', 'address', 'contact_name', 'notes'] as const
+
+// POST /api/clients — 顧客新規登録（JARVIS Voice経由のconfirm-actionから呼ばれる）
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // company_id / id / created_at はサーバー側で決定しBody不信
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { company_id: _cid, id: _id, created_at: _ca, updated_at: _ua, ...safeBody } = await req.json()
+  const raw = await req.json()
 
-  if (!safeBody.name?.trim()) {
+  // ホワイトリスト: 請求系・権限系フィールドはVoice経路から受け取らない
+  const insertBody: Record<string, string | null> = {}
+  for (const field of ALLOWED_CLIENT_POST_FIELDS) {
+    if (raw[field] !== undefined) {
+      insertBody[field] = typeof raw[field] === 'string' ? (raw[field].trim() || null) : null
+    }
+  }
+
+  if (!insertBody.name) {
     return NextResponse.json({ error: '顧客名は必須です' }, { status: 400 })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await auth.adminClient
     .from('clients')
-    .insert({ ...safeBody, company_id: auth.companyId })
+    .insert({ ...insertBody, company_id: auth.companyId } as any)
     .select()
     .single()
 

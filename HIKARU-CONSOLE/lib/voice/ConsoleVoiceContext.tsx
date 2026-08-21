@@ -819,10 +819,12 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const messagesRef        = React.useRef<ConsoleChatMessage[]>([])
   const voiceSettingsRef   = React.useRef<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
   const pathnameRef        = React.useRef(pathname)
-  const realtimeSessionRef = React.useRef<any>(null)
-  const voiceEngineModeRef = React.useRef<VoiceEngineMode>('off')
-  const isSpeakingRef      = React.useRef(false)
-  const turnIdRef          = React.useRef(0)
+  const realtimeSessionRef  = React.useRef<any>(null)
+  const voiceEngineModeRef  = React.useRef<VoiceEngineMode>('off')
+  const isSpeakingRef       = React.useRef(false)
+  const turnIdRef           = React.useRef(0)
+  const lastRtResponseText  = React.useRef('')
+  const lastRtResponseTime  = React.useRef(0)
 
   React.useEffect(() => { voiceSettingsRef.current = voiceSettings },    [voiceSettings])
   React.useEffect(() => { pathnameRef.current      = pathname },         [pathname])
@@ -1218,9 +1220,12 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         // tool-only responseのagent_end→次audio responseのagent_startの窓でbarge-inが発生するため。
         const text = (output ?? '').trim()
         if (!text) return
-        const msgs = messagesRef.current
-        const last = msgs[msgs.length - 1]
-        if (last?.role === 'assistant' && last.text === text) return
+        // 時間ベースdedup: 同一テキストが3秒以内に再度来た場合はphantom turnの重複とみなす。
+        // 直前メッセージがuserの場合でもブロックできるよう、refs単体で管理する。
+        const now = Date.now()
+        if (text === lastRtResponseText.current && now - lastRtResponseTime.current < 3000) return
+        lastRtResponseText.current = text
+        lastRtResponseTime.current = now
         setResponse(text)
         addMessage('assistant', text)
       })
