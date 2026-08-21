@@ -14,6 +14,9 @@ import type {
   VoiceMode, VoiceEngineMode, ConversationContext, LastResultData, VoiceSettings, PendingConfirmation,
 } from '@/lib/voice/state/types'
 import type { ConsoleActionName } from '@/lib/voice/registry/console.actions'
+import {
+  CONSOLE_NAV_DESTINATIONS, executeConsoleNavigation,
+} from '@/lib/voice/registry/console.navigation'
 
 // ─── CONSOLE Realtime定数 ─────────────────────────────────────
 // gpt-realtime-2.1 = @openai/agents-realtime v0.17 のデフォルトモデル（Worker準拠）。
@@ -22,6 +25,21 @@ const RT_MODEL = 'gpt-realtime-2.1'
 const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
 管理者・マネージャーの業務をサポートする音声アシスタントです。
 回答は2〜3文以内で日本語で簡潔に。
+
+## Navigation（「開いて」「移動して」「表示して」）
+navigate_to(destination) を使う。destinationは以下のenum値のみ使用。任意URLは絶対使用しない。
+dashboard=ダッシュボード / projects=案件管理 / project_requests=案件依頼 / clients=顧客管理 /
+stores=店舗管理 / employees=従業員管理 / workers=作業者管理 / partners=協力業者管理 /
+shifts=シフト管理 / attendance=勤怠管理 / expenses=経費管理 / invoices=請求管理 /
+notifications=通知 / quality=品質管理 / manuals=マニュアル管理 / reports=報告書 /
+analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=設定 / back=前の画面
+
+## Data Read（「教えて」「確認して」「何件」）
+NavigationせずにDataツールを使う。
+「経費教えて」→ get_pending_expenses（navigationしない）
+「勤怠教えて」→ get_pending_attendance
+「通知教えて」→ get_notifications
+「ダッシュボード教えて」→ get_dashboard_summary
 
 ## Write操作（最重要）
 承認操作（経費承認・勤怠承認等）は必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。
@@ -91,9 +109,22 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'navigate', description: '指定のページへ移動する',
-      parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'], additionalProperties: false },
-      execute: async ({ path }: { path: string }) => { router.push(path); return `${path}へ移動します。` },
+      name:        'navigate_to',
+      description: '管理画面の指定ページへ移動する。destination enumのみ使用。任意URLは使用不可。',
+      parameters:  {
+        type:       'object',
+        properties: {
+          destination: {
+            type: 'string',
+            enum: [...CONSOLE_NAV_DESTINATIONS],
+            description: '移動先。enumの値のみ使用。',
+          },
+        },
+        required:             ['destination'],
+        additionalProperties: false,
+      },
+      execute: async ({ destination }: { destination: string }) =>
+        executeConsoleNavigation(destination, router),
     }),
     toolFactory({
       name: 'execute_confirmed_action',
@@ -264,34 +295,37 @@ async function fetchConsoleL1Result(action: ConsoleActionName): Promise<L1Result
   }
 }
 
-// ─── L2 CONSOLE ナビゲーション ───────────────────────────────
+// ─── L2 CONSOLE ナビゲーション（Browser STT経路）───────────────
+// console.actions の ConsoleActionName → console.navigation の共通マッピングへ委譲。
+// Realtime経路の navigate_to と同じallowlistを使用し、Navigation定義の二重管理を防ぐ。
 function executeConsoleL2Navigation(
   action: ConsoleActionName,
   router: ReturnType<typeof useRouter>
 ): string {
-  switch (action) {
-    case 'console.go_dashboard':          router.push('/dashboard');          return 'ダッシュボードに移動します'
-    case 'console.go_back':               router.back();                      return '前の画面に戻ります'
-    case 'console.open_projects':         router.push('/projects');           return '案件管理を開きます'
-    case 'console.open_project_requests': router.push('/project-requests');   return '案件依頼を開きます'
-    case 'console.open_clients':          router.push('/clients');            return '顧客管理を開きます'
-    case 'console.open_employees':        router.push('/employees');          return '従業員管理を開きます'
-    case 'console.open_partners':         router.push('/partners');           return '協力業者管理を開きます'
-    case 'console.open_shifts':           router.push('/shifts');             return 'シフト管理を開きます'
-    case 'console.open_attendance':       router.push('/attendance');         return '勤怠管理を開きます'
-    case 'console.open_expenses':         router.push('/expenses');           return '経費管理を開きます'
-    case 'console.open_invoices':         router.push('/invoices');           return '請求管理を開きます'
-    case 'console.open_notifications':    router.push('/notifications');      return '通知管理を開きます'
-    case 'console.open_quality':          router.push('/quality');            return '品質管理を開きます'
-    case 'console.open_manuals':          router.push('/manuals');            return 'マニュアル管理を開きます'
-    case 'console.open_reports':          router.push('/reports');            return '報告書管理を開きます'
-    case 'console.open_analytics':        router.push('/analytics');          return 'AI分析を開きます'
-    case 'console.open_inventory':        router.push('/inventory');          return '在庫管理を開きます'
-    case 'console.open_contracts':        router.push('/contracts');          return '契約管理を開きます'
-    case 'console.open_settings':         router.push('/settings');           return '設定を開きます'
-    default:
-      return ''
+  const ACTION_TO_DESTINATION: Partial<Record<ConsoleActionName, string>> = {
+    'console.go_dashboard':          'dashboard',
+    'console.go_back':               'back',
+    'console.open_projects':         'projects',
+    'console.open_project_requests': 'project_requests',
+    'console.open_clients':          'clients',
+    'console.open_employees':        'employees',
+    'console.open_partners':         'partners',
+    'console.open_shifts':           'shifts',
+    'console.open_attendance':       'attendance',
+    'console.open_expenses':         'expenses',
+    'console.open_invoices':         'invoices',
+    'console.open_notifications':    'notifications',
+    'console.open_quality':          'quality',
+    'console.open_manuals':          'manuals',
+    'console.open_reports':          'reports',
+    'console.open_analytics':        'analytics',
+    'console.open_inventory':        'inventory',
+    'console.open_contracts':        'contracts',
+    'console.open_settings':         'settings',
   }
+  const destination = ACTION_TO_DESTINATION[action]
+  if (!destination) return ''
+  return executeConsoleNavigation(destination, router)
 }
 
 // ─── Provider ────────────────────────────────────────────────
