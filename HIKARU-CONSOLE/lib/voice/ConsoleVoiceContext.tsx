@@ -30,8 +30,11 @@ const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント�
 - console.approve_expense    → params: { expenseId }
 - console.approve_attendance → params: { correctionId }`
 
+// toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
+// plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
 function buildConsoleRealtimeTools(
   router: ReturnType<typeof useRouter>,
+  toolFactory: (opts: any) => any,
 ) {
   const apiFetch = async (path: string) => {
     const res = await fetch(path, { credentials: 'include' })
@@ -39,9 +42,9 @@ function buildConsoleRealtimeTools(
     return res.json()
   }
   return [
-    {
+    toolFactory({
       name: 'get_dashboard_summary', description: 'ダッシュボードの今日の状況サマリーを取得する',
-      parameters: { type: 'object', properties: {}, required: [] },
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/dashboard')
         if (!data) return 'ダッシュボード情報を取得できませんでした。'
@@ -51,10 +54,10 @@ function buildConsoleRealtimeTools(
         if (data?.pendingAttendance > 0)   parts.push(`勤怠修正申請: ${data.pendingAttendance}件`)
         return parts.length > 0 ? `現在: ${parts.join('、')}` : 'ダッシュボードを確認してください。'
       },
-    },
-    {
+    }),
+    toolFactory({
       name: 'get_pending_expenses', description: '承認待ちの経費申請件数と一覧・IDを確認する',
-      parameters: { type: 'object', properties: {}, required: [] },
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/expenses?status=submitted')
         if (!data) return '経費申請を確認できませんでした。'
@@ -63,10 +66,10 @@ function buildConsoleRealtimeTools(
         const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.title ?? `¥${e.amount}`} [id:${e.id}]`).join(', ')
         return `承認待ちの経費申請が${items.length}件あります。${list}`
       },
-    },
-    {
+    }),
+    toolFactory({
       name: 'get_pending_attendance', description: '勤怠修正申請の承認待ちを確認する',
-      parameters: { type: 'object', properties: {}, required: [] },
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/attendance/corrections?status=pending')
         if (!data) return '勤怠修正申請を確認できませんでした。'
@@ -75,23 +78,23 @@ function buildConsoleRealtimeTools(
         const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.worker_name ?? '従業員'} [id:${e.id}]`).join(', ')
         return `承認待ちの勤怠修正申請が${items.length}件あります。${list}`
       },
-    },
-    {
+    }),
+    toolFactory({
       name: 'get_notifications', description: '管理者向け通知・未読件数を確認する',
-      parameters: { type: 'object', properties: {}, required: [] },
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/console-notifications')
         if (!data) return '通知を取得できませんでした。'
         const unread = data.unread_count ?? 0
         return unread === 0 ? '未読の通知はありません。' : `未読の通知が${unread}件あります。`
       },
-    },
-    {
+    }),
+    toolFactory({
       name: 'navigate', description: '指定のページへ移動する',
-      parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'], additionalProperties: false },
       execute: async ({ path }: { path: string }) => { router.push(path); return `${path}へ移動します。` },
-    },
-    {
+    }),
+    toolFactory({
       name: 'execute_confirmed_action',
       description: 'ユーザーが「はい」と確認した後にのみ呼ぶ。Server Auth再検証して実行。',
       parameters: {
@@ -101,6 +104,7 @@ function buildConsoleRealtimeTools(
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
+        additionalProperties: false,
       },
       execute: async ({ action, params = {} }: { action: string; params?: Record<string, string> }) => {
         try {
@@ -112,7 +116,7 @@ function buildConsoleRealtimeTools(
           return res.ok ? (data.voiceReply ?? '完了しました。') : (data.error ?? '実行に失敗しました。')
         } catch { return '実行中にエラーが発生しました。' }
       },
-    },
+    }),
   ]
 }
 
@@ -317,6 +321,8 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const standbyTimerRef    = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const sessionTimerRef    = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const startListeningRef  = React.useRef<() => void>(() => {})
+  const connectRealtimeRef = React.useRef<() => void>(() => {})
+  const resumeTimerRef     = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const conversationCtxRef = React.useRef<ConversationContext>({})
   const messagesRef        = React.useRef<ConsoleChatMessage[]>([])
   const voiceSettingsRef   = React.useRef<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
@@ -386,6 +392,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
 
   const stopAll = React.useCallback(() => {
     clearActivityTimers()
+    if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     isSessionRef.current = false
     setIsSession(false)
     setIsStandby(false)
@@ -402,6 +409,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
 
   const stopSession = React.useCallback(() => {
     clearActivityTimers()
+    if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     isSessionRef.current = false
     setIsSession(false)
     setIsStandby(false)
@@ -624,7 +632,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     }
   }, [executeAction, finishWithError, addMessage, speakAndMaybeResume, clearActivityTimers, scheduleStandby, setModeSync])
 
-  // ─── CONSOLE Realtime接続 ─────────────────────────────────────
+  // ─── CONSOLE Realtime接続 (Worker準拠 @openai/agents-realtime v0.17) ──
   const connectRealtime = React.useCallback(async () => {
     if (realtimeSessionRef.current) return
     if (voiceEngineModeRef.current === 'realtime-connecting') return
@@ -637,47 +645,135 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         credentials: 'include', body: JSON.stringify({ model: RT_MODEL }),
       })
-      if (!tokenRes.ok) throw new Error('token_failed')
-      const { clientSecret } = await tokenRes.json()
-      if (!clientSecret) throw new Error('no_token')
+      if (!tokenRes.ok) {
+        const errBody = await tokenRes.text().catch(() => '')
+        throw new Error(`token_failed:${tokenRes.status} ${errBody}`)
+      }
+      const tokenData  = await tokenRes.json()
+      const clientSecret: string | null = tokenData.clientSecret ?? null
+      if (!clientSecret) throw new Error('no_token: clientSecret missing')
 
-      const { RealtimeAgent, RealtimeSession } = await import('@openai/agents/realtime') as any
-      const tools   = buildConsoleRealtimeTools(router)
-      const agent   = new RealtimeAgent({ name: 'JARVIS Console Realtime', instructions: RT_SYSTEM_PROMPT, model: RT_MODEL, tools })
-      const session = new RealtimeSession(agent, { model: RT_MODEL })
+      // tool: toolFactory でSDK正式FunctionTool生成（plain objectではSDKのtype==='function'フィルタを通らない）
+      const { RealtimeAgent, RealtimeSession, tool: toolFactory } = await import('@openai/agents/realtime') as any
+      const tools   = buildConsoleRealtimeTools(router, toolFactory)
+      const agent   = new RealtimeAgent({ name: 'JARVIS Console Realtime', instructions: RT_SYSTEM_PROMPT, tools })
+      // transport: 'webrtc' を明示。semantic_vad でターン検出。
+      const session = new RealtimeSession(agent, {
+        transport: 'webrtc',
+        model:     RT_MODEL,
+        config:    {
+          audio: { input: { turnDetection: { type: 'semantic_vad', eagerness: 'high' } } },
+        },
+      } as any)
 
-      session.on?.('connected', () => { setVoiceEngineMode('realtime'); voiceEngineModeRef.current = 'realtime'; setModeSync('listening') })
-      session.on?.('disconnected', () => {
+      // ── v0.17 正式イベント ──────────────────────────────────────
+      // v0.15以前の connected/agent_start_speech 等はv0.17に存在しない。
+      session.on?.('agent_start', () => {
+        if (voiceEngineModeRef.current !== 'realtime') return
+        if (modeRef.current === 'listening' || modeRef.current === 'idle') setModeSync('processing')
+      })
+      session.on?.('audio_start', () => {
+        if (voiceEngineModeRef.current !== 'realtime') return
+        if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+        setModeSync('speaking')
+      })
+      session.on?.('audio_stopped', () => {
+        if (voiceEngineModeRef.current !== 'realtime') return
+        setModeSync('processing')
+        if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
+        resumeTimerRef.current = setTimeout(() => {
+          if (voiceEngineModeRef.current !== 'realtime') return
+          if (modeRef.current !== 'processing') return
+          setModeSync('listening')
+        }, 300)
+      })
+      session.on?.('agent_end', (_ctx: unknown, _agent: unknown, output: string) => {
+        const text = (output ?? '').trim()
+        if (!text) return
+        const msgs = messagesRef.current
+        const last = msgs[msgs.length - 1]
+        if (last?.role === 'assistant' && last.text === text) return
+        setResponse(text)
+        addMessage('assistant', text)
+      })
+      session.on?.('agent_tool_start', () => {
+        if (voiceEngineModeRef.current !== 'realtime') return
+        setModeSync('working')
+      })
+      session.on?.('agent_tool_end', () => {
+        if (voiceEngineModeRef.current !== 'realtime') return
+        setModeSync('processing')
+      })
+      session.on?.('audio_interrupted', () => {
+        if (voiceEngineModeRef.current !== 'realtime') return
+        if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+        setModeSync('listening')
+      })
+      session.on?.('transport_event', (event: any) => {
+        if (event?.type !== 'conversation.item.input_audio_transcription.completed') return
+        const text = (event.transcript ?? '').trim()
+        if (text && voiceEngineModeRef.current === 'realtime') { setTranscript(text); addMessage('user', text) }
+      })
+      session.on?.('error', (err: unknown) => {
+        const msg = (err as any)?.error?.message ?? (err as Error)?.message ?? String(err)
+        console.error('[console-realtime] session error (non-fatal):', msg)
+      })
+
+      // 予期せぬ切断時の自動Reconnect（1回）
+      const transport = session.transport as any
+      transport?.on?.('connection_change', (status: any) => {
+        if (status !== 'disconnected') return
+        if (!isSessionRef.current) return
+        if (voiceEngineModeRef.current !== 'realtime') return
+        console.warn('[console-realtime] connection dropped, reconnecting in 1.5s')
         realtimeSessionRef.current = null
-        if (isSessionRef.current) {
-          setVoiceEngineMode('browser'); voiceEngineModeRef.current = 'browser'
-          setTimeout(() => { if (isSessionRef.current && voiceEngineModeRef.current === 'browser') startListeningRef.current() }, 800)
-        } else { setVoiceEngineMode('off'); voiceEngineModeRef.current = 'off'; setModeSync('idle') }
+        if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+        setVoiceEngineMode('off')
+        voiceEngineModeRef.current = 'off'
+        setModeSync('processing')
+        setTimeout(() => {
+          if (!isSessionRef.current) return
+          if (voiceEngineModeRef.current !== 'off') return
+          connectRealtimeRef.current()
+        }, 1500)
       })
-      session.on?.('error', () => {
-        realtimeSessionRef.current = null; setVoiceEngineMode('browser'); voiceEngineModeRef.current = 'browser'
-        if (isSessionRef.current) startListeningRef.current()
-      })
-      session.on?.('agent_start_speech',  () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('speaking') })
-      session.on?.('agent_end_speech',    () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('listening') })
-      session.on?.('user_start_speech',   () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('listening') })
-      session.on?.('user_end_speech',     () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('processing') })
-      session.on?.('tool_call_start',     () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('working') })
-      session.on?.('tool_call_end',       () => { if (voiceEngineModeRef.current === 'realtime') setModeSync('processing') })
-      session.on?.('user_transcription_done',  (text: string) => { if (text?.trim()) { setTranscript(text.trim()); addMessage('user', text.trim()) } })
-      session.on?.('agent_transcription_done', (text: string) => { if (text?.trim()) { setResponse(text.trim()); addMessage('assistant', text.trim()) } })
 
-      await session.connect({ apiKey: clientSecret })
+      // connect()解決 = WebRTC確立。イベント待ちせず即座にrealtime状態をセット（Worker方式）。
+      await session.connect({ apiKey: clientSecret } as any)
       realtimeSessionRef.current = session
+      setVoiceEngineMode('realtime')
+      voiceEngineModeRef.current = 'realtime'
+      setModeSync('listening')
 
     } catch (err) {
-      console.error('[console-realtime]', err)
-      setVoiceEngineMode('browser'); voiceEngineModeRef.current = 'browser'
-      if (isSessionRef.current) setTimeout(() => startListeningRef.current(), 400)
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[console-realtime] failed:', msg)
+      realtimeSessionRef.current = null
+      if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+      setVoiceEngineMode('off')
+      voiceEngineModeRef.current = 'off'
+      // Session状態リセット（UI整合性: 「会話中」+「VOICE ENGINE OFF」矛盾を防ぐ）
+      isSessionRef.current = false
+      setIsSession(false)
+      setIsStandby(false)
+      // ユーザーへの具体的エラー表示
+      const uiMsg = (msg.includes('not-allowed') || msg.includes('NotAllowedError'))
+        ? 'マイクへのアクセスを許可してください。ブラウザの設定を確認してください。'
+        : msg.includes('token_failed') || msg.includes('no_token')
+        ? `Voice接続の準備に失敗しました。(${msg.slice(0, 80)})`
+        : msg.includes('ephemeral client key')
+        ? 'Voice接続の認証に失敗しました。ページを更新してください。'
+        : `Voice Engine接続エラー: ${msg.slice(0, 100)}`
+      setErrorMessage(uiMsg)
+      setModeSync('error')
+      setTimeout(() => {
+        if (modeRef.current === 'error') { setModeSync('idle'); setErrorMessage('') }
+      }, 6000)
     }
-  }, [router, addMessage, setModeSync])
+  }, [router, addMessage, setModeSync, setIsSession, setIsStandby, setErrorMessage])
 
   const disconnectRealtime = React.useCallback(() => {
+    if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     try { realtimeSessionRef.current?.close?.() }      catch {}
     try { realtimeSessionRef.current?.disconnect?.() } catch {}
     realtimeSessionRef.current = null
@@ -743,7 +839,8 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     try { rec.start() } catch { finishWithError('マイクを起動できませんでした。') }
   }, [isSpeechSupported, handleUtterance, finishWithError, setModeSync])
 
-  React.useEffect(() => { startListeningRef.current = startListening }, [startListening])
+  React.useEffect(() => { startListeningRef.current  = startListening  }, [startListening])
+  React.useEffect(() => { connectRealtimeRef.current = connectRealtime }, [connectRealtime])
 
   const startSession = React.useCallback(() => {
     isSessionRef.current = true
