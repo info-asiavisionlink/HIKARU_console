@@ -176,6 +176,18 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '勤怠修正申請を却下する（却下理由必須、Confirmation必須）',
   },
+  'console.create_shift': {
+    level: 4 as const,
+    description: 'シフトを新規登録する（案件・担当者・日時必須、Confirmation必須）',
+  },
+  'console.update_shift': {
+    level: 4 as const,
+    description: 'シフトの情報（日時・担当者・案件等）を変更する（Confirmation必須）',
+  },
+  'console.cancel_shift': {
+    level: 4 as const,
+    description: 'シフトを取り消す（status=cancelledに変更、Confirmation必須）',
+  },
   'console.create_employee': {
     level: 4 as const,
     description: '従業員を新規登録する（名前必須、Confirmation必須。パスワード・権限設定は管理画面から）',

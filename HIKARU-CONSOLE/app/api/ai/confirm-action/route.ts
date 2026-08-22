@@ -60,8 +60,250 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: '無効なexpiresAt' }, { status: 400 })
   }
 
+  // 時刻正規化: HH:MM → HH:MM:SS（APIはHH:MM:SS形式）
+  const normTime = (t: string): string => {
+    const parts = t.trim().split(':')
+    if (parts.length === 2) return `${t.trim()}:00`
+    return t.trim()
+  }
+
   try {
     switch (action) {
+      // ─── L4: create_shift ────────────────────────────────
+      case 'console.create_shift': {
+        const { projectId, assignee_type, assignee_id, assignee_name, project_name,
+                shift_date, start_time, end_time, notes } = params
+        if (!projectId)    return Response.json({ error: 'projectId required' },    { status: 400 })
+        if (!assignee_type || !['employee', 'partner'].includes(assignee_type))
+          return Response.json({ error: 'assignee_type must be employee or partner' }, { status: 400 })
+        if (!assignee_id)  return Response.json({ error: 'assignee_id required' },  { status: 400 })
+        if (!shift_date)   return Response.json({ error: 'shift_date required' },   { status: 400 })
+        if (!start_time)   return Response.json({ error: 'start_time required' },   { status: 400 })
+        if (!end_time)     return Response.json({ error: 'end_time required' },     { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const st = normTime(start_time)
+        const et = normTime(end_time)
+
+        // 重複チェック（管理者は上書き可能だが、Voice事前報告）
+        const oq = new URLSearchParams({
+          assignee_type, assignee_id,
+          date: shift_date,
+          start: start_time.slice(0, 5),
+          end:   end_time.slice(0, 5),
+        })
+        const overlapRes = await fetch(`${req.nextUrl.origin}/api/shifts/overlap?${oq}`, {
+          headers: { Cookie: cookie },
+        })
+        if (overlapRes.ok) {
+          const overlapData = await overlapRes.json()
+          const overlaps: any[] = overlapData.overlaps ?? []
+          if (overlaps.length > 0) {
+            const ov = overlaps[0]
+            const name = assignee_name ?? '担当者'
+            return Response.json({
+              error: `${name}は${shift_date}の${ov.start_time?.slice(0, 5) ?? ''}〜${ov.end_time?.slice(0, 5) ?? ''}に「${ov.project_name ?? '別案件'}」のシフトがすでにあります。時間を変更してください。`,
+              conflict: true,
+            }, { status: 409 })
+          }
+        }
+
+        const createBody: Record<string, unknown> = {
+          project_id:   projectId,
+          assignee_type,
+          shift_date,
+          start_time:   st,
+          end_time:     et,
+        }
+        createBody[assignee_type === 'employee' ? 'employee_id' : 'partner_id'] = assignee_id
+        if (notes?.trim()) createBody.notes = notes.trim()
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/shifts`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'shift',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'シフト登録に失敗しました。' }, { status: res.status })
+
+        const shiftId = data?.shift?.id
+        if (!shiftId) return Response.json({ error: 'シフトIDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const s = verifyData?.shift
+          if (!s?.id || s.shift_date !== shift_date) {
+            return Response.json({ error: 'シフト登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const name    = assignee_name ?? '担当者'
+        const projName = project_name ?? 'シフト'
+        return Response.json({ success: true, voiceReply: `${name}を${projName}に${shift_date} ${start_time.slice(0, 5)}〜${end_time.slice(0, 5)}で登録しました。` })
+      }
+
+      // ─── L4: update_shift ────────────────────────────────
+      case 'console.update_shift': {
+        const { shiftId, shift_date, start_time, end_time, notes,
+                assignee_type, assignee_id, assignee_name, project_id } = params
+        if (!shiftId) return Response.json({ error: 'shiftId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 現在のシフトを取得（重複チェックと変更確認のため）
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: 'シフトが見つかりませんでした。' }, { status: 404 })
+        const current = (await currentRes.json())?.shift
+        if (!current) return Response.json({ error: 'シフトが見つかりませんでした。' }, { status: 404 })
+
+        // 変更フィールドを構築
+        const ALLOWED_SHIFT_FIELDS = ['project_id', 'assignee_type', 'employee_id', 'partner_id', 'shift_date', 'start_time', 'end_time', 'notes'] as const
+        const updateBody: Record<string, unknown> = {}
+        if (shift_date) updateBody.shift_date = shift_date
+        if (start_time) updateBody.start_time = normTime(start_time)
+        if (end_time)   updateBody.end_time   = normTime(end_time)
+        if (notes !== undefined) updateBody.notes = notes?.trim() || null
+        if (project_id) updateBody.project_id = project_id
+        if (assignee_type && assignee_id) {
+          updateBody.assignee_type = assignee_type
+          updateBody[assignee_type === 'employee' ? 'employee_id' : 'partner_id'] = assignee_id
+          updateBody[assignee_type === 'employee' ? 'partner_id' : 'employee_id'] = null
+        }
+
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        // 時間・日付・担当者変更時は重複チェック
+        const checkAssigneeType = (assignee_type ?? current.assignee_type) as string
+        const checkAssigneeId   = assignee_id ?? (current.assignee_type === 'employee' ? current.employee_id : current.partner_id)
+        const checkDate  = shift_date  ?? current.shift_date
+        const checkStart = start_time  ?? current.start_time?.slice(0, 5)
+        const checkEnd   = end_time    ?? current.end_time?.slice(0, 5)
+
+        if (shift_date || start_time || end_time || assignee_id) {
+          const oq = new URLSearchParams({
+            assignee_type: checkAssigneeType, assignee_id: checkAssigneeId,
+            date: checkDate,
+            start: checkStart.slice(0, 5),
+            end:   checkEnd.slice(0, 5),
+            exclude_id: shiftId,
+          })
+          const overlapRes = await fetch(`${req.nextUrl.origin}/api/shifts/overlap?${oq}`, {
+            headers: { Cookie: cookie },
+          })
+          if (overlapRes.ok) {
+            const overlapData = await overlapRes.json()
+            const overlaps: any[] = overlapData.overlaps ?? []
+            if (overlaps.length > 0) {
+              const ov = overlaps[0]
+              const name = assignee_name ?? current.employees?.name ?? current.partners?.company_name ?? '担当者'
+              return Response.json({
+                error: `${name}は${checkDate}の${ov.start_time?.slice(0, 5)}〜${ov.end_time?.slice(0, 5)}に「${ov.project_name ?? '別案件'}」のシフトがあります。時間を変更してください。`,
+                conflict: true,
+              }, { status: 409 })
+            }
+          }
+        }
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'shift', resourceId: shiftId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'シフトの変更に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const s = verifyData?.shift
+          if (s && shift_date && s.shift_date !== shift_date) {
+            return Response.json({ error: 'シフトの変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const changedParts: string[] = []
+        if (shift_date)  changedParts.push(`日付を${shift_date}に`)
+        if (start_time)  changedParts.push(`開始を${start_time.slice(0, 5)}に`)
+        if (end_time)    changedParts.push(`終了を${end_time.slice(0, 5)}に`)
+        if (assignee_name) changedParts.push(`担当を${assignee_name}に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : 'シフトを更新しました。',
+        })
+      }
+
+      // ─── L4: cancel_shift ────────────────────────────────
+      case 'console.cancel_shift': {
+        const { shiftId, assignee_name, shift_date } = params
+        if (!shiftId) return Response.json({ error: 'shiftId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 現在のシフト確認
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: 'シフトが見つかりませんでした。' }, { status: 404 })
+        const current = (await currentRes.json())?.shift
+        if (!current) return Response.json({ error: 'シフトが見つかりませんでした。' }, { status: 404 })
+        if (current.status === 'cancelled')
+          return Response.json({ error: 'このシフトはすでに取り消し済みです。' }, { status: 400 })
+        if (current.status === 'completed')
+          return Response.json({ error: '完了済みのシフトは取り消せません。' }, { status: 400 })
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ status: 'cancelled' }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'shift', resourceId: shiftId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'シフトの取り消しに失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/shifts/${shiftId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.shift?.status !== 'cancelled') {
+            return Response.json({ error: 'シフトの取り消しを確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const name = assignee_name ?? current.employees?.name ?? current.partners?.company_name ?? '担当者'
+        const date = shift_date ?? current.shift_date ?? ''
+        return Response.json({ success: true, voiceReply: `${name}の${date}のシフトを取り消しました。` })
+      }
+
       // ─── L4: update_project_status ───────────────────────
       case 'console.update_project_status': {
         const { projectId, status } = params

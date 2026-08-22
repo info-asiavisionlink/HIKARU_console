@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const projectId  = p.get('project_id')
   const status     = p.get('status')
   const employeeId = p.get('employee_id')
+  const partnerId  = p.get('partner_id')
 
   let query = auth.adminClient
     .from('shifts')
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
   if (projectId)  query = query.eq('project_id', projectId)
   if (status)     query = query.eq('status', status)
   if (employeeId) query = query.eq('employee_id', employeeId)
+  if (partnerId)  query = query.eq('partner_id', partnerId)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

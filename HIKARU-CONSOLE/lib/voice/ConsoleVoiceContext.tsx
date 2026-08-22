@@ -67,6 +67,30 @@ NavigationせずにDataツールを使う。
 従業員の勤怠概要 → get_employee_attendance_summary（employee_idを指定）
 従業員のシフト → get_employee_shifts（employee_idを指定）
 従業員の品質評価 → get_employee_quality_summary（employee_idを指定）
+シフト一覧・今日・今週 → get_shifts（date_from/date_to/employee_id/project_id指定可）
+シフト詳細 → get_shift_detail（shiftIdを指定）
+シフト×勤怠比較 → get_shift_attendance_status（今日のシフトあり打刻なしを確認）
+
+## シフト操作手順
+シフト一覧: get_shifts（date_from/date_to省略時は今日。employee_id/project_id/statusで絞り込み可）
+今日のシフト: get_shifts（date_from・date_to両方に今日の日付を指定）
+シフト詳細: get_shift_detail（shiftIdが必要）
+シフト×勤怠比較: get_shift_attendance_status（今日シフトがある人の打刻状況確認）
+シフト登録: 案件・担当者・日時確認後 → 確認後 execute_confirmed_action(console.create_shift, {projectId, assignee_type, assignee_id, assignee_name, project_name, shift_date, start_time, end_time, notes?})
+  start_time/end_timeはHH:MM形式（例: 09:00）。曖昧な時刻は必ず聞き直す。
+  確認文例: 「田中さんをABC案件に8月25日9:00〜17:00で登録します。よろしいですか？」
+  ※重複シフトがある場合は登録せず報告する。
+シフト変更: get_shift_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_shift, {shiftId, [変更フィールド]})
+  変更可能: shift_date/start_time/end_time/notes/assignee_type+assignee_id+assignee_name
+  確認文例: 「田中さんの8月25日のシフト開始を10:00に変更します。よろしいですか？」
+シフト取消: 確認後 execute_confirmed_action(console.cancel_shift, {shiftId, assignee_name?, shift_date?})
+  確認文例: 「田中さんの8月25日のシフトを取り消します。よろしいですか？」
+シフト削除: 音声で実行不可。取消（cancel）を案内する。
+担当変更: get_shift_detailで現在値確認 → 変更後担当をresolve_personで解決 → update_shiftで変更。重複チェックあり。
+
+## シフトIDルール
+shiftIdは必ずget_shiftsのresultから取得する。AI生成ID禁止。
+複数シフト時: 「どのシフトですか？」と確認してから操作する。
 
 ## 勤怠操作手順
 今日の出勤状況: get_attendance_today（全従業員の今日の打刻状況）
@@ -181,6 +205,9 @@ Write時は特に厳格に実IDを確認してから実行する。
 - console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
 - console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
 - console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
+- console.create_shift             → params: { projectId, assignee_type, assignee_id, assignee_name, project_name?, shift_date, start_time, end_time, notes? }
+- console.update_shift             → params: { shiftId, shift_date?, start_time?, end_time?, notes?, assignee_type?, assignee_id?, assignee_name? }
+- console.cancel_shift             → params: { shiftId, assignee_name?, shift_date? }
 - console.approve_expense          → params: { expenseId }
 - console.reject_expense           → params: { expenseId, reject_reason }
 - console.approve_attendance       → params: { correctionId }
@@ -880,13 +907,136 @@ function buildConsoleRealtimeTools(
         return parts.join('、')
       },
     }),
+    // ─── Shift Tools ────────────────────────────────────────
+    toolFactory({
+      name: 'get_shifts',
+      description: 'シフト一覧を取得する。「今日誰入ってる？」「明日のシフトは？」「今週のシフト教えて」「ABC案件のシフトは？」「田中さん今週いつ入ってる？」等。date_from・date_toを省略すると今日のシフトを返す。',
+      parameters: {
+        type: 'object',
+        properties: {
+          date_from:   { type: 'string', description: '開始日（YYYY-MM-DD）省略時は今日' },
+          date_to:     { type: 'string', description: '終了日（YYYY-MM-DD）省略時はdate_fromと同じ日' },
+          employee_id: { type: 'string', description: '従業員IDで絞り込み' },
+          project_id:  { type: 'string', description: '案件IDで絞り込み' },
+          status:      { type: 'string', description: 'scheduled/confirmed/cancelled等' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ date_from, date_to, employee_id, project_id, status }: {
+        date_from?: string; date_to?: string; employee_id?: string; project_id?: string; status?: string
+      }) => {
+        const todayJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+        const from = date_from ?? todayJst
+        const to   = date_to   ?? from
+        const q = new URLSearchParams({ date_from: from, date_to: to })
+        if (employee_id) q.set('employee_id', employee_id)
+        if (project_id)  q.set('project_id', project_id)
+        if (status)      q.set('status', status)
+        const data = await apiFetch(`/api/shifts?${q}`)
+        if (!data) return 'シフト情報を取得できませんでした。'
+        const shifts: any[] = data.shifts ?? []
+        if (shifts.length === 0) return `${from === to ? from : `${from}〜${to}`}のシフトはありません。`
+        const ST: Record<string, string> = { scheduled: '予定', confirmed: '確定', completed: '完了', cancelled: 'キャンセル', in_progress: '作業中' }
+        const items = shifts.slice(0, 8).map((s: any, i: number) => {
+          const name = s.assignee_type === 'employee'
+            ? (s.employees?.name ?? '従業員')
+            : (s.partners?.company_name ?? s.partners?.contact_person_name ?? '協力業者')
+          const proj = s.projects?.name ?? '案件不明'
+          const st = s.start_time?.slice(0, 5) ?? ''
+          const et = s.end_time?.slice(0, 5)   ?? ''
+          const stat = ST[s.status] ?? s.status ?? ''
+          return `${i + 1}件目: ${s.shift_date} ${st}〜${et} ${name}（${proj}）${stat !== '予定' ? `[${stat}]` : ''} [id:${s.id}]`
+        }).join(' / ')
+        return `${shifts.length}件のシフト。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_shift_detail',
+      description: '指定したシフトの詳細情報を取得する。「1件目詳しく」「このシフト何時から？」「担当誰？」「どの案件？」等。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { shift_id: { type: 'string', description: 'シフトのID' } },
+        required: ['shift_id'], additionalProperties: false,
+      },
+      execute: async ({ shift_id }: { shift_id: string }) => {
+        if (!shift_id) return 'シフトIDが必要です。'
+        const data = await apiFetch(`/api/shifts/${shift_id}`)
+        if (!data) return 'シフト情報を取得できませんでした。'
+        const s = data?.shift
+        if (!s) return 'シフトが見つかりませんでした。'
+        const name = s.assignee_type === 'employee'
+          ? (s.employees?.name ?? '従業員')
+          : (s.partners?.company_name ?? s.partners?.contact_person_name ?? '協力業者')
+        const proj = s.projects?.name ?? '案件不明'
+        const ST: Record<string, string> = { scheduled: '予定', confirmed: '確定', completed: '完了', cancelled: 'キャンセル', in_progress: '作業中' }
+        const parts: string[] = [
+          `${s.shift_date} ${s.start_time?.slice(0, 5)}〜${s.end_time?.slice(0, 5)}`,
+          `担当: ${name}`,
+          `案件: ${proj}`,
+          `ステータス: ${ST[s.status] ?? s.status}`,
+        ]
+        if (s.notes) parts.push(`備考: ${s.notes}`)
+        return `${parts.join('、')} [id:${shift_id}]`
+      },
+    }),
+    toolFactory({
+      name: 'get_shift_attendance_status',
+      description: '今日シフトがある従業員の打刻状況を確認する。「今日シフトあるのに来てない人いる？」「シフトより遅れてる人いる？」「まだ退勤してない人いる？」等に使う。',
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      execute: async () => {
+        const todayJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+        const y = todayJst.slice(0, 4)
+        const m = String(parseInt(todayJst.slice(5, 7), 10))
+        // 今日の従業員シフト取得
+        const shiftsData = await apiFetch(`/api/shifts?date_from=${todayJst}&date_to=${todayJst}&status=scheduled,confirmed`)
+        if (!shiftsData) return 'シフト情報を取得できませんでした。'
+        const shifts: any[] = (shiftsData.shifts ?? []).filter((s: any) => s.assignee_type === 'employee')
+        if (shifts.length === 0) return `今日（${todayJst}）は従業員のシフトが登録されていません。`
+        // 従業員一括取得（auth_user_id解決用）
+        const empData = await apiFetch('/api/employees?pageSize=200')
+        const empMap = new Map<string, string>()
+        for (const e of (empData?.data ?? [])) {
+          if (e.auth_user_id) empMap.set(e.id, e.auth_user_id)
+        }
+        // 今日の勤怠記録取得
+        const attData = await apiFetch(`/api/attendance?year=${y}&month=${m}`)
+        const clockedWorkerIds = new Set<string>(
+          (attData?.data ?? [])
+            .filter((r: any) => r.work_date === todayJst && r.clock_in)
+            .map((r: any) => r.worker_id)
+        )
+        // 比較
+        const noShow:  string[] = []
+        const working: string[] = []
+        const done:    string[] = []
+        const fmtTime = (ts: string) => new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        for (const s of shifts) {
+          const empName = s.employees?.name ?? '従業員'
+          const authId  = empMap.get(s.employee_id)
+          if (!authId) continue
+          const attRecord = (attData?.data ?? []).find((r: any) => r.work_date === todayJst && r.worker_id === authId)
+          if (!attRecord) {
+            noShow.push(`${empName}（シフト: ${s.start_time?.slice(0, 5)}〜${s.end_time?.slice(0, 5)})`)
+          } else if (!attRecord.clock_out) {
+            working.push(`${empName}（${fmtTime(attRecord.clock_in)}〜）`)
+          } else {
+            done.push(`${empName}（${fmtTime(attRecord.clock_in)}〜${fmtTime(attRecord.clock_out)}）`)
+          }
+        }
+        const parts: string[] = []
+        if (noShow.length  > 0) parts.push(`打刻なし: ${noShow.join('、')}`)
+        if (working.length > 0) parts.push(`勤務中: ${working.join('、')}`)
+        if (done.length    > 0) parts.push(`退勤済: ${done.join('、')}`)
+        return parts.length > 0 ? `今日（${todayJst}）のシフト対比: ${parts.join('。')}` : `今日のシフトメンバー全員が打刻済みです。`
+      },
+    }),
     toolFactory({
       name: 'execute_confirmed_action',
       description: 'ユーザーが「はい」と確認した後にのみ呼ぶ。Server Auth再検証して実行。',
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
