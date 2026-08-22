@@ -1980,6 +1980,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       session.on?.('agent_end', (_ctx: unknown, _agent: unknown, output: string) => {
         // agent_endでunmuteしない: audio_stoppedを唯一の正規unmute経路とする。
         // tool-only responseのagent_end→次audio responseのagent_startの窓でbarge-inが発生するため。
+        if (voiceEngineModeRef.current !== 'realtime') return
         const text = (output ?? '').trim()
         if (!text) return
         // 時間ベースdedup: 同一テキストが3秒以内に再度来た場合はphantom turnの重複とみなす。
@@ -2174,7 +2175,10 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         const msg = '案件依頼一覧を開きました。未対応の依頼を確認しますか？'
         addMessage('assistant', msg)
         setResponse(msg)
-        speakAndMaybeResume(msg)
+        // Realtime mode中はWebRTC audioが再生中のため Browser TTSを重ねない
+        if (voiceEngineModeRef.current !== 'realtime' && voiceEngineModeRef.current !== 'realtime-connecting') {
+          speakAndMaybeResume(msg)
+        }
       }, 900)
       return
     }
@@ -2186,7 +2190,10 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         const msg = '経費管理を開きました。承認待ちの経費申請がある場合はご確認ください。'
         addMessage('assistant', msg)
         setResponse(msg)
-        speakAndMaybeResume(msg)
+        // Realtime mode中はWebRTC audioが再生中のため Browser TTSを重ねない
+        if (voiceEngineModeRef.current !== 'realtime' && voiceEngineModeRef.current !== 'realtime-connecting') {
+          speakAndMaybeResume(msg)
+        }
       }, 900)
       return
     }
