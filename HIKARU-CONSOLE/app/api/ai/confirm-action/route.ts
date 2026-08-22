@@ -1255,6 +1255,276 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: reply })
       }
 
+      // ─── L4: inventory_stock_in ──────────────────────────
+      case 'console.inventory_stock_in': {
+        const { inventoryId, quantity, item_name, reason } = params
+        if (!inventoryId) return Response.json({ error: 'inventoryId required' }, { status: 400 })
+        const qty = Number(quantity)
+        if (!quantity || isNaN(qty) || qty <= 0) {
+          return Response.json({ error: '数量は正の値を入力してください' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}/in`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ quantity: qty, notes: reason ?? null }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'inventory', resourceId: inventoryId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '入庫処理に失敗しました。' }, { status: res.status })
+
+        const newStock = data?.new_stock
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const currentQty = verifyData?.item?.stock_quantity
+          if (newStock != null && currentQty !== newStock) {
+            return Response.json({ error: '入庫後の在庫数を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const label = item_name ? `${item_name}を` : ''
+        return Response.json({ success: true, voiceReply: `${label}${qty}個入庫しました。現在庫: ${newStock ?? '確認中'}個です。` })
+      }
+
+      // ─── L4: inventory_stock_out ─────────────────────────
+      case 'console.inventory_stock_out': {
+        const { inventoryId, quantity, item_name, reason } = params
+        if (!inventoryId) return Response.json({ error: 'inventoryId required' }, { status: 400 })
+        const qty = Number(quantity)
+        if (!quantity || isNaN(qty) || qty <= 0) {
+          return Response.json({ error: '数量は正の値を入力してください' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 事前在庫チェック
+        const checkRes = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (checkRes.ok) {
+          const checkData = await checkRes.json()
+          const currentQty = checkData?.item?.stock_quantity ?? 0
+          if (qty > currentQty) {
+            return Response.json({
+              error: `現在${currentQty}個しかないため、${qty}個は出庫できません。`,
+            }, { status: 400 })
+          }
+        }
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}/out`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ quantity: qty, reason: reason?.trim() || null }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'inventory', resourceId: inventoryId,
+        })
+        if (!res.ok) {
+          const errMsg = data?.current_stock != null
+            ? `現在${data.current_stock}個しかないため、${data.requested ?? qty}個は出庫できません。`
+            : (data?.error ?? '出庫処理に失敗しました。')
+          return Response.json({ error: errMsg }, { status: res.status })
+        }
+
+        const newStock = data?.new_stock
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const verifiedQty = verifyData?.item?.stock_quantity
+          if (newStock != null && verifiedQty !== newStock) {
+            return Response.json({ error: '出庫後の在庫数を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const label = item_name ? `${item_name}を` : ''
+        return Response.json({ success: true, voiceReply: `${label}${qty}個出庫しました。現在庫: ${newStock ?? '確認中'}個です。` })
+      }
+
+      // ─── L4: adjust_inventory ────────────────────────────
+      case 'console.adjust_inventory': {
+        const { inventoryId, target_quantity, reason, item_name, current_quantity } = params
+        if (!inventoryId)     return Response.json({ error: 'inventoryId required' },     { status: 400 })
+        if (!reason?.trim())  return Response.json({ error: '調整理由は必須です' },         { status: 400 })
+        const targetQty = Number(target_quantity)
+        if (isNaN(targetQty) || targetQty < 0) {
+          return Response.json({ error: '調整後数量は0以上の値を入力してください' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 現在庫を取得して差分計算
+        let currentQty = current_quantity != null ? Number(current_quantity) : null
+        if (currentQty === null) {
+          const checkRes = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+            headers: { Cookie: cookie },
+          })
+          if (checkRes.ok) {
+            const checkData = await checkRes.json()
+            currentQty = checkData?.item?.stock_quantity ?? 0
+          } else {
+            return Response.json({ error: '現在の在庫数を取得できませんでした。' }, { status: 500 })
+          }
+        }
+
+        const adjustmentQty = targetQty - (currentQty ?? 0)
+        if (adjustmentQty === 0) {
+          return Response.json({ success: true, voiceReply: `現在庫は既に${targetQty}個です。変更はありません。` })
+        }
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}/adjust`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ adjustment_quantity: adjustmentQty, reason: reason.trim() }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'inventory', resourceId: inventoryId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '在庫調整に失敗しました。' }, { status: res.status })
+
+        const newStock = data?.new_stock
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const verifiedQty = verifyData?.item?.stock_quantity
+          if (verifiedQty !== targetQty) {
+            return Response.json({ error: '在庫調整の結果を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const label = item_name ? `${item_name}の` : ''
+        const dir   = adjustmentQty > 0 ? `${adjustmentQty}個増加` : `${Math.abs(adjustmentQty)}個減少`
+        return Response.json({ success: true, voiceReply: `${label}在庫を${targetQty}個に調整しました（${dir}）。` })
+      }
+
+      // ─── L4: create_inventory_item ───────────────────────
+      case 'console.create_inventory_item': {
+        const { name, category, unit, min_stock, storage_location, notes } = params
+        if (!name?.trim()) return Response.json({ error: '品目名は必須です' }, { status: 400 })
+
+        const createBody: Record<string, string | number | null> = { name: name.trim() }
+        if (category?.trim())          createBody.category         = category.trim()
+        if (unit?.trim())              createBody.unit             = unit.trim()
+        if (min_stock != null)         createBody.min_stock        = Number(min_stock)
+        if (storage_location?.trim())  createBody.storage_location = storage_location.trim()
+        if (notes?.trim())             createBody.notes            = notes.trim()
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/inventory`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'inventory',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '品目登録に失敗しました。' }, { status: res.status })
+
+        const itemId = data?.item?.id
+        if (!itemId) return Response.json({ error: '品目IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/inventory/${itemId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (!verifyData?.item?.id || verifyData.item.name !== name.trim()) {
+            return Response.json({ error: '品目登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `品目「${name.trim()}」を登録しました。初期在庫は0個です。入庫で在庫を追加してください。` })
+      }
+
+      // ─── L4: update_inventory_item ───────────────────────
+      case 'console.update_inventory_item': {
+        const { inventoryId } = params
+        if (!inventoryId) return Response.json({ error: 'inventoryId required' }, { status: 400 })
+
+        const ALLOWED = ['name', 'category', 'unit', 'min_stock', 'storage_location', 'supplier_name', 'notes'] as const
+        const updateBody: Record<string, string | number | null> = {}
+        for (const field of ALLOWED) {
+          const val = params[field]
+          if (val === undefined) continue
+          if (field === 'min_stock') {
+            updateBody[field] = Number(val)
+          } else {
+            updateBody[field] = val?.trim() || null
+          }
+        }
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'inventory', resourceId: inventoryId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '品目更新に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/inventory/${inventoryId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const item = verifyData?.item
+          if (item) {
+            for (const [key, val] of Object.entries(updateBody)) {
+              if (key !== 'min_stock' && val !== null && item[key] !== val) {
+                return Response.json({ error: '品目更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+              }
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        if (updateBody.name)             changedParts.push(`名前を「${updateBody.name}」に`)
+        if (updateBody.min_stock != null) changedParts.push(`最低在庫を${updateBody.min_stock}個に`)
+        if (updateBody.storage_location) changedParts.push(`保管場所を「${updateBody.storage_location}」に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : '品目情報を更新しました。',
+        })
+      }
+
       // ─── L4: generate_report_pdf ─────────────────────────
       case 'console.generate_report_pdf': {
         const { reportId, report_number } = params

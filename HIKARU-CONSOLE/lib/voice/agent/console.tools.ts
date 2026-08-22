@@ -1112,6 +1112,130 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── Inventory READ Tools ────────────────────────────────────
+
+const STOCK_STATUS_LABELS: Record<string, string> = {
+  normal: '正常', low_stock: '在庫少', out_of_stock: '在庫切れ', inactive: '無効',
+}
+
+const getInventory: ConsoleAgentTool = {
+  name:        'get_inventory',
+  description: '在庫品目の一覧を取得する。「在庫一覧教えて」「ワックスの在庫ある？」「洗剤どれくらいある？」「在庫少ないものある？」「カテゴリごとに見たい」等。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      search:   { type: 'string', description: '品目名の検索キーワード' },
+      category: { type: 'string', description: 'カテゴリで絞り込む' },
+      status:   { type: 'string', description: 'low_stock / out_of_stock / normal' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const q = new URLSearchParams()
+      if (params.search)   q.set('search',   params.search)
+      if (params.category) q.set('category', params.category)
+      if (params.status)   q.set('status',   params.status)
+      const res = await apiFetch(`/api/inventory?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '在庫一覧を取得できませんでした。' }
+      const data = await res.json()
+      const items: any[] = data.items ?? []
+      const kpi = data.kpi ?? {}
+      if (items.length === 0) return { success: true, text: '在庫品目はありません。', data }
+      const lines = items.slice(0, 10).map((item: any) => {
+        const status  = STOCK_STATUS_LABELS[item.stock_status] ?? item.stock_status
+        const minNote = item.stock_quantity <= item.min_stock && item.min_stock > 0 ? '⚠️要補充' : ''
+        return `${item.name}（${item.category}）在庫:${item.stock_quantity}${item.unit} 最低:${item.min_stock}${item.unit} [${status}]${minNote} [id:${item.id}]`
+      })
+      const suffix = items.length > 10 ? `（全${items.length}件中10件表示）` : `（全${items.length}件）`
+      const kpiLine = `在庫少:${kpi.low_stock ?? 0}件・在庫切れ:${kpi.out_of_stock ?? 0}件`
+      return {
+        success: true,
+        text:    [kpiLine, ...lines, suffix].join('\n'),
+        data,
+        items:   items.slice(0, 10).map((i: any) => ({ id: i.id, label: `${i.name} 在庫${i.stock_quantity}${i.unit}` })),
+      }
+    } catch {
+      return { success: false, text: '在庫一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getInventoryDetail: ConsoleAgentTool = {
+  name:        'get_inventory_detail',
+  description: '在庫品目の詳細を取得する。「1件目詳しく」「現在庫何個？」「最低在庫数は？」「この商品の詳細は？」「単位は？」等。get_inventoryで取得したidを使う。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      inventory_id: { type: 'string', description: '在庫品目ID（get_inventoryのid）' },
+    },
+    required: ['inventory_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const { inventory_id } = params
+      if (!inventory_id) return { success: false, text: 'inventory_idを指定してください。' }
+      const res = await apiFetch(`/api/inventory/${inventory_id}`, ctx)
+      if (!res.ok) return { success: false, text: '在庫品目が見つかりませんでした。' }
+      const data = await res.json()
+      const item = data.item
+      if (!item) return { success: false, text: '在庫品目が見つかりませんでした。' }
+      const status = STOCK_STATUS_LABELS[item.stock_status] ?? item.stock_status
+      const parts: string[] = [
+        `品目: ${item.name}（${item.category}）`,
+        `現在庫: ${item.stock_quantity}${item.unit}`,
+        `最低在庫: ${item.min_stock}${item.unit}`,
+        `ステータス: ${status}`,
+      ]
+      if (item.storage_location) parts.push(`保管場所: ${item.storage_location}`)
+      if (item.supplier_name)    parts.push(`仕入先: ${item.supplier_name}`)
+      if (item.unit_price != null) parts.push(`単価: ${Number(item.unit_price).toLocaleString()}円`)
+      if (item.notes)            parts.push(`備考: ${item.notes}`)
+      return { success: true, text: parts.join('\n'), data, items: [{ id: item.id, label: `${item.name} 在庫${item.stock_quantity}${item.unit}` }] }
+    } catch {
+      return { success: false, text: '在庫詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getInventoryHistory: ConsoleAgentTool = {
+  name:        'get_inventory_history',
+  description: '在庫品目の入出庫履歴を取得する。「この商品の履歴教えて」「最近の入出庫は？」「最後に出庫したのいつ？」等。get_inventoryで取得したidを使う。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      inventory_id: { type: 'string', description: '在庫品目ID（get_inventoryのid）' },
+    },
+    required: ['inventory_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const { inventory_id } = params
+      if (!inventory_id) return { success: false, text: 'inventory_idを指定してください。' }
+      const res = await apiFetch(`/api/inventory/${inventory_id}/transactions?limit=10`, ctx)
+      if (!res.ok) return { success: false, text: '在庫履歴を取得できませんでした。' }
+      const data = await res.json()
+      const txs: any[] = data.transactions ?? []
+      if (txs.length === 0) return { success: true, text: 'まだ入出庫履歴はありません。', data }
+      const TYPE_LABELS: Record<string, string> = { in: '入庫', out: '出庫', adjustment: '調整', usage: '使用' }
+      const lines = txs.map((tx: any) => {
+        const typeLabel = TYPE_LABELS[tx.transaction_type] ?? tx.transaction_type
+        const qty       = tx.quantity > 0 ? `+${tx.quantity}` : `${tx.quantity}`
+        const who       = tx.performer?.name ?? '不明'
+        const date      = tx.performed_at ? new Date(tx.performed_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+        const note      = tx.reason ? `（${tx.reason}）` : ''
+        return `${date} ${typeLabel}${qty} ${who}${note}`
+      })
+      return { success: true, text: `直近${txs.length}件の履歴:\n${lines.join('\n')}`, data }
+    } catch {
+      return { success: false, text: '在庫履歴の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Report READ Tools ───────────────────────────────────────
 
 const getReports: ConsoleAgentTool = {
@@ -1372,6 +1496,9 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getInventory,
+  getInventoryDetail,
+  getInventoryHistory,
   getReports,
   getReportDetail,
   getInvoices,

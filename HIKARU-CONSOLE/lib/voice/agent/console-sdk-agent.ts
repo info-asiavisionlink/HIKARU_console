@@ -912,6 +912,101 @@ const getShiftAttendanceStatusTool = tool({
   },
 })
 
+const STOCK_STATUS_LABELS_SDK: Record<string, string> = {
+  normal: '正常', low_stock: '在庫少', out_of_stock: '在庫切れ', inactive: '無効',
+}
+
+const getInventoryTool = tool({
+  name:        'get_inventory',
+  description: '在庫品目の一覧を取得する。「在庫一覧教えて」「ワックスの在庫ある？」「洗剤どれくらいある？」「在庫少ないものある？」等。',
+  parameters:  z.object({
+    search:   z.string().optional().describe('品目名の検索キーワード'),
+    category: z.string().optional().describe('カテゴリで絞り込む'),
+    status:   z.string().optional().describe('low_stock / out_of_stock / normal'),
+  }),
+  execute: async ({ search, category, status }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams()
+      if (search)   q.set('search',   search)
+      if (category) q.set('category', category)
+      if (status)   q.set('status',   status)
+      const res = await apiGet(`/api/inventory?${q}`, ctx)
+      if (!res.ok) return '在庫一覧を取得できませんでした。'
+      const data = await res.json()
+      const items: any[] = data.items ?? []
+      const kpi = data.kpi ?? {}
+      if (items.length === 0) return '在庫品目はありません。'
+      const lines = items.slice(0, 10).map((item: any) => {
+        const st      = STOCK_STATUS_LABELS_SDK[item.stock_status] ?? item.stock_status
+        const minNote = item.stock_quantity <= item.min_stock && item.min_stock > 0 ? '要補充' : ''
+        return `${item.name}（${item.category}）在庫:${item.stock_quantity}${item.unit} 最低:${item.min_stock}${item.unit} [${st}]${minNote ? '⚠️' + minNote : ''} [id:${item.id}]`
+      })
+      const suffix  = items.length > 10 ? `（全${items.length}件中10件表示）` : `（全${items.length}件）`
+      const kpiLine = `在庫少:${kpi.low_stock ?? 0}件・在庫切れ:${kpi.out_of_stock ?? 0}件`
+      return [kpiLine, ...lines, suffix].join('\n')
+    } catch { return '在庫一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getInventoryDetailTool = tool({
+  name:        'get_inventory_detail',
+  description: '在庫品目の詳細を取得する。「現在庫何個？」「最低在庫数は？」「詳しく」「単位は？」「仕入先は？」等。get_inventoryで取得したidを使う。',
+  parameters:  z.object({
+    inventory_id: z.string().describe('在庫品目ID（get_inventoryのid）'),
+  }),
+  execute: async ({ inventory_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet(`/api/inventory/${inventory_id}`, ctx)
+      if (!res.ok) return '在庫品目が見つかりませんでした。'
+      const data = await res.json()
+      const item = data.item
+      if (!item) return '在庫品目が見つかりませんでした。'
+      const status = STOCK_STATUS_LABELS_SDK[item.stock_status] ?? item.stock_status
+      const parts  = [
+        `品目: ${item.name}（${item.category}）`,
+        `現在庫: ${item.stock_quantity}${item.unit}`,
+        `最低在庫: ${item.min_stock}${item.unit}`,
+        `ステータス: ${status}`,
+      ]
+      if (item.storage_location) parts.push(`保管場所: ${item.storage_location}`)
+      if (item.supplier_name)    parts.push(`仕入先: ${item.supplier_name}`)
+      if (item.unit_price != null) parts.push(`単価: ${Number(item.unit_price).toLocaleString()}円`)
+      if (item.notes)            parts.push(`備考: ${item.notes}`)
+      return parts.join('\n')
+    } catch { return '在庫詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const getInventoryHistoryTool = tool({
+  name:        'get_inventory_history',
+  description: '在庫品目の入出庫履歴を取得する。「この商品の履歴教えて」「最近の入出庫は？」「最後に出庫したのいつ？」等。',
+  parameters:  z.object({
+    inventory_id: z.string().describe('在庫品目ID（get_inventoryのid）'),
+  }),
+  execute: async ({ inventory_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet(`/api/inventory/${inventory_id}/transactions?limit=10`, ctx)
+      if (!res.ok) return '在庫履歴を取得できませんでした。'
+      const data = await res.json()
+      const txs: any[] = data.transactions ?? []
+      if (txs.length === 0) return 'まだ入出庫履歴はありません。'
+      const TYPE_LABELS: Record<string, string> = { in: '入庫', out: '出庫', adjustment: '調整', usage: '使用' }
+      const lines = txs.map((tx: any) => {
+        const typeLabel = TYPE_LABELS[tx.transaction_type] ?? tx.transaction_type
+        const qty       = tx.quantity > 0 ? `+${tx.quantity}` : `${tx.quantity}`
+        const who       = tx.performer?.name ?? '不明'
+        const date      = tx.performed_at ? new Date(tx.performed_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+        const note      = tx.reason ? `（${tx.reason}）` : ''
+        return `${date} ${typeLabel}${qty} ${who}${note}`
+      })
+      return `直近${txs.length}件の履歴:\n${lines.join('\n')}`
+    } catch { return '在庫履歴の取得中にエラーが発生しました。' }
+  },
+})
+
 const getReportsTool = tool({
   name:        'get_reports',
   description: '報告書・作業完了レポートの一覧を取得する。「報告書一覧教えて」「最近の報告書ある？」「ABC案件の報告書は？」「今月の報告書は？」等。',
@@ -1260,6 +1355,28 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 在庫操作手順
+在庫一覧: get_inventory（search/category/status指定可。status=low_stockで在庫少一覧）
+在庫詳細: get_inventory_detail（inventory_idが必要）
+在庫履歴: get_inventory_history（inventory_idが必要。直近10件）
+入庫: get_inventory_detailで現在庫確認 → propose_action(console.inventory_stock_in, {inventoryId, quantity, item_name?, reason?})
+  確認文例: 「ワックスを10個入庫します。現在20個なので入庫後は30個になる予定です。よろしいですか？」
+  ※quantityは正の整数。AI補完禁止。
+出庫: get_inventory_detailで現在庫確認 → 在庫不足チェック → propose_action(console.inventory_stock_out, {inventoryId, quantity, item_name?, reason?})
+  確認文例: 「ワックスを5個出庫します。現在20個なので出庫後は15個になる予定です。よろしいですか？」
+  ※quantity > current_stockの場合は提案しない。「現在X個しかないためY個は出庫できません」と回答。
+在庫調整（棚卸し）: get_inventory_detailで現在庫確認 → propose_action(console.adjust_inventory, {inventoryId, target_quantity, reason, item_name?})
+  ※target_quantityは調整後の目標数（絶対値）。差分はサーバー側で計算。reason必須。
+  確認文例: 「棚卸し結果10個に合わせます。現在12個なので2個減少します。よろしいですか？」
+在庫品目登録: name確認後 → propose_action(console.create_inventory_item, {name, category?, unit?, min_stock?, storage_location?, notes?})
+  確認文例: 「ワックス（清掃用品）を新規登録します。よろしいですか？」
+  ※初期在庫は0。登録後は入庫で追加。
+在庫品目編集: get_inventory_detailで現在値確認 → propose_action(console.update_inventory_item, {inventoryId, [変更フィールド]})
+  変更可能: name/category/unit/min_stock/storage_location/supplier_name/notes
+  ※在庫数量はここでは変更不可。入庫/出庫/調整を使う。
+在庫削除: 音声実行不可。「管理画面から操作してください。」と答える。
+inventoryIdは必ずget_inventoryのresultから取得する。AI生成ID禁止。
+
 ## 報告書操作手順
 報告書一覧: get_reports（project_id/date_from/date_to/page指定可）
 報告書詳細: get_report_detail（report_idが必要 — get_reportsのidを使う）
@@ -1328,6 +1445,11 @@ reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
 - console.convert_estimate             → params: { invoiceId, invoice_number? }
 - console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
 - console.generate_report_pdf          → params: { reportId, report_number? }
+- console.inventory_stock_in           → params: { inventoryId, quantity, item_name?, reason? }
+- console.inventory_stock_out          → params: { inventoryId, quantity, item_name?, reason? }
+- console.adjust_inventory             → params: { inventoryId, target_quantity, reason, item_name?, current_quantity? }
+- console.create_inventory_item        → params: { name, category?, unit?, min_stock?, storage_location?, notes? }
+- console.update_inventory_item        → params: { inventoryId, name?, category?, unit?, min_stock?, storage_location?, supplier_name?, notes? }
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -1370,6 +1492,9 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getInventoryTool,
+    getInventoryDetailTool,
+    getInventoryHistoryTool,
     getReportsTool,
     getReportDetailTool,
     getInvoicesTool,

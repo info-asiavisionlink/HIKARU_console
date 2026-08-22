@@ -131,6 +131,26 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '報告書PDFを生成してStorageに保存する（reportId必須、Confirmation必須）',
   },
+  'console.inventory_stock_in': {
+    level: 4 as const,
+    description: '在庫品目に入庫処理を行う（inventoryId・quantity必須、Confirmation必須）',
+  },
+  'console.inventory_stock_out': {
+    level: 4 as const,
+    description: '在庫品目から出庫処理を行う（inventoryId・quantity必須、在庫不足時は拒否、Confirmation必須）',
+  },
+  'console.adjust_inventory': {
+    level: 4 as const,
+    description: '在庫調整（棚卸し等）を行う（inventoryId・target_quantity・reason必須、差分を計算してAtomic更新、Confirmation必須）',
+  },
+  'console.create_inventory_item': {
+    level: 4 as const,
+    description: '在庫品目を新規登録する（name必須、初期在庫0スタート、Confirmation必須）',
+  },
+  'console.update_inventory_item': {
+    level: 4 as const,
+    description: '在庫品目情報を更新する（inventoryId必須、quantity変更不可・在庫変更はstock_in/out/adjustを使う、Confirmation必須）',
+  },
 
   // ─── L4: Important Write（Confirmation必須・管理者権限確認）──
   'console.update_project_status': {
