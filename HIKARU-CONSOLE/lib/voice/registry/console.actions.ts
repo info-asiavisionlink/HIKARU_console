@@ -131,6 +131,10 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '報告書PDFを生成してStorageに保存する（reportId必須、Confirmation必須）',
   },
+  'console.update_company_setting': {
+    level: 4 as const,
+    description: '会社設定（name/address/phone/email/postal_code）を更新する。銀行情報・法人番号等の財務情報はVoice変更不可。Confirmation必須。',
+  },
   'console.mark_notification_read': {
     level: 4 as const,
     description: '管理者向け通知1件を既読にする（notificationId必須、Confirmation必須）',

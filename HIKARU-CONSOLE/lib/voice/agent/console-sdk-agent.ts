@@ -939,6 +939,32 @@ const getShiftAttendanceStatusTool = tool({
   },
 })
 
+const getSettingsTool = tool({
+  name:        'get_settings',
+  description: '会社設定・会社情報を取得する。「設定どうなってる？」「会社名は？」「電話番号は？」「住所は？」「メールは？」「印鑑は？」等。',
+  parameters:  z.object({}),
+  execute: async (_, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet('/api/settings', ctx)
+      if (!res.ok) return '設定情報を取得できませんでした。'
+      const data = await res.json()
+      const c    = data.data
+      if (!c) return '設定情報が見つかりませんでした。'
+      const parts = ['【会社設定】']
+      if (c.name)    parts.push(`会社名: ${c.name}`)
+      if (c.address) parts.push(`住所: ${c.address}`)
+      if (c.phone)   parts.push(`電話: ${c.phone}`)
+      if (c.email)   parts.push(`メール: ${c.email}`)
+      if (c.postal_code) parts.push(`郵便番号: ${c.postal_code}`)
+      parts.push(`電子印: ${c.has_seal ? '登録済み' : '未登録'}`)
+      if (c.bank_name) parts.push('銀行情報: 登録済み（詳細は管理画面で確認）')
+      if (c.invoice_registration_number) parts.push('インボイス登録番号: 登録済み（詳細は管理画面で確認）')
+      return parts.join('\n')
+    } catch { return '設定情報の取得中にエラーが発生しました。' }
+  },
+})
+
 const getAnalyticsTool = tool({
   name:        'get_analytics',
   description: 'AI分析・品質・業務の総合データを取得する。「AI分析して」「全体的にどう？」「ランキングは？」「品質分布は？」「月次推移は？」「一番品質高い店舗は？」「評価が低い作業者は？」等。全期間集計。',
@@ -1655,6 +1681,21 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 設定操作手順
+設定確認: get_settings（会社名/住所/電話/メール/郵便番号/印鑑有無）
+  ※銀行口座番号・インボイス番号・法人番号は「登録済み」確認のみ。生値は読み上げない。
+会社情報変更（Class B）: get_settingsで現在値確認 → propose_action(console.update_company_setting, {field, value, current_value?})
+  変更可能: name/address/phone/email/postal_code のみ
+  ※会社名は必須フィールドのため空にできない
+  確認文例: 「会社の電話番号を03-1234-5678に変更します。現在の番号はXXXXです。よろしいですか？」
+財務情報変更（Class C）: Voice禁止。「管理画面から操作してください。」
+  対象: bank_account_number/bank_account_holder/invoice_registration_number/corporate_number 等
+電子印（seal）: Voice変更禁止（ファイルアップロード不可）
+通知設定: 現在設定APIなし。「通知設定は管理画面から操作してください。」
+AI設定: 現在設定APIなし。「AI設定は管理画面から操作してください。」
+権限・ユーザー管理: Voice禁止。「管理画面から操作してください。」
+APIキー・Secret: Voice読み上げ・変更禁止。「セキュリティ上、認証情報は音声では操作できません。」
+
 ## AI分析操作手順
 総合AI分析: get_analytics（focus=overview/store/worker/distribution/trends/spots）
   ・全期間集計データ（期間フィルタなし）
@@ -1817,6 +1858,7 @@ reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
 - console.convert_estimate             → params: { invoiceId, invoice_number? }
 - console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
 - console.generate_report_pdf          → params: { reportId, report_number? }
+- console.update_company_setting        → params: { field, value, current_value? } ※field: name/address/phone/email/postal_code のみ
 - console.mark_notification_read       → params: { notificationId, title? }
 - console.create_contract              → params: { title, counterparty_type, client_id?, partner_id?, project_id?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, notes?, client_name? }
 - console.update_contract              → params: { contractId, title?, contract_number?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, status?, notes?, contract_title? }
@@ -1867,6 +1909,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getSettingsTool,
     getAnalyticsTool,
     getSurveysTool,
     getWorkersQualityTool,

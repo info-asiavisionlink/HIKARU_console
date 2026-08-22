@@ -1147,6 +1147,37 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── Settings READ Tool ──────────────────────────────────────
+
+const getSettings: ConsoleAgentTool = {
+  name:        'get_settings',
+  description: '会社設定・会社情報を取得する。「設定どうなってる？」「会社名は？」「電話番号は？」「メールアドレスは？」「住所は？」「印鑑は登録済み？」等。',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/settings', ctx)
+      if (!res.ok) return { success: false, text: '設定情報を取得できませんでした。' }
+      const data = await res.json()
+      const c    = data.data
+      if (!c) return { success: false, text: '設定情報が見つかりませんでした。' }
+      const parts: string[] = ['【会社設定】']
+      if (c.name)    parts.push(`会社名: ${c.name}`)
+      if (c.address) parts.push(`住所: ${c.address}`)
+      if (c.phone)   parts.push(`電話: ${c.phone}`)
+      if (c.email)   parts.push(`メール: ${c.email}`)
+      if (c.postal_code) parts.push(`郵便番号: ${c.postal_code}`)
+      parts.push(`電子印: ${c.has_seal ? '登録済み' : '未登録'}`)
+      // 財務情報は存在確認のみ（値は読み上げない）
+      if (c.bank_name) parts.push(`銀行情報: 登録済み（詳細は管理画面で確認）`)
+      if (c.invoice_registration_number) parts.push(`インボイス登録番号: 登録済み（詳細は管理画面で確認）`)
+      return { success: true, text: parts.join('\n'), data }
+    } catch {
+      return { success: false, text: '設定情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── AI Analysis Tool ────────────────────────────────────────
 
 const getAnalytics: ConsoleAgentTool = {
@@ -1912,6 +1943,7 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getSettings,
   getAnalytics,
   getQualitySummary,
   getSurveys,

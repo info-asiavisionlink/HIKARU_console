@@ -1255,6 +1255,98 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: reply })
       }
 
+      // ─── L4: update_company_setting ──────────────────────
+      case 'console.update_company_setting': {
+        const { field, value } = params
+        if (!field) return Response.json({ error: 'field required' }, { status: 400 })
+
+        // CLASS B: 安全なフィールドのみVoice変更可能
+        const ALLOWED_FIELDS = ['name', 'address', 'phone', 'email', 'postal_code'] as const
+        type AllowedField = typeof ALLOWED_FIELDS[number]
+        if (!ALLOWED_FIELDS.includes(field as AllowedField)) {
+          return Response.json({
+            error: `「${field}」のVoice変更は許可されていません。管理画面から操作してください。`,
+          }, { status: 403 })
+        }
+        if (field === 'name' && !value?.trim()) {
+          return Response.json({ error: '会社名は空にできません。' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 現在値を取得
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/settings`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: '現在の設定を取得できませんでした。' }, { status: 500 })
+        const currentData = await currentRes.json()
+        const current     = currentData?.data
+        if (!current) return Response.json({ error: '設定情報が見つかりませんでした。' }, { status: 404 })
+
+        // no-op チェック
+        const currentValue = current[field]
+        const newValue     = value?.trim() || null
+        if (currentValue === newValue || (!currentValue && !newValue)) {
+          const FIELD_LABELS: Record<string, string> = { name: '会社名', address: '住所', phone: '電話番号', email: 'メールアドレス', postal_code: '郵便番号' }
+          return Response.json({ success: true, voiceReply: `${FIELD_LABELS[field] ?? field}はすでにその値です。変更は不要です。` })
+        }
+
+        // 既存の全フィールドを保持しながら対象フィールドだけ更新
+        const updateBody: Record<string, string | null> = {
+          name:             current.name ?? '',
+          address:          current.address ?? null,
+          phone:            current.phone ?? null,
+          email:            current.email ?? null,
+          postal_code:      current.postal_code ?? null,
+          // 財務情報は変更しないが必須なのでそのまま渡す
+          invoice_registration_number: current.invoice_registration_number ?? null,
+          bank_name:                   current.bank_name ?? null,
+          bank_branch_name:            current.bank_branch_name ?? null,
+          bank_account_type:           current.bank_account_type ?? null,
+          bank_account_number:         current.bank_account_number ?? null,
+          bank_account_holder:         current.bank_account_holder ?? null,
+          bank_account_holder_kana:    current.bank_account_holder_kana ?? null,
+          corporate_number:            current.corporate_number ?? null,
+        }
+        updateBody[field] = newValue
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/settings`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'company_setting',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '設定の更新に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/settings`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const verified   = verifyData?.data?.[field]
+          const expected   = newValue
+          if (expected && verified !== expected) {
+            return Response.json({ error: '設定変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const FIELD_LABELS: Record<string, string> = { name: '会社名', address: '住所', phone: '電話番号', email: 'メールアドレス', postal_code: '郵便番号' }
+        const label = FIELD_LABELS[field] ?? field
+        return Response.json({
+          success:    true,
+          voiceReply: newValue
+            ? `${label}を「${newValue}」に変更しました。`
+            : `${label}を削除しました。`,
+        })
+      }
+
       // ─── L4: mark_notification_read ──────────────────────
       case 'console.mark_notification_read': {
         const { notificationId, title } = params
