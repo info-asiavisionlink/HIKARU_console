@@ -492,22 +492,31 @@ const getRevenueTool = tool({
 
 const getQualitySummaryTool = tool({
   name:        'get_quality_summary',
-  description: '今日・最近の品質評価サマリーを取得する。低スコア案件の確認等。',
+  description: '品質KPIサマリーを取得する。「品質状況教えて」「最近の品質どう？」「平均スコアは？」「低評価どれくらいある？」「高優先度アラートある？」等。',
   parameters:  z.object({
-    date: z.string().optional().describe('確認日（YYYY-MM-DD形式。省略時は今日）'),
+    period: z.string().optional().describe('7d/30d/90d/ytd（省略時30d）'),
   }),
-  execute: async ({ date }, runCtx) => {
+  execute: async ({ period }, runCtx) => {
     const ctx = runCtx!.context as ConsoleAgentSDKContext
     try {
-      const query = date ? `?date=${date}` : ''
-      const res   = await apiGet(`/api/quality${query}`, ctx)
-      if (!res.ok) return '品質評価データを取得できませんでした。'
-      const data  = await res.json()
-      const items = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
-      if (items.length === 0) return '品質評価データはありません。'
-      const low = items.filter((e: { score?: number }) => (e.score ?? 100) < 80)
-      if (low.length === 0) return `本日${items.length}件の品質評価があります。全て基準を満たしています。`
-      return `本日${items.length}件中、${low.length}件がスコア80未満です。品質管理画面で確認してください。`
+      const p = period ?? '30d'
+      const res  = await apiGet(`/api/quality?period=${p}`, ctx)
+      if (!res.ok) return '品質情報を取得できませんでした。'
+      const data = await res.json()
+      const kpi  = data.kpi ?? {}
+      if (kpi.response_count === 0 && (kpi.total_completed ?? 0) === 0) {
+        return `指定期間（${p}）の品質評価データはありません。`
+      }
+      const parts: string[] = []
+      if (kpi.total_completed    != null) parts.push(`完了作業: ${kpi.total_completed}件`)
+      if (kpi.response_count     != null) parts.push(`顧客アンケート: ${kpi.response_count}件（回答率${kpi.response_rate ?? 0}%）`)
+      if (kpi.avg_hqs            != null) parts.push(`HIKARU品質スコア: ${Math.round((kpi.avg_hqs as number) * 10) / 10}点`)
+      if (kpi.avg_ai_score       != null) parts.push(`AI評価平均: ${Math.round((kpi.avg_ai_score as number) * 10) / 10}点`)
+      if (kpi.avg_rating         != null) parts.push(`顧客評価平均: ★${Math.round((kpi.avg_rating as number) * 10) / 10}（5段階）`)
+      if (kpi.five_star_rate     != null) parts.push(`5つ星率: ${kpi.five_star_rate}%`)
+      if ((kpi.low_rating_count  as number) > 0) parts.push(`低評価（1-2点）: ${kpi.low_rating_count}件（${kpi.low_rating_rate}%）`)
+      if ((kpi.high_priority_count as number) > 0) parts.push(`高優先度アラート: ${kpi.high_priority_count}件`)
+      return parts.join('\n')
     } catch { return '品質評価情報の取得中にエラーが発生しました。' }
   },
 })
@@ -909,6 +918,102 @@ const getShiftAttendanceStatusTool = tool({
       if (done.length    > 0) parts.push(`退勤済: ${done.join('、')}`)
       return parts.length > 0 ? `今日（${todayJst}）のシフト対比: ${parts.join('。')}` : `今日のシフトメンバー全員が打刻済みです。`
     } catch { return 'シフト×勤怠比較の取得中にエラーが発生しました。' }
+  },
+})
+
+const getSurveysTool = tool({
+  name:        'get_surveys',
+  description: '顧客アンケート・満足度調査の一覧を取得する。「顧客満足度どう？」「低い評価ある？」「クレームある？」「1星の評価ある？」「ABC案件の評価は？」等。',
+  parameters:  z.object({
+    project_id: z.string().optional().describe('案件IDで絞り込む'),
+    rating:     z.string().optional().describe('星評価で絞り込む (1-5)'),
+    date_from:  z.string().optional().describe('開始日 YYYY-MM-DD'),
+    date_to:    z.string().optional().describe('終了日 YYYY-MM-DD'),
+  }),
+  execute: async ({ project_id, rating, date_from, date_to }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams({ limit: '10' })
+      if (project_id) q.set('project_id', project_id)
+      if (rating)     q.set('rating',     rating)
+      if (date_from)  q.set('date_from',  date_from)
+      if (date_to)    q.set('date_to',    date_to)
+      const res = await apiGet(`/api/surveys?${q}`, ctx)
+      if (!res.ok) return 'アンケートデータを取得できませんでした。'
+      const data = await res.json()
+      const surveys: any[] = data.surveys ?? []
+      const total = data.total ?? 0
+      if (surveys.length === 0) return '顧客アンケートはありません。'
+      const starMap = ['', '★☆☆☆☆', '★★☆☆☆', '★★★☆☆', '★★★★☆', '★★★★★']
+      const lines = surveys.slice(0, 10).map((s: any) => {
+        const star    = starMap[s.rating] ?? `${s.rating}点`
+        const proj    = s.jobs?.projects?.name ?? '案件不明'
+        const worker  = s.jobs?.worker?.name ?? ''
+        const date    = s.jobs?.work_date ?? ''
+        const comment = s.comment ? `「${String(s.comment).slice(0, 40)}...」` : ''
+        return `${date} ${proj} ${worker} ${star} ${comment}`
+      })
+      const suffix = total > 10 ? `（全${total}件中10件）` : `（全${total}件）`
+      return `${lines.join('\n')}\n${suffix}`
+    } catch { return '顧客アンケートの取得中にエラーが発生しました。' }
+  },
+})
+
+const getWorkersQualityTool = tool({
+  name:        'get_workers_quality',
+  description: '作業者別の品質集計を取得する。「作業者の品質ランキングは？」「評価が高い作業者は？」「品質が低い作業者いる？」等。',
+  parameters:  z.object({
+    days: z.string().optional().describe('集計対象日数（省略時30日）'),
+  }),
+  execute: async ({ days }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const d = days ?? '30'
+      const res = await apiGet(`/api/quality/workers?days=${d}`, ctx)
+      if (!res.ok) return '作業者品質データを取得できませんでした。'
+      const data = await res.json()
+      const workers: any[] = data.workers ?? []
+      if (workers.length === 0) return `過去${d}日間の品質評価データはありません。`
+      const lines = workers.slice(0, 10).map((w: any, i: number) => {
+        const hqs  = w.avg_hqs      != null ? `HQS:${Math.round(w.avg_hqs)}点` : ''
+        const ai   = w.avg_ai_score != null ? `AI:${Math.round(w.avg_ai_score)}点` : ''
+        const cust = w.avg_rating   != null ? `顧客:★${(w.avg_rating as number).toFixed(1)}` : ''
+        const low  = w.low_rating_count > 0 ? `低評価:${w.low_rating_count}件` : ''
+        return `${i + 1}位 ${w.name}（${w.job_count}件）${[hqs, ai, cust, low].filter(Boolean).join('・')}`
+      })
+      return `作業者品質（過去${d}日）:\n${lines.join('\n')}`
+    } catch { return '作業者品質の取得中にエラーが発生しました。' }
+  },
+})
+
+const getProjectQualityTool = tool({
+  name:        'get_project_quality',
+  description: '案件別の品質トレンドを取得する。「ABC案件の品質どう？」「この現場の評価は？」等。project_idが必要。get_projectsで取得したidを使う。',
+  parameters:  z.object({
+    project_id: z.string().describe('案件ID（get_projectsのid）'),
+    days:       z.string().optional().describe('集計日数（省略時90日）'),
+  }),
+  execute: async ({ project_id, days }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const d = days ?? '90'
+      const res = await apiGet(`/api/quality/trends?project_id=${project_id}&days=${d}`, ctx)
+      if (!res.ok) return '案件品質データを取得できませんでした。'
+      const data = await res.json()
+      const trends: any[] = data.trends ?? []
+      if (trends.length === 0) return `この案件の過去${d}日間の品質評価データはありません。`
+      const scores = trends.map((t: any) => t.hqs).filter((v: any) => v != null) as number[]
+      const avgHqs = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+      const latest = trends[trends.length - 1]
+      const parts  = [
+        `作業${trends.length}回（過去${d}日間）`,
+        avgHqs != null ? `平均HQS: ${avgHqs}点` : '',
+        latest?.hqs        != null ? `最新スコア: ${Math.round(latest.hqs)}点（${latest.work_date}）` : '',
+        latest?.ai_score   != null ? `最新AI評価: ${Math.round(latest.ai_score)}点` : '',
+        latest?.rating     != null ? `最新顧客評価: ★${latest.rating}` : '',
+      ].filter(Boolean)
+      return parts.join('\n')
+    } catch { return '案件品質の取得中にエラーが発生しました。' }
   },
 })
 
@@ -1447,6 +1552,24 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 品質・満足度操作手順
+品質KPI全体: get_quality_summary（period=7d/30d/90d/ytd、省略時30d）
+  ・スコア仕様: AI評価=0-100点、顧客評価=1-5星（×20で0-100換算）、HQS=両方の加重平均
+  ・低評価: 顧客評価★1-2が低評価アラート対象
+顧客満足度・アンケート: get_surveys（project_id/rating/date_from/date_to指定可）
+  ・「クレームある？」→ rating=1 または rating=2 で絞り込む
+  ・アンケートはcustomer portalから顧客が回答するもの。管理者は読み取り専用。
+作業者別品質: get_workers_quality（days=30など）
+  ・「田中さんの品質は？」→ get_employee_quality_summary（employeeIdが必要）
+  ・「作業者全体のランキングは？」→ get_workers_quality
+案件別品質: get_project_quality（project_idが必要、days=90など）
+  ・「ABC案件の品質どう？」→ get_projects でprojectId確認→ get_project_quality
+AI評価詳細: Report内のAI評価は get_report_detail（spots.score/recommendation）
+写真のBefore/After比較: get_report_detailのspots内に含まれる
+品質WRITE: 現在なし。品質評価・アンケートは管理者書き込み不可。
+  ・「評価を変更して」→ 「品質評価の変更は管理画面から操作できません。」と回答。
+品質スコアを推測しない。取得できない場合は「確認できません」と回答。
+
 ## 契約操作手順
 契約一覧: get_contracts（search/status/contract_type/counterparty/expiring_days指定可）
   ・「もうすぐ期限切れ」→ expiring_days=30
@@ -1610,6 +1733,9 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getSurveysTool,
+    getWorkersQualityTool,
+    getProjectQualityTool,
     getContractsTool,
     getContractDetailTool,
     getInventoryTool,

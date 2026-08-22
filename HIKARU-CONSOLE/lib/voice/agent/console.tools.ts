@@ -1112,6 +1112,162 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── Quality / Satisfaction READ Tools ───────────────────────
+
+const getQualitySummary: ConsoleAgentTool = {
+  name:        'get_quality_summary',
+  description: '品質KPIサマリーを取得する。「品質状況教えて」「今月の品質どう？」「平均スコアは？」「低評価どれくらいある？」「品質に問題ある？」等。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      period: { type: 'string', description: '7d/30d/90d/ytd（省略時30d）' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const period = params.period ?? '30d'
+      const res = await apiFetch(`/api/quality?period=${period}`, ctx)
+      if (!res.ok) return { success: false, text: '品質情報を取得できませんでした。' }
+      const data = await res.json()
+      const kpi  = data.kpi ?? {}
+      if (kpi.response_count === 0 && (kpi.total_completed ?? 0) === 0) {
+        return { success: true, text: `指定期間（${period}）の品質評価データはありません。`, data }
+      }
+      const parts: string[] = []
+      if (kpi.total_completed    != null) parts.push(`完了作業: ${kpi.total_completed}件`)
+      if (kpi.response_count     != null) parts.push(`顧客アンケート: ${kpi.response_count}件（回答率${kpi.response_rate ?? 0}%）`)
+      if (kpi.avg_hqs            != null) parts.push(`HIKARU品質スコア: ${Math.round(kpi.avg_hqs * 10) / 10}点`)
+      if (kpi.avg_ai_score       != null) parts.push(`AI評価平均: ${Math.round(kpi.avg_ai_score * 10) / 10}点`)
+      if (kpi.avg_rating         != null) parts.push(`顧客評価平均: ${Math.round(kpi.avg_rating * 10) / 10}点（5段階）`)
+      if (kpi.five_star_rate     != null) parts.push(`5つ星率: ${kpi.five_star_rate}%`)
+      if (kpi.low_rating_count   != null && kpi.low_rating_count > 0) parts.push(`低評価（1-2点）: ${kpi.low_rating_count}件（${kpi.low_rating_rate}%）`)
+      if (kpi.high_priority_count != null && kpi.high_priority_count > 0) parts.push(`高優先度アラート: ${kpi.high_priority_count}件`)
+      return { success: true, text: parts.join('\n'), data }
+    } catch {
+      return { success: false, text: '品質情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getSurveys: ConsoleAgentTool = {
+  name:        'get_surveys',
+  description: '顧客アンケート・満足度調査の一覧を取得する。「顧客満足度どう？」「最近低い評価ある？」「ABC案件の評価は？」「クレームある？」「1つ星の評価ある？」等。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      project_id: { type: 'string', description: '案件IDで絞り込む' },
+      rating:     { type: 'string', description: '星評価で絞り込む (1-5)' },
+      date_from:  { type: 'string', description: '開始日 YYYY-MM-DD' },
+      date_to:    { type: 'string', description: '終了日 YYYY-MM-DD' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const q = new URLSearchParams({ limit: '10' })
+      if (params.project_id) q.set('project_id', params.project_id)
+      if (params.rating)     q.set('rating',     params.rating)
+      if (params.date_from)  q.set('date_from',  params.date_from)
+      if (params.date_to)    q.set('date_to',    params.date_to)
+      const res = await apiFetch(`/api/surveys?${q}`, ctx)
+      if (!res.ok) return { success: false, text: 'アンケートデータを取得できませんでした。' }
+      const data = await res.json()
+      const surveys: any[] = data.surveys ?? []
+      const total = data.total ?? 0
+      if (surveys.length === 0) return { success: true, text: '顧客アンケートはありません。', data }
+      const starMap = ['', '★☆☆☆☆', '★★☆☆☆', '★★★☆☆', '★★★★☆', '★★★★★']
+      const lines = surveys.slice(0, 10).map((s: any) => {
+        const star    = starMap[s.rating] ?? `${s.rating}点`
+        const proj    = s.jobs?.projects?.name ?? '案件不明'
+        const worker  = s.jobs?.worker?.name ?? ''
+        const date    = s.jobs?.work_date ?? ''
+        const comment = s.comment ? `「${s.comment.slice(0, 40)}${s.comment.length > 40 ? '...' : ''}」` : ''
+        return `${date} ${proj} ${worker} ${star} ${comment} [id:${s.id}]`
+      })
+      const suffix = total > 10 ? `（全${total}件中10件表示）` : `（全${total}件）`
+      return { success: true, text: `${lines.join('\n')}\n${suffix}`, data, items: surveys.slice(0, 10).map((s: any) => ({ id: s.id, label: `${s.jobs?.work_date ?? ''} ${s.jobs?.projects?.name ?? ''} ★${s.rating}` })) }
+    } catch {
+      return { success: false, text: '顧客アンケートの取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getWorkersQuality: ConsoleAgentTool = {
+  name:        'get_workers_quality',
+  description: '作業者別の品質集計を取得する。「作業者の品質ランキングは？」「品質の高い作業者は？」「評価が低い作業者いる？」等。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      days: { type: 'string', description: '集計対象日数（省略時30日）' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const days = params.days ?? '30'
+      const res = await apiFetch(`/api/quality/workers?days=${days}`, ctx)
+      if (!res.ok) return { success: false, text: '作業者品質データを取得できませんでした。' }
+      const data = await res.json()
+      const workers: any[] = data.workers ?? []
+      if (workers.length === 0) return { success: true, text: `過去${days}日間の品質評価データはありません。`, data }
+      const lines = workers.slice(0, 10).map((w: any, i: number) => {
+        const hqs  = w.avg_hqs        != null ? `HQS:${Math.round(w.avg_hqs)}点` : ''
+        const ai   = w.avg_ai_score   != null ? `AI:${Math.round(w.avg_ai_score)}点` : ''
+        const cust = w.avg_rating     != null ? `顧客:★${w.avg_rating.toFixed(1)}` : ''
+        const low  = w.low_rating_count > 0   ? `低評価:${w.low_rating_count}件` : ''
+        const vals = [hqs, ai, cust, low].filter(Boolean).join('・')
+        return `${i + 1}位 ${w.name}（${w.job_count}件）${vals}`
+      })
+      return { success: true, text: `作業者品質（過去${days}日）:\n${lines.join('\n')}`, data }
+    } catch {
+      return { success: false, text: '作業者品質の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getProjectQuality: ConsoleAgentTool = {
+  name:        'get_project_quality',
+  description: '案件別の品質トレンドを取得する。「ABC案件の品質どう？」「この案件の評価は？」等。project_idが必要。get_projectsで取得したidを使う。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      project_id: { type: 'string', description: '案件ID（get_projectsのid）' },
+      days:       { type: 'string', description: '集計日数（省略時90日）' },
+    },
+    required: ['project_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const { project_id } = params
+      if (!project_id) return { success: false, text: 'project_idを指定してください。' }
+      const days = params.days ?? '90'
+      const res = await apiFetch(`/api/quality/trends?project_id=${project_id}&days=${days}`, ctx)
+      if (!res.ok) return { success: false, text: '案件品質データを取得できませんでした。' }
+      const data = await res.json()
+      const trends: any[] = data.trends ?? []
+      if (trends.length === 0) return { success: true, text: `この案件の過去${days}日間の品質評価データはありません。`, data }
+      const scores  = trends.map((t: any) => t.hqs).filter((v: any) => v != null) as number[]
+      const avgHqs  = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+      const latest  = trends[trends.length - 1]
+      const parts: string[] = [
+        `作業${trends.length}回（過去${days}日間）`,
+        avgHqs != null ? `平均HIKARU品質スコア: ${avgHqs}点` : '',
+        latest?.hqs != null ? `最新スコア: ${Math.round(latest.hqs)}点（${latest.work_date}）` : '',
+        latest?.ai_score != null ? `最新AI評価: ${Math.round(latest.ai_score)}点` : '',
+        latest?.rating != null ? `最新顧客評価: ★${latest.rating}` : '',
+      ].filter(Boolean)
+      return { success: true, text: parts.join('\n'), data }
+    } catch {
+      return { success: false, text: '案件品質の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Contract READ Tools ─────────────────────────────────────
 
 const CONTRACT_STATUS_LABELS: Record<string, string> = {
@@ -1612,6 +1768,10 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getQualitySummary,
+  getSurveys,
+  getWorkersQuality,
+  getProjectQuality,
   getContracts,
   getContractDetail,
   getInventory,
