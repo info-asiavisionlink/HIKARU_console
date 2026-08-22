@@ -10,8 +10,9 @@ export async function GET(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const p    = req.nextUrl.searchParams
-  const days = Math.min(Number(p.get('days') ?? 30), 365)
+  const p        = req.nextUrl.searchParams
+  const days     = Math.min(Number(p.get('days') ?? 30), 365)
+  const workerId = p.get('worker_id') ?? ''
   const dateFrom = new Date(Date.now() - days * 86400_000).toISOString().split('T')[0]
 
   type CompanyQW = { quality_weight_ai: number; quality_weight_customer: number }
@@ -26,13 +27,15 @@ export async function GET(req: NextRequest) {
     ? { ai: Number(company.quality_weight_ai), customer: Number(company.quality_weight_customer) }
     : DEFAULT_WEIGHTS
 
-  // 完了ジョブ
-  const { data: jobs } = await auth.adminClient
+  // 完了ジョブ（worker_id指定時は個人フィルタ）
+  let jobsQuery = auth.adminClient
     .from('jobs')
     .select('id, worker_id')
     .eq('company_id', auth.companyId)
     .eq('status', 'completed')
-    .gte('work_date', dateFrom) as { data: JobRow[] | null; error: unknown }
+    .gte('work_date', dateFrom)
+  if (workerId) jobsQuery = (jobsQuery as any).eq('worker_id', workerId)
+  const { data: jobs } = await jobsQuery as { data: JobRow[] | null; error: unknown }
 
   if (!jobs?.length) return NextResponse.json({ workers: [] })
 

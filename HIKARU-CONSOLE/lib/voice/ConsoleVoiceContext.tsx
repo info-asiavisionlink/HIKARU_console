@@ -63,6 +63,7 @@ NavigationせずにDataツールを使う。
 従業員の担当案件 → get_employee_projects（employee_idを指定）
 従業員の勤怠概要 → get_employee_attendance_summary（employee_idを指定）
 従業員のシフト → get_employee_shifts（employee_idを指定）
+従業員の品質評価 → get_employee_quality_summary（employee_idを指定）
 
 ## 従業員操作手順
 従業員一覧: get_employees（search/status指定可）→ employeeId確認
@@ -70,6 +71,7 @@ NavigationせずにDataツールを使う。
 担当案件: get_employee_projects（employeeIdが必要）
 勤怠概要: get_employee_attendance_summary（employeeIdが必要）
 シフト: get_employee_shifts（employeeIdが必要）
+品質評価: get_employee_quality_summary（employeeIdが必要、データなし時は正直に回答）
 従業員登録: name確認後 → 確認後 execute_confirmed_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
   確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
   ※パスワード・ログイン設定は管理画面から実施。AIでパスワード生成禁止。
@@ -677,9 +679,9 @@ function buildConsoleRealtimeTools(
         const e = empData?.data
         if (!e) return '従業員が見つかりませんでした。'
         if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため勤怠データを確認できません。`
-        const now = new Date()
-        const y = year  ?? String(now.getFullYear())
-        const m = month ?? String(now.getMonth() + 1)
+        const jstDate = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+        const y = year  ?? jstDate.slice(0, 4)
+        const m = month ?? String(parseInt(jstDate.slice(5, 7), 10))
         const attData = await apiFetch(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`)
         if (!attData) return '勤怠情報を取得できませんでした。'
         const summary: any[] = attData.summary ?? []
@@ -703,11 +705,11 @@ function buildConsoleRealtimeTools(
       },
       execute: async ({ employee_id, date_from, date_to }: { employee_id: string; date_from?: string; date_to?: string }) => {
         if (!employee_id) return '従業員IDが必要です。'
-        const now = new Date()
-        const from = date_from ?? now.toISOString().slice(0, 10)
-        const endDate = new Date(now)
-        endDate.setDate(endDate.getDate() + 7)
-        const toDate = date_to ?? endDate.toISOString().slice(0, 10)
+        const todayJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+        const from = date_from ?? todayJst
+        const end7 = new Date(todayJst)
+        end7.setDate(end7.getDate() + 7)
+        const toDate = date_to ?? end7.toISOString().slice(0, 10)
         const q = new URLSearchParams({ employee_id, date_from: from, date_to: toDate })
         const data = await apiFetch(`/api/shifts?${q}`)
         if (!data) return 'シフト情報を取得できませんでした。'
@@ -721,6 +723,38 @@ function buildConsoleRealtimeTools(
           return `${date} ${start}〜${end}${proj ? `（${proj}）` : ''}`
         }).join(' / ')
         return `${shifts.length}件のシフト。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_employee_quality_summary',
+      description: '指定した従業員の品質評価サマリー（平均スコア・評価件数）を取得する。「田中さんの品質どう？」「この人の評価は？」「平均スコアは？」「最近の品質評価教えて」等。評価は案件単位で個人帰属が明確なデータのみ使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          employee_id: { type: 'string', description: '従業員のID' },
+          days:        { type: 'string', description: '集計対象日数（例: 30）省略時は30日' },
+        },
+        required: ['employee_id'], additionalProperties: false,
+      },
+      execute: async ({ employee_id, days }: { employee_id: string; days?: string }) => {
+        if (!employee_id) return '従業員IDが必要です。'
+        const empData = await apiFetch(`/api/employees/${employee_id}`)
+        if (!empData) return '従業員情報を取得できませんでした。'
+        const e = empData?.data
+        if (!e) return '従業員が見つかりませんでした。'
+        if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため品質評価データを確認できません。`
+        const d = days ? Math.min(parseInt(days, 10), 365) : 30
+        const qData = await apiFetch(`/api/quality/workers?worker_id=${e.auth_user_id}&days=${d}`)
+        if (!qData) return '品質情報を取得できませんでした。'
+        const workers: any[] = qData.workers ?? []
+        const w = workers.find((x: any) => x.worker_id === e.auth_user_id)
+        if (!w || w.job_count === 0) return `${e.name}さんの過去${d}日間に完了した仕事の品質評価データはありません。`
+        const parts: string[] = [`${e.name}さんの品質評価（過去${d}日間）`]
+        parts.push(`評価件数: ${w.job_count}件`)
+        if (w.avg_hqs    != null) parts.push(`HIKARUスコア: ${Math.round(w.avg_hqs * 10) / 10}点`)
+        if (w.avg_ai_score != null) parts.push(`AI評価平均: ${Math.round(w.avg_ai_score * 10) / 10}点`)
+        if (w.avg_customer_score != null) parts.push(`顧客評価平均: ${Math.round(w.avg_customer_score * 10) / 10}点`)
+        return parts.join('、')
       },
     }),
     toolFactory({

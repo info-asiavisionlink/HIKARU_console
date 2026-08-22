@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { ConsoleAgentTool, ConsoleAgentContext, ToolResult } from './types'
+import { getJstDateString, getJstYear, getJstMonth } from '@/lib/billing/date-utils'
 
 // ─── HTTP helper（Cookie転送でAuth維持）──────────────────────
 async function apiFetch(path: string, ctx: ConsoleAgentContext): Promise<Response> {
@@ -760,9 +761,8 @@ const getEmployeeAttendanceSummary: ConsoleAgentTool = {
       const e = empData?.data
       if (!e) return { success: false, text: '従業員が見つかりませんでした。' }
       if (!e.auth_user_id) return { success: true, text: `${e.name}さんはシステムアカウントがないため勤怠データを確認できません。` }
-      const now = new Date()
-      const y = params.year  ?? String(now.getFullYear())
-      const m = params.month ?? String(now.getMonth() + 1)
+      const y = params.year  ?? String(getJstYear())
+      const m = params.month ?? String(getJstMonth())
       const attRes = await apiFetch(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`, ctx)
       if (!attRes.ok) return { success: false, text: '勤怠情報を取得できませんでした。' }
       const attData  = await attRes.json()
@@ -794,11 +794,11 @@ const getEmployeeShifts: ConsoleAgentTool = {
     const empId = params.employee_id
     if (!empId) return { success: false, text: '従業員IDが必要です。' }
     try {
-      const now     = new Date()
-      const from    = params.date_from ?? now.toISOString().slice(0, 10)
-      const endDate = new Date(now)
-      endDate.setDate(endDate.getDate() + 7)
-      const toDate  = params.date_to ?? endDate.toISOString().slice(0, 10)
+      const todayJst = getJstDateString()
+      const from     = params.date_from ?? todayJst
+      const end7     = new Date(todayJst)
+      end7.setDate(end7.getDate() + 7)
+      const toDate   = params.date_to ?? end7.toISOString().slice(0, 10)
       const q      = new URLSearchParams({ employee_id: empId, date_from: from, date_to: toDate })
       const res    = await apiFetch(`/api/shifts?${q}`, ctx)
       if (!res.ok) return { success: false, text: 'シフト情報を取得できませんでした。' }
@@ -812,6 +812,49 @@ const getEmployeeShifts: ConsoleAgentTool = {
       return { success: true, text: `${shifts.length}件のシフトがあります。`, items }
     } catch {
       return { success: false, text: 'シフト情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+// ─── Employee Quality Tool ───────────────────────────────────
+
+const getEmployeeQualitySummary: ConsoleAgentTool = {
+  name:        'get_employee_quality_summary',
+  description: '指定した従業員の品質評価サマリーを取得する。「田中さんの品質どう？」「この人の評価は？」「平均スコアは？」「最近の品質評価教えて」等。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: {
+      employee_id: { type: 'string', description: '従業員のID' },
+      days:        { type: 'string', description: '集計対象日数（例: 30）省略時は30日' },
+    },
+    required: ['employee_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const empId = params.employee_id
+    if (!empId) return { success: false, text: '従業員IDが必要です。' }
+    try {
+      const empRes = await apiFetch(`/api/employees/${empId}`, ctx)
+      if (!empRes.ok) return { success: false, text: '従業員情報を取得できませんでした。' }
+      const empData = await empRes.json()
+      const e = empData?.data
+      if (!e) return { success: false, text: '従業員が見つかりませんでした。' }
+      if (!e.auth_user_id) return { success: true, text: `${e.name}さんはシステムアカウントがないため品質評価データを確認できません。` }
+      const d = params.days ? Math.min(parseInt(params.days, 10), 365) : 30
+      const qRes = await apiFetch(`/api/quality/workers?worker_id=${e.auth_user_id}&days=${d}`, ctx)
+      if (!qRes.ok) return { success: false, text: '品質情報を取得できませんでした。' }
+      const qData   = await qRes.json()
+      const workers: any[] = qData.workers ?? []
+      const w = workers.find((x: any) => x.worker_id === e.auth_user_id)
+      if (!w || w.job_count === 0) return { success: true, text: `${e.name}さんの過去${d}日間に完了した仕事の品質評価データはありません。` }
+      const parts: string[] = [`${e.name}さんの品質評価（過去${d}日間）`]
+      parts.push(`評価件数: ${w.job_count}件`)
+      if (w.avg_hqs            != null) parts.push(`HIKARUスコア: ${Math.round(w.avg_hqs * 10) / 10}点`)
+      if (w.avg_ai_score       != null) parts.push(`AI評価平均: ${Math.round(w.avg_ai_score * 10) / 10}点`)
+      if (w.avg_customer_score != null) parts.push(`顧客評価平均: ${Math.round(w.avg_customer_score * 10) / 10}点`)
+      return { success: true, text: parts.join('、') }
+    } catch {
+      return { success: false, text: '品質情報の取得中にエラーが発生しました。' }
     }
   },
 }
@@ -834,6 +877,7 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getEmployeeProjects,
   getEmployeeAttendanceSummary,
   getEmployeeShifts,
+  getEmployeeQualitySummary,
   getNotifications,
   getPendingExpenses,
   getExpenseDetail,

@@ -614,8 +614,16 @@ export async function POST(req: NextRequest) {
         })
         if (verifyRes.ok) {
           const verifyData = await verifyRes.json()
-          if (!verifyData?.data?.id || verifyData.data.name !== name.trim()) {
+          const e = verifyData?.data
+          if (!e?.id || e.name !== name.trim()) {
             return Response.json({ error: '従業員登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+          // 送信した任意フィールドの照合
+          for (const field of ['phone', 'email', 'name_kana', 'hire_date', 'department', 'position'] as const) {
+            const sent = createBody[field]
+            if (sent && e[field] !== sent) {
+              return Response.json({ error: '従業員登録の内容を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+            }
           }
         }
 

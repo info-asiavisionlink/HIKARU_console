@@ -40,12 +40,23 @@ export async function POST(req: NextRequest) {
   const { companyId, adminClient: admin } = auth
 
   const body = await req.json()
-  const { loginPassword, role, ...employeeFields } = body
+  const { loginPassword, role } = body
+
+  // ホワイトリスト: 権限系・ID系フィールドはBodyから受け取らない
+  const ALLOWED_EMP_FIELDS = [
+    'name', 'name_kana', 'birth_date', 'gender', 'phone', 'email',
+    'address', 'emergency_contact', 'hire_date', 'department', 'position',
+    'qualifications', 'notes', 'contract_type', 'hourly_rate',
+  ] as const
+  const safeFields: Record<string, unknown> = {}
+  for (const f of ALLOWED_EMP_FIELDS) {
+    if (body[f] !== undefined) safeFields[f] = body[f]
+  }
 
   // ① まず employees レコードを作成（employee_number はDBトリガーで自動採番）
   const { data: employee, error: empError } = await admin
     .from('employees')
-    .insert({ company_id: companyId, ...employeeFields })
+    .insert({ company_id: companyId, ...safeFields } as any)
     .select()
     .single()
 
@@ -63,7 +74,7 @@ export async function POST(req: NextRequest) {
       email: internalEmail,
       password: loginPassword,
       email_confirm: true,
-      user_metadata: { name: employeeFields.name, role: role ?? 'worker', company_id: companyId },
+      user_metadata: { name: safeFields.name, role: role ?? 'worker', company_id: companyId },
     })
 
     if (authError) {

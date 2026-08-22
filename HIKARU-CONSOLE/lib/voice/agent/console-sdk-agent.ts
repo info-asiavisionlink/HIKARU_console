@@ -6,6 +6,7 @@
 import { Agent, tool, setTracingDisabled } from '@openai/agents'
 import { z } from 'zod'
 import { isValidConsoleAction, getConsoleActionLevel } from '@/lib/voice/registry/console.actions'
+import { getJstDateString, getJstYear, getJstMonth } from '@/lib/billing/date-utils'
 
 const CONFIRMATION_EXPIRY_MS = 5 * 60 * 1000
 
@@ -602,9 +603,8 @@ const getEmployeeAttendanceTool = tool({
       const e = empData?.data
       if (!e) return '従業員が見つかりませんでした。'
       if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため勤怠データを確認できません。`
-      const now = new Date()
-      const y = year  ?? String(now.getFullYear())
-      const m = month ?? String(now.getMonth() + 1)
+      const y = year  ?? String(getJstYear())
+      const m = month ?? String(getJstMonth())
       const attRes = await apiGet(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`, ctx)
       if (!attRes.ok) return '勤怠情報を取得できませんでした。'
       const attData  = await attRes.json()
@@ -629,11 +629,11 @@ const getEmployeeShiftsTool = tool({
     const ctx = runCtx!.context as ConsoleAgentSDKContext
     if (!employee_id) return '従業員IDが必要です。'
     try {
-      const now = new Date()
-      const from   = date_from ?? now.toISOString().slice(0, 10)
-      const endDate = new Date(now)
-      endDate.setDate(endDate.getDate() + 7)
-      const toDate = date_to ?? endDate.toISOString().slice(0, 10)
+      const todayJst = getJstDateString()
+      const from     = date_from ?? todayJst
+      const end7     = new Date(todayJst)
+      end7.setDate(end7.getDate() + 7)
+      const toDate   = date_to ?? end7.toISOString().slice(0, 10)
       const q    = new URLSearchParams({ employee_id, date_from: from, date_to: toDate })
       const res  = await apiGet(`/api/shifts?${q}`, ctx)
       if (!res.ok) return 'シフト情報を取得できませんでした。'
@@ -648,6 +648,40 @@ const getEmployeeShiftsTool = tool({
       }).join(' / ')
       return `${shifts.length}件のシフト。${items}`
     } catch { return 'シフト情報の取得中にエラーが発生しました。' }
+  },
+})
+
+const getEmployeeQualityTool = tool({
+  name:        'get_employee_quality_summary',
+  description: '指定した従業員の品質評価サマリーを取得する。「田中さんの品質どう？」「この人の評価は？」「平均スコアは？」等。評価は案件単位で個人帰属が明確なデータのみ使用。',
+  parameters:  z.object({
+    employee_id: z.string().describe('従業員のID'),
+    days:        z.string().optional().describe('集計対象日数（例: 30）省略時は30日'),
+  }),
+  execute: async ({ employee_id, days }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!employee_id) return '従業員IDが必要です。'
+    try {
+      const empRes = await apiGet(`/api/employees/${employee_id}`, ctx)
+      if (!empRes.ok) return '従業員情報を取得できませんでした。'
+      const empData = await empRes.json()
+      const e = empData?.data
+      if (!e) return '従業員が見つかりませんでした。'
+      if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため品質評価データを確認できません。`
+      const d = days ? Math.min(parseInt(days, 10), 365) : 30
+      const qRes = await apiGet(`/api/quality/workers?worker_id=${e.auth_user_id}&days=${d}`, ctx)
+      if (!qRes.ok) return '品質情報を取得できませんでした。'
+      const qData   = await qRes.json()
+      const workers: any[] = qData.workers ?? []
+      const w = workers.find((x: any) => x.worker_id === e.auth_user_id)
+      if (!w || w.job_count === 0) return `${e.name}さんの過去${d}日間に完了した仕事の品質評価データはありません。`
+      const parts: string[] = [`${e.name}さんの品質評価（過去${d}日間）`]
+      parts.push(`評価件数: ${w.job_count}件`)
+      if (w.avg_hqs         != null) parts.push(`HIKARUスコア: ${Math.round(w.avg_hqs * 10) / 10}点`)
+      if (w.avg_ai_score    != null) parts.push(`AI評価平均: ${Math.round(w.avg_ai_score * 10) / 10}点`)
+      if (w.avg_customer_score != null) parts.push(`顧客評価平均: ${Math.round(w.avg_customer_score * 10) / 10}点`)
+      return parts.join('、')
+    } catch { return '品質情報の取得中にエラーが発生しました。' }
   },
 })
 
@@ -787,6 +821,7 @@ propose_action → finalOutputに確認文 → 管理者「はい」→ Server�
 担当案件: get_employee_projects（employeeIdが必要）
 勤怠概要: get_employee_attendance_summary（employeeIdが必要）
 シフト: get_employee_shifts（employeeIdが必要）
+品質評価: get_employee_quality_summary（employeeIdが必要、データなし時は正直に回答）
 従業員登録: name確認後 → propose_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
   確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
   ※パスワード・ログイン設定は管理画面から。AIでパスワード生成禁止。
@@ -848,6 +883,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getEmployeeProjectsTool,
     getEmployeeAttendanceTool,
     getEmployeeShiftsTool,
+    getEmployeeQualityTool,
     proposeActionTool,
     navigateTool,
   ],
