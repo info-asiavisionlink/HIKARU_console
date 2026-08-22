@@ -1112,6 +1112,130 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── Report READ Tools ───────────────────────────────────────
+
+const getReports: ConsoleAgentTool = {
+  name:        'get_reports',
+  description: '報告書・作業完了レポートの一覧を取得する。「報告書一覧教えて」「最近の報告書ある？」「ABC案件の報告書は？」「今月の報告書は？」等。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      project_id: { type: 'string', description: '案件IDで絞り込む（get_projectsで取得）' },
+      date_from:  { type: 'string', description: '開始日 YYYY-MM-DD' },
+      date_to:    { type: 'string', description: '終了日 YYYY-MM-DD' },
+      page:       { type: 'string', description: 'ページ番号（省略時1）' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (params.page)      q.set('page',     params.page)
+      if (params.date_from) q.set('dateFrom', params.date_from)
+      if (params.date_to)   q.set('dateTo',   params.date_to)
+      const res = await apiFetch(`/api/reports?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '報告書一覧を取得できませんでした。' }
+      const data = await res.json()
+      let list: any[] = data.data ?? []
+
+      if (params.project_id) {
+        list = list.filter((r: any) => r.project_id === params.project_id)
+      }
+
+      if (list.length === 0) return { success: true, text: '報告書はありません。', data }
+
+      const lines = list.slice(0, 10).map((r: any) => {
+        const projName  = r.projects?.name ?? '案件名不明'
+        const workDate  = r.jobs?.work_date ?? '作業日不明'
+        const score     = r.overall_score != null ? `スコア${r.overall_score}点` : 'スコアなし'
+        const pdfLabel  = r.pdf_url ? 'PDF済' : 'PDF未生成'
+        const emailLabel = r.email_status === 'sent' ? 'メール送信済' : ''
+        const labels    = [score, pdfLabel, emailLabel].filter(Boolean).join('・')
+        return `${workDate} ${projName} v${r.version} [${labels}] [id:${r.id}]`
+      })
+      const total = (data.count ?? list.length)
+      const suffix = total > 10 ? `（全${total}件中10件表示）` : `（全${total}件）`
+      const stats  = data.stats
+      const statLine = stats
+        ? `月間${stats.thisMonthCount}件・平均スコア${stats.avgScore ?? '--'}点`
+        : ''
+      return {
+        success: true,
+        text:    [statLine, ...lines, suffix].filter(Boolean).join('\n'),
+        data,
+        items:   list.slice(0, 10).map((r: any) => ({ id: r.id, label: `${r.jobs?.work_date ?? ''} ${r.projects?.name ?? ''}` })),
+      }
+    } catch {
+      return { success: false, text: '報告書一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getReportDetail: ConsoleAgentTool = {
+  name:        'get_report_detail',
+  description: '報告書の詳細内容を取得する。「1件目詳しく」「この報告書の内容は？」「総合評価は？」「Before/After写真ある？」「AI品質評価どう？」「スコア何点？」等。get_reportsで取得したidを使う。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      report_id: { type: 'string', description: '報告書ID（get_reportsのid）' },
+    },
+    required: ['report_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const { report_id } = params
+      if (!report_id) return { success: false, text: 'report_idを指定してください。' }
+      const res = await apiFetch(`/api/reports/${report_id}`, ctx)
+      if (!res.ok) return { success: false, text: '報告書が見つかりませんでした。' }
+      const data  = await res.json()
+      const rep   = data.data
+      if (!rep) return { success: false, text: '報告書が見つかりませんでした。' }
+      const content = rep.content ?? {}
+      const summary = content.summary ?? {}
+      const job     = content.job ?? {}
+      const parts: string[] = [`報告書 v${rep.version}（id:${rep.id}）`]
+
+      if (content.project?.name) parts.push(`案件: ${content.project.name}`)
+      if (content.store?.name)   parts.push(`場所: ${content.store.name}`)
+      if (content.client?.name)  parts.push(`顧客: ${content.client.name}`)
+      if (job.work_date)         parts.push(`作業日: ${job.work_date}`)
+      if (job.worker_name)       parts.push(`作業者: ${job.worker_name}`)
+      if (job.started_at)        parts.push(`開始: ${new Date(job.started_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`)
+      if (job.completed_at)      parts.push(`完了: ${new Date(job.completed_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`)
+
+      if (summary.overall_score != null) parts.push(`総合スコア: ${summary.overall_score}点`)
+      if (summary.total_spots   != null) parts.push(`撮影箇所: ${summary.total_spots}箇所（合格${summary.passed_count ?? 0}・要確認${summary.check_count ?? 0}・やり直し${summary.redo_count ?? 0}）`)
+      if (summary.quality_assessment)    parts.push(`品質評価: ${summary.quality_assessment}`)
+      if (summary.work_summary)          parts.push(`作業概要: ${summary.work_summary}`)
+      if (summary.total_comment)         parts.push(`総括: ${summary.total_comment}`)
+
+      const spots: any[] = content.spots ?? []
+      if (spots.length > 0) {
+        const spotsWithBefore = spots.filter((s: any) => s.before_url).length
+        const spotsWithAfter  = spots.filter((s: any) => s.after_url).length
+        parts.push(`Before写真: ${spotsWithBefore}箇所、After写真: ${spotsWithAfter}箇所`)
+        const issueSpots = spots.filter((s: any) => s.recommendation === 'check' || s.recommendation === 'redo')
+        if (issueSpots.length > 0) {
+          parts.push(`要注意箇所: ${issueSpots.map((s: any) => `${s.name}（${s.recommendation}）`).join('・')}`)
+        }
+      }
+
+      if (summary.next_recommendations?.length > 0) {
+        parts.push(`次回推奨: ${summary.next_recommendations.join('、')}`)
+      }
+
+      const pdfStatus = rep.pdf_url ? 'PDF生成済み' : 'PDF未生成'
+      parts.push(pdfStatus)
+
+      return { success: true, text: parts.join('\n'), data, items: [{ id: rep.id, label: `v${rep.version} ${content.project?.name ?? ''}` }] }
+    } catch {
+      return { success: false, text: '報告書詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Invoice / Estimate READ Tools ───────────────────────────
 
 const INVOICE_TYPE_LABELS: Record<string, string> = { quote: '見積書', invoice: '請求書' }
@@ -1248,6 +1372,8 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getReports,
+  getReportDetail,
   getInvoices,
   getInvoiceDetail,
   navigate,

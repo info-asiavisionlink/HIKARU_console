@@ -912,6 +912,91 @@ const getShiftAttendanceStatusTool = tool({
   },
 })
 
+const getReportsTool = tool({
+  name:        'get_reports',
+  description: '報告書・作業完了レポートの一覧を取得する。「報告書一覧教えて」「最近の報告書ある？」「ABC案件の報告書は？」「今月の報告書は？」等。',
+  parameters:  z.object({
+    project_id: z.string().optional().describe('案件IDで絞り込む'),
+    date_from:  z.string().optional().describe('開始日 YYYY-MM-DD'),
+    date_to:    z.string().optional().describe('終了日 YYYY-MM-DD'),
+    page:       z.string().optional().describe('ページ番号'),
+  }),
+  execute: async ({ project_id, date_from, date_to, page }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (page)      q.set('page',     page)
+      if (date_from) q.set('dateFrom', date_from)
+      if (date_to)   q.set('dateTo',   date_to)
+      const res = await apiGet(`/api/reports?${q}`, ctx)
+      if (!res.ok) return '報告書一覧を取得できませんでした。'
+      const data = await res.json()
+      let list: any[] = data.data ?? []
+      if (project_id) list = list.filter((r: any) => r.project_id === project_id)
+      if (list.length === 0) return '報告書はありません。'
+      const lines = list.slice(0, 10).map((r: any) => {
+        const projName  = r.projects?.name ?? '案件名不明'
+        const workDate  = r.jobs?.work_date ?? '作業日不明'
+        const score     = r.overall_score != null ? `スコア${r.overall_score}点` : 'スコアなし'
+        const pdfLabel  = r.pdf_url ? 'PDF済' : 'PDF未生成'
+        return `${workDate} ${projName} v${r.version} [${score}・${pdfLabel}] [id:${r.id}]`
+      })
+      const total  = data.count ?? list.length
+      const suffix = total > 10 ? `（全${total}件中10件表示）` : `（全${total}件）`
+      const stats  = data.stats
+      const statLine = stats ? `月間${stats.thisMonthCount}件・平均スコア${stats.avgScore ?? '--'}点` : ''
+      return [statLine, ...lines, suffix].filter(Boolean).join('\n')
+    } catch { return '報告書一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getReportDetailTool = tool({
+  name:        'get_report_detail',
+  description: '報告書の詳細内容を取得する。「詳しく」「内容は？」「総合評価は？」「Before写真何枚？」「After写真ある？」「AI品質評価どう？」「スコア何点？」「PDF出てる？」等。get_reportsで取得したidを使う。',
+  parameters:  z.object({
+    report_id: z.string().describe('報告書ID（get_reportsのid）'),
+  }),
+  execute: async ({ report_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet(`/api/reports/${report_id}`, ctx)
+      if (!res.ok) return '報告書が見つかりませんでした。'
+      const data    = await res.json()
+      const rep     = data.data
+      if (!rep) return '報告書が見つかりませんでした。'
+      const content = rep.content ?? {}
+      const summary = content.summary ?? {}
+      const job     = content.job ?? {}
+      const parts: string[] = [`報告書 v${rep.version}（id:${rep.id}）`]
+      if (content.project?.name) parts.push(`案件: ${content.project.name}`)
+      if (content.store?.name)   parts.push(`場所: ${content.store.name}`)
+      if (content.client?.name)  parts.push(`顧客: ${content.client.name}`)
+      if (job.work_date)         parts.push(`作業日: ${job.work_date}`)
+      if (job.worker_name)       parts.push(`作業者: ${job.worker_name}`)
+      if (summary.overall_score != null) parts.push(`総合スコア: ${summary.overall_score}点`)
+      if (summary.total_spots   != null) parts.push(`撮影箇所: ${summary.total_spots}箇所（合格${summary.passed_count ?? 0}・要確認${summary.check_count ?? 0}・やり直し${summary.redo_count ?? 0}）`)
+      if (summary.quality_assessment)    parts.push(`品質評価: ${summary.quality_assessment}`)
+      if (summary.work_summary)          parts.push(`作業概要: ${summary.work_summary}`)
+      if (summary.total_comment)         parts.push(`総括: ${summary.total_comment}`)
+      const spots: any[] = content.spots ?? []
+      if (spots.length > 0) {
+        const spotsWithBefore = spots.filter((s: any) => s.before_url).length
+        const spotsWithAfter  = spots.filter((s: any) => s.after_url).length
+        parts.push(`Before写真: ${spotsWithBefore}箇所、After写真: ${spotsWithAfter}箇所`)
+        const issueSpots = spots.filter((s: any) => s.recommendation === 'check' || s.recommendation === 'redo')
+        if (issueSpots.length > 0) {
+          parts.push(`要注意箇所: ${issueSpots.map((s: any) => `${s.name}（${s.recommendation}）`).join('・')}`)
+        }
+      }
+      if ((summary.next_recommendations ?? []).length > 0) {
+        parts.push(`次回推奨: ${summary.next_recommendations.join('、')}`)
+      }
+      parts.push(rep.pdf_url ? 'PDF生成済み' : 'PDF未生成')
+      return parts.join('\n')
+    } catch { return '報告書詳細の取得中にエラーが発生しました。' }
+  },
+})
+
 const INVOICE_TYPE_LABELS_SDK: Record<string, string> = { quote: '見積書', invoice: '請求書' }
 const INVOICE_STATUS_LABELS_SDK: Record<string, string> = {
   draft: '下書き', issued: '発行済み', accepted: '承認済み', rejected: '却下',
@@ -1175,6 +1260,18 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 報告書操作手順
+報告書一覧: get_reports（project_id/date_from/date_to/page指定可）
+報告書詳細: get_report_detail（report_idが必要 — get_reportsのidを使う）
+Before/After写真: get_report_detailの返答内にspotsのbefore/after枚数が含まれる。写真URLは音声で読み上げない。写真確認はナビゲーションで報告書画面を開く。
+AI品質評価: get_report_detailの返答内のsummary.overall_score、quality_assessment、各spotのscoreが含まれる。
+PDF生成: get_report_detailでPDF状態確認 → propose_action(console.generate_report_pdf, {reportId, report_number?})
+  確認文例: 「この報告書のPDFを生成します。よろしいですか？」
+  ※PDFは既存テンプレートで生成する。AIが独自フォーマットを作らない。
+報告書生成・再生成: Console管理者はVoiceから報告書を生成できません。「報告書の生成は作業者がWorkerアプリから行います。」と回答。
+報告書削除: 音声実行不可。「報告書の削除は管理画面から操作してください。」と回答。
+reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
+
 ## 見積書（quote）操作手順
 見積書一覧: get_invoices(invoice_type='quote', status?, client_id?)
 見積書詳細: get_invoice_detail(invoice_id)
@@ -1230,6 +1327,7 @@ employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止�
 - console.update_invoice_status        → params: { invoiceId, status, cancel_reason? }
 - console.convert_estimate             → params: { invoiceId, invoice_number? }
 - console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
+- console.generate_report_pdf          → params: { reportId, report_number? }
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -1272,6 +1370,8 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getReportsTool,
+    getReportDetailTool,
     getInvoicesTool,
     getInvoiceDetailTool,
     proposeActionTool,

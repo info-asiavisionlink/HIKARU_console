@@ -127,6 +127,11 @@ export const CONSOLE_ACTIONS = {
     description: '設定画面を開く',
   },
 
+  'console.generate_report_pdf': {
+    level: 4 as const,
+    description: '報告書PDFを生成してStorageに保存する（reportId必須、Confirmation必須）',
+  },
+
   // ─── L4: Important Write（Confirmation必須・管理者権限確認）──
   'console.update_project_status': {
     level: 4 as const,

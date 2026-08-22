@@ -1255,6 +1255,50 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: reply })
       }
 
+      // ─── L4: generate_report_pdf ─────────────────────────
+      case 'console.generate_report_pdf': {
+        const { reportId, report_number } = params
+        if (!reportId) return Response.json({ error: 'reportId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 事前確認: report が存在するか・PDF既存チェック
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/reports/${reportId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: '報告書が見つかりませんでした。' }, { status: 404 })
+        const currentData = await currentRes.json()
+        const report = currentData?.data
+        if (!report?.id) return Response.json({ error: '報告書が見つかりませんでした。' }, { status: 404 })
+
+        const res = await fetch(`${req.nextUrl.origin}/api/reports/${reportId}/pdf`, {
+          method:  'POST',
+          headers: { Cookie: cookie },
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'report', resourceId: reportId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'PDF生成に失敗しました。' }, { status: res.status })
+
+        // Read-back: pdf_url が更新されているか確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/reports/${reportId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (!verifyData?.data?.pdf_url) {
+            return Response.json({ error: 'PDFの生成を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const label = report_number ? `報告書 ${report_number} の` : ''
+        return Response.json({ success: true, voiceReply: `${label}PDFを生成しました。報告書画面からダウンロードできます。` })
+      }
+
       default:
         return Response.json({ error: 'unsupported action' }, { status: 400 })
     }
