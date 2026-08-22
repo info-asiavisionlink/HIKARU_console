@@ -1255,6 +1255,56 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: reply })
       }
 
+      // ─── L4: mark_notification_read ──────────────────────
+      case 'console.mark_notification_read': {
+        const { notificationId, title } = params
+        if (!notificationId) return Response.json({ error: 'notificationId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 事前確認: 通知が存在し、未読かチェック
+        const listRes = await fetch(`${req.nextUrl.origin}/api/console-notifications`, {
+          headers: { Cookie: cookie },
+        })
+        if (listRes.ok) {
+          const listData = await listRes.json()
+          const notif    = (listData.notifications ?? []).find((n: any) => n.id === notificationId)
+          if (!notif) return Response.json({ error: '通知が見つかりませんでした。' }, { status: 404 })
+          if (notif.is_read) {
+            return Response.json({ success: true, voiceReply: 'この通知はすでに既読です。' })
+          }
+        }
+
+        const res = await fetch(`${req.nextUrl.origin}/api/console-notifications/${notificationId}/read`, {
+          method:  'PATCH',
+          headers: { Cookie: cookie },
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'notification', resourceId: notificationId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '既読処理に失敗しました。' }, { status: res.status })
+        if (data?.already_read) return Response.json({ success: true, voiceReply: 'この通知はすでに既読です。' })
+
+        // Read-back: 通知一覧を再取得して既読確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/console-notifications`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const verifiedNotif = (verifyData.notifications ?? []).find((n: any) => n.id === notificationId)
+          if (verifiedNotif && !verifiedNotif.is_read) {
+            return Response.json({ error: '既読処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const label = title ? `「${title}」の通知を` : '通知を'
+        return Response.json({ success: true, voiceReply: `${label}既読にしました。` })
+      }
+
       // ─── L4: create_contract ─────────────────────────────
       case 'console.create_contract': {
         const { title, counterparty_type, client_id, partner_id, project_id,

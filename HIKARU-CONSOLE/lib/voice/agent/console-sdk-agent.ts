@@ -254,20 +254,38 @@ const resolveStoreTool = tool({
   },
 })
 
+const NOTIF_TYPE_LABELS_SDK: Record<string, string> = {
+  attendance_correction_submitted: '勤怠修正申請',
+  expense_submitted:               '経費申請',
+  project_report_submitted:        '報告書提出',
+  project_proposal_submitted:      '提案提出',
+}
+
 const getNotificationsTool = tool({
   name:        'get_notifications',
-  description: '管理者向け通知・未読件数を確認する。「通知ある？」「何か連絡来てる？」「未読メッセージある？」等に使う。',
-  parameters:  z.object({}),
-  execute: async (_, runCtx) => {
+  description: '管理者向け通知一覧を取得する。「通知ある？」「未読ある？」「最近の通知は？」「経費の通知きてる？」等。このToolは通知を読み取るだけで既読にしない。',
+  parameters:  z.object({
+    unread_only: z.string().optional().describe('trueで未読のみ表示（省略時は全件）'),
+  }),
+  execute: async ({ unread_only }, runCtx) => {
     const ctx = runCtx!.context as ConsoleAgentSDKContext
     try {
       const res  = await apiGet('/api/console-notifications', ctx)
       if (!res.ok) return '通知を取得できませんでした。'
       const data  = await res.json()
-      const list  = data.notifications ?? []
-      const unread = data.unread_count ?? list.filter((n: { is_read: boolean }) => !n.is_read).length
-      if (unread === 0) return '未読の通知はありません。'
-      return `未読の通知が${unread}件あります。`
+      let list: any[] = data.notifications ?? []
+      const unread = data.unread_count ?? list.filter((n: any) => !n.is_read).length
+      const total  = list.length
+      if (unread_only === 'true') list = list.filter((n: any) => !n.is_read)
+      if (list.length === 0) return unread_only === 'true' ? '未読の通知はありません。' : '通知はありません。'
+      const lines = list.slice(0, 10).map((n: any, i: number) => {
+        const typeLabel = NOTIF_TYPE_LABELS_SDK[n.type] ?? n.type ?? ''
+        const readLabel = n.is_read ? '（既読）' : '【未読】'
+        const title     = n.title ?? (n.body ? String(n.body).slice(0, 30) : '通知')
+        const date      = n.created_at ? new Date(n.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+        return `${i + 1}件目 ${readLabel}${typeLabel}「${title}」${date} [id:${n.id}]`
+      })
+      return `未読:${unread}件 / 全${total}件\n${lines.join('\n')}`
     } catch { return '通知の取得中にエラーが発生しました。' }
   },
 })
@@ -1552,6 +1570,19 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 通知操作手順
+通知一覧: get_notifications（unread_only=trueで未読のみ）
+  ※このToolはREADのみ。呼ぶだけで既読にならない。「読んで」はREAD、「既読にして」はWRITE。
+通知種別: attendance_correction_submitted=勤怠修正申請・expense_submitted=経費申請・
+          project_report_submitted=報告書提出・project_proposal_submitted=提案提出
+通知既読化: get_notificationsで対象idを確認 → propose_action(console.mark_notification_read, {notificationId, title?})
+  確認文例: 「経費申請の通知『田中さんの交通費申請』を既読にします。よろしいですか？」
+  ※すでに既読の場合は変更不要と回答。
+一括既読: 現在APIなし。「通知管理画面から一括既読操作を行ってください。」と回答。
+通知送信: 現在APIなし。LINE通知は自動送信される。「手動通知送信は現在Voice非対応です。」と回答。
+通知削除: Voice実行不可。「通知管理画面から操作してください。」と回答。
+notificationIdは必ずget_notificationsのresultから取得する。AI生成ID禁止。
+
 ## 品質・満足度操作手順
 品質KPI全体: get_quality_summary（period=7d/30d/90d/ytd、省略時30d）
   ・スコア仕様: AI評価=0-100点、顧客評価=1-5星（×20で0-100換算）、HQS=両方の加重平均
@@ -1684,6 +1715,7 @@ reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
 - console.convert_estimate             → params: { invoiceId, invoice_number? }
 - console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
 - console.generate_report_pdf          → params: { reportId, report_number? }
+- console.mark_notification_read       → params: { notificationId, title? }
 - console.create_contract              → params: { title, counterparty_type, client_id?, partner_id?, project_id?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, notes?, client_name? }
 - console.update_contract              → params: { contractId, title?, contract_number?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, status?, notes?, contract_title? }
 - console.inventory_stock_in           → params: { inventoryId, quantity, item_name?, reason? }

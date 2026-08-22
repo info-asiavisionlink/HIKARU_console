@@ -320,25 +320,60 @@ const resolveStore: ConsoleAgentTool = {
   },
 }
 
+const NOTIF_TYPE_LABELS: Record<string, string> = {
+  attendance_correction_submitted: '勤怠修正申請',
+  expense_submitted:               '経費申請',
+  project_report_submitted:        '報告書提出',
+  project_proposal_submitted:      '提案提出',
+}
+
 const getNotifications: ConsoleAgentTool = {
   name:        'get_notifications',
-  description: '管理者向け通知・未読件数を確認する。「通知ある？」「何か連絡来てる？」「未読メッセージある？」等に使う。',
+  description: '管理者向け通知一覧を取得する。「通知ある？」「未読ある？」「最近の通知教えて」「経費の通知きてる？」等。このToolは通知を読み取るだけで既読にしない。',
   safetyLevel: 1,
-  parameters:  { type: 'object', properties: {}, required: [] },
-  async execute(_, ctx): Promise<ToolResult> {
+  parameters: {
+    type:       'object',
+    properties: {
+      unread_only: { type: 'string', description: 'trueで未読のみ表示（省略時は全件）' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
     try {
       const res = await apiFetch('/api/console-notifications', ctx)
       if (!res.ok) return { success: false, text: '通知を取得できませんでした。' }
       const data  = await res.json()
-      const list  = data.notifications ?? []
-      const unread = data.unread_count ?? list.filter((n: { is_read: boolean }) => !n.is_read).length
-      if (unread === 0) return { success: true, text: '未読の通知はありません。' }
-      const items = list.filter((n: { is_read: boolean }) => !n.is_read).slice(0, 5).map(
-        (n: { id: string; title?: string; body?: string }, i: number) => ({
-          id: n.id, label: `${i + 1}件目: ${n.title ?? n.body ?? '通知'}`,
-        })
-      )
-      return { success: true, text: `未読の通知が${unread}件あります。`, items }
+      let list: any[] = data.notifications ?? []
+      const unread = data.unread_count ?? list.filter((n: any) => !n.is_read).length
+      const total  = list.length
+
+      if (params.unread_only === 'true') {
+        list = list.filter((n: any) => !n.is_read)
+      }
+
+      if (list.length === 0) {
+        return {
+          success: true,
+          text:    params.unread_only === 'true' ? '未読の通知はありません。' : '通知はありません。',
+          data,
+        }
+      }
+
+      const lines = list.slice(0, 10).map((n: any, i: number) => {
+        const typeLabel = NOTIF_TYPE_LABELS[n.type] ?? n.type ?? ''
+        const readLabel = n.is_read ? '（既読）' : '【未読】'
+        const title     = n.title ?? n.body?.slice(0, 30) ?? '通知'
+        const date      = n.created_at ? new Date(n.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+        return `${i + 1}件目 ${readLabel}${typeLabel}「${title}」${date} [id:${n.id}]`
+      })
+
+      const summary = `未読:${unread}件 / 全${total}件`
+      return {
+        success: true,
+        text:    `${summary}\n${lines.join('\n')}`,
+        data,
+        items:   list.slice(0, 10).map((n: any) => ({ id: n.id, label: n.title ?? NOTIF_TYPE_LABELS[n.type] ?? '通知' })),
+      }
     } catch {
       return { success: false, text: '通知の取得中にエラーが発生しました。' }
     }

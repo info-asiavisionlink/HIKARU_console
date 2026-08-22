@@ -131,6 +131,10 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '報告書PDFを生成してStorageに保存する（reportId必須、Confirmation必須）',
   },
+  'console.mark_notification_read': {
+    level: 4 as const,
+    description: '管理者向け通知1件を既読にする（notificationId必須、Confirmation必須）',
+  },
   'console.create_contract': {
     level: 4 as const,
     description: '契約を新規登録する（title・counterparty_type・client_id or partner_id必須、Confirmation必須）',
