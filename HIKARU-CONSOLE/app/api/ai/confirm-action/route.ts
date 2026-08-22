@@ -1255,6 +1255,138 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: reply })
       }
 
+      // ─── L4: create_contract ─────────────────────────────
+      case 'console.create_contract': {
+        const { title, counterparty_type, client_id, partner_id, project_id,
+                contract_type, start_date, end_date, renewal_date, auto_renewal, notes } = params
+        if (!title?.trim())     return Response.json({ error: '契約名は必須です' },        { status: 400 })
+        if (!counterparty_type) return Response.json({ error: 'counterparty_typeは必須です' }, { status: 400 })
+        if (counterparty_type === 'client'  && !client_id)  return Response.json({ error: '顧客IDは必須です' },      { status: 400 })
+        if (counterparty_type === 'partner' && !partner_id) return Response.json({ error: '協力業者IDは必須です' },  { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const createBody: Record<string, unknown> = {
+          title:            title.trim(),
+          counterparty_type,
+          client_id:        counterparty_type === 'client'  ? client_id  : undefined,
+          partner_id:       counterparty_type === 'partner' ? partner_id : undefined,
+          project_id:       project_id    || undefined,
+          contract_type:    contract_type || 'service',
+          start_date:       start_date    || undefined,
+          end_date:         end_date      || undefined,
+          renewal_date:     renewal_date  || undefined,
+          auto_renewal:     auto_renewal === 'true',
+          notes:            notes         || undefined,
+        }
+        const res = await fetch(`${req.nextUrl.origin}/api/contracts`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'contract',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '契約登録に失敗しました。' }, { status: res.status })
+
+        const contractId = data?.contract?.id
+        if (!contractId) return Response.json({ error: '契約IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/contracts/${contractId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (!verifyData?.contract?.id || verifyData.contract.title !== title.trim()) {
+            return Response.json({ error: '契約登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const clientName = params.client_name ? `${params.client_name}との` : ''
+        return Response.json({ success: true, voiceReply: `${clientName}契約「${title.trim()}」を登録しました（下書き）。` })
+      }
+
+      // ─── L4: update_contract ─────────────────────────────
+      case 'console.update_contract': {
+        const { contractId } = params
+        if (!contractId) return Response.json({ error: 'contractId required' }, { status: 400 })
+
+        const ALLOWED = ['title','contract_number','contract_type','start_date','end_date',
+                         'renewal_date','auto_renewal','status','notes','internal_memo'] as const
+        const VALID_STATUSES = ['draft','active','signed','reviewing','expired','terminated']
+
+        const updateBody: Record<string, unknown> = {}
+        for (const field of ALLOWED) {
+          const val = params[field]
+          if (val === undefined) continue
+          if (field === 'auto_renewal') {
+            updateBody[field] = val === 'true'
+          } else if (field === 'status') {
+            if (!VALID_STATUSES.includes(val)) {
+              return Response.json({ error: `statusはdraft/active/signed/reviewing/expired/terminatedのみ変更可能です` }, { status: 400 })
+            }
+            updateBody[field] = val
+          } else {
+            updateBody[field] = val?.trim() || null
+          }
+        }
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/contracts/${contractId}`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'contract', resourceId: contractId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '契約の更新に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/contracts/${contractId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const c = verifyData?.contract
+          if (c) {
+            if (updateBody.status && c.status !== updateBody.status) {
+              return Response.json({ error: '契約の更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+            }
+            if (updateBody.end_date && c.end_date !== updateBody.end_date) {
+              return Response.json({ error: '契約の更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        const STATUS_LABELS: Record<string, string> = {
+          draft: '下書き', active: '有効', signed: '締結済み', reviewing: '確認中', expired: '期限切れ', terminated: '解約',
+        }
+        if (updateBody.status)     changedParts.push(`ステータスを${STATUS_LABELS[String(updateBody.status)] ?? updateBody.status}に`)
+        if (updateBody.end_date)   changedParts.push(`終了日を${updateBody.end_date}に`)
+        if (updateBody.start_date) changedParts.push(`開始日を${updateBody.start_date}に`)
+        if (updateBody.title)      changedParts.push(`契約名を「${updateBody.title}」に`)
+
+        const label = params.contract_title ? `「${params.contract_title}」を` : ''
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0
+            ? `${label}${changedParts.join('、')}変更しました。`
+            : `${label}契約情報を更新しました。`,
+        })
+      }
+
       // ─── L4: inventory_stock_in ──────────────────────────
       case 'console.inventory_stock_in': {
         const { inventoryId, quantity, item_name, reason } = params

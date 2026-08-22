@@ -912,6 +912,98 @@ const getShiftAttendanceStatusTool = tool({
   },
 })
 
+const CONTRACT_STATUS_LABELS_SDK: Record<string, string> = {
+  draft: '下書き', active: '有効', signed: '締結済み', reviewing: '確認中',
+  expired: '期限切れ', terminated: '解約',
+}
+const CONTRACT_TYPE_LABELS_SDK: Record<string, string> = {
+  service: 'サービス', maintenance: 'メンテナンス', spot: 'スポット',
+  lease: 'リース', nda: 'NDA', other: 'その他',
+}
+
+const getContractsTool = tool({
+  name:        'get_contracts',
+  description: '契約一覧を取得する。「契約一覧」「ABC社の契約」「有効な契約」「もうすぐ期限切れ」「今月終わる契約」等。',
+  parameters:  z.object({
+    search:        z.string().optional().describe('契約名・番号の検索キーワード'),
+    status:        z.string().optional().describe('draft/active/signed/reviewing/expired/terminated'),
+    contract_type: z.string().optional().describe('service/maintenance/spot/lease/nda/other'),
+    counterparty:  z.string().optional().describe('client または partner'),
+    expiring_days: z.string().optional().describe('期限が何日以内か (例: 30)'),
+  }),
+  execute: async ({ search, status, contract_type, counterparty, expiring_days }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams()
+      if (search)        q.set('search',        search)
+      if (status)        q.set('status',        status)
+      if (contract_type) q.set('contract_type', contract_type)
+      if (counterparty)  q.set('counterparty_type', counterparty)
+      if (expiring_days) q.set('expiring_days', expiring_days)
+      const res = await apiGet(`/api/contracts?${q}`, ctx)
+      if (!res.ok) return '契約一覧を取得できませんでした。'
+      const data = await res.json()
+      const contracts: any[] = data.contracts ?? []
+      const kpi = data.kpi ?? {}
+      if (contracts.length === 0) return '契約はありません。'
+      const lines = contracts.slice(0, 10).map((c: any) => {
+        const stat  = CONTRACT_STATUS_LABELS_SDK[c.status] ?? c.status
+        const party = c.counterparty_type === 'client' ? (c.clients?.name ?? '顧客不明') : (c.partners?.company_name ?? '業者不明')
+        const end   = c.end_date ? `終了:${c.end_date}` : '期限なし'
+        const days  = c.deadline?.daysUntilExpiry != null
+          ? (c.deadline.daysUntilExpiry < 0 ? '期限切れ' : `残${c.deadline.daysUntilExpiry}日`)
+          : ''
+        return `${c.title}（${party}）[${stat}] ${end}${days ? ' ' + days : ''} [id:${c.id}]`
+      })
+      const suffix  = contracts.length > 10 ? `（全${contracts.length}件中10件）` : `（全${contracts.length}件）`
+      const kpiLine = `有効:${kpi.active ?? 0}件・30日以内期限:${kpi.expiring30d ?? 0}件・期限切れ:${kpi.expired ?? 0}件`
+      return [kpiLine, ...lines, suffix].join('\n')
+    } catch { return '契約一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getContractDetailTool = tool({
+  name:        'get_contract_detail',
+  description: '契約の詳細を取得する。「詳しく」「いつまで？」「更新日は？」「金額は？」「状況は？」等。get_contractsで取得したidを使う。',
+  parameters:  z.object({
+    contract_id: z.string().describe('契約ID（get_contractsのid）'),
+  }),
+  execute: async ({ contract_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet(`/api/contracts/${contract_id}`, ctx)
+      if (!res.ok) return '契約が見つかりませんでした。'
+      const data     = await res.json()
+      const contract = data.contract
+      if (!contract) return '契約が見つかりませんでした。'
+      const status = CONTRACT_STATUS_LABELS_SDK[contract.status] ?? contract.status
+      const ctype  = CONTRACT_TYPE_LABELS_SDK[contract.contract_type] ?? contract.contract_type
+      const party  = contract.counterparty_type === 'client'
+        ? (contract.clients?.name ?? '顧客不明')
+        : (contract.partners?.company_name ?? '業者不明')
+      const parts = [
+        `契約: ${contract.title}`,
+        `相手: ${party}（${contract.counterparty_type === 'client' ? '顧客' : '協力業者'}）`,
+        `種別: ${ctype}`,
+        `ステータス: ${status}`,
+      ]
+      if (contract.contract_number) parts.push(`契約番号: ${contract.contract_number}`)
+      if (contract.projects?.name)  parts.push(`案件: ${contract.projects.name}`)
+      if (contract.start_date)      parts.push(`開始日: ${contract.start_date}`)
+      if (contract.end_date)        parts.push(`終了日: ${contract.end_date}`)
+      if (contract.renewal_date)    parts.push(`更新日: ${contract.renewal_date}`)
+      if (contract.auto_renewal != null) parts.push(`自動更新: ${contract.auto_renewal ? 'あり' : 'なし'}`)
+      const dl = contract.deadline
+      if (dl?.daysUntilExpiry != null) {
+        const dLabel = dl.daysUntilExpiry < 0 ? `${Math.abs(dl.daysUntilExpiry)}日超過` : `残${dl.daysUntilExpiry}日`
+        parts.push(`期限: ${dLabel}（${dl.label ?? dl.urgency}）`)
+      }
+      if (contract.notes) parts.push(`備考: ${contract.notes}`)
+      return parts.join('\n')
+    } catch { return '契約詳細の取得中にエラーが発生しました。' }
+  },
+})
+
 const STOCK_STATUS_LABELS_SDK: Record<string, string> = {
   normal: '正常', low_stock: '在庫少', out_of_stock: '在庫切れ', inactive: '無効',
 }
@@ -1355,6 +1447,30 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 契約操作手順
+契約一覧: get_contracts（search/status/contract_type/counterparty/expiring_days指定可）
+  ・「もうすぐ期限切れ」→ expiring_days=30
+  ・「期限切れ」→ status=expired
+  ・顧客との契約 → counterparty=client
+契約詳細: get_contract_detail（contract_idが必要）
+顧客別: get_contracts後にclientIdが分かればclient_idで絞り込む。または先にresolve_clientでclientIdを確定。
+期限確認: get_contract_detailのdeadline.daysUntilExpiry / urgencyが実データ
+新規契約: resolve_clientまたはresolve_partnerでIDを確定 → propose_action(console.create_contract, {...})
+  必須: title, counterparty_type(client|partner), client_id または partner_id
+  任意: project_id, contract_type, start_date, end_date, renewal_date, auto_renewal, notes
+  ※金額フィールドなし（契約条件は文書で管理）
+  確認文例: 「ABC社との『清掃サービス契約』を登録します。開始日○月○日。よろしいですか？」
+契約編集: get_contract_detailで現在値確認 → propose_action(console.update_contract, {contractId, [変更フィールド]})
+  変更可: title/contract_number/contract_type/start_date/end_date/renewal_date/auto_renewal/notes/status
+  ※status変更はこのactionで対応（同一PUT endpoint）
+  確認文例: 「この契約の終了日を12月31日に変更します。よろしいですか？」
+status変更候補: draft/active/signed/reviewing/expired/terminated
+  ※terminated（解約）はVoiceでも可だが確認文に「この操作は取り消せません」を含める
+契約終了・解約: propose_action(console.update_contract, {contractId, status: 'terminated'})
+  ※status→terminatedは論理削除相当。確認必須。
+削除（物理）: 音声実行不可。「契約の削除は管理画面から操作してください。」と答える。
+contractIdは必ずget_contractsのresultから取得する。AI生成ID禁止。
+
 ## 在庫操作手順
 在庫一覧: get_inventory（search/category/status指定可。status=low_stockで在庫少一覧）
 在庫詳細: get_inventory_detail（inventory_idが必要）
@@ -1445,6 +1561,8 @@ reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
 - console.convert_estimate             → params: { invoiceId, invoice_number? }
 - console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
 - console.generate_report_pdf          → params: { reportId, report_number? }
+- console.create_contract              → params: { title, counterparty_type, client_id?, partner_id?, project_id?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, notes?, client_name? }
+- console.update_contract              → params: { contractId, title?, contract_number?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, status?, notes?, contract_title? }
 - console.inventory_stock_in           → params: { inventoryId, quantity, item_name?, reason? }
 - console.inventory_stock_out          → params: { inventoryId, quantity, item_name?, reason? }
 - console.adjust_inventory             → params: { inventoryId, target_quantity, reason, item_name?, current_quantity? }
@@ -1492,6 +1610,8 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getContractsTool,
+    getContractDetailTool,
     getInventoryTool,
     getInventoryDetailTool,
     getInventoryHistoryTool,

@@ -1112,6 +1112,122 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── Contract READ Tools ─────────────────────────────────────
+
+const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  draft: '下書き', active: '有効', signed: '締結済み', reviewing: '確認中',
+  expired: '期限切れ', terminated: '解約',
+}
+const CONTRACT_TYPE_LABELS: Record<string, string> = {
+  service: 'サービス', maintenance: 'メンテナンス', spot: 'スポット',
+  lease: 'リース', nda: 'NDA', other: 'その他',
+}
+
+const getContracts: ConsoleAgentTool = {
+  name:        'get_contracts',
+  description: '契約一覧を取得する。「契約一覧教えて」「ABC社の契約ある？」「有効な契約は？」「もうすぐ期限切れの契約は？」「今月終わる契約ある？」等。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      search:         { type: 'string', description: '契約名・番号の検索キーワード' },
+      status:         { type: 'string', description: 'draft/active/signed/reviewing/expired/terminated' },
+      contract_type:  { type: 'string', description: 'service/maintenance/spot/lease/nda/other' },
+      counterparty:   { type: 'string', description: 'client または partner' },
+      expiring_days:  { type: 'string', description: '期限が何日以内か (例: 30)' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const q = new URLSearchParams()
+      if (params.search)        q.set('search',        params.search)
+      if (params.status)        q.set('status',        params.status)
+      if (params.contract_type) q.set('contract_type', params.contract_type)
+      if (params.counterparty)  q.set('counterparty_type', params.counterparty)
+      if (params.expiring_days) q.set('expiring_days', params.expiring_days)
+      const res = await apiFetch(`/api/contracts?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '契約一覧を取得できませんでした。' }
+      const data = await res.json()
+      const contracts: any[] = data.contracts ?? []
+      const kpi = data.kpi ?? {}
+      if (contracts.length === 0) return { success: true, text: '契約はありません。', data }
+      const lines = contracts.slice(0, 10).map((c: any) => {
+        const status    = CONTRACT_STATUS_LABELS[c.status] ?? c.status
+        const party     = c.counterparty_type === 'client'
+          ? (c.clients?.name ?? '顧客不明')
+          : (c.partners?.company_name ?? '業者不明')
+        const endDate   = c.end_date ? `終了:${c.end_date}` : '期限なし'
+        const days      = c.deadline?.daysUntilExpiry != null
+          ? (c.deadline.daysUntilExpiry < 0 ? '期限切れ' : `残${c.deadline.daysUntilExpiry}日`)
+          : ''
+        return `${c.title}（${party}）[${status}] ${endDate}${days ? ' ' + days : ''} [id:${c.id}]`
+      })
+      const suffix  = contracts.length > 10 ? `（全${contracts.length}件中10件表示）` : `（全${contracts.length}件）`
+      const kpiLine = `有効:${kpi.active ?? 0}件・30日以内期限:${kpi.expiring30d ?? 0}件・期限切れ:${kpi.expired ?? 0}件`
+      return {
+        success: true,
+        text:    [kpiLine, ...lines, suffix].join('\n'),
+        data,
+        items:   contracts.slice(0, 10).map((c: any) => ({ id: c.id, label: `${c.title} ${c.clients?.name ?? c.partners?.company_name ?? ''}` })),
+      }
+    } catch {
+      return { success: false, text: '契約一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getContractDetail: ConsoleAgentTool = {
+  name:        'get_contract_detail',
+  description: '契約の詳細を取得する。「1件目詳しく」「この契約の内容は？」「契約期間いつまで？」「更新日は？」「状況は？」「案件は？」等。get_contractsで取得したidを使う。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      contract_id: { type: 'string', description: '契約ID（get_contractsのid）' },
+    },
+    required: ['contract_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const { contract_id } = params
+      if (!contract_id) return { success: false, text: 'contract_idを指定してください。' }
+      const res = await apiFetch(`/api/contracts/${contract_id}`, ctx)
+      if (!res.ok) return { success: false, text: '契約が見つかりませんでした。' }
+      const data     = await res.json()
+      const contract = data.contract
+      if (!contract) return { success: false, text: '契約が見つかりませんでした。' }
+      const status = CONTRACT_STATUS_LABELS[contract.status] ?? contract.status
+      const ctype  = CONTRACT_TYPE_LABELS[contract.contract_type] ?? contract.contract_type
+      const party  = contract.counterparty_type === 'client'
+        ? (contract.clients?.name ?? '顧客不明')
+        : (contract.partners?.company_name ?? '業者不明')
+      const parts: string[] = [
+        `契約: ${contract.title}`,
+        `相手: ${party}（${contract.counterparty_type === 'client' ? '顧客' : '協力業者'}）`,
+        `種別: ${ctype}`,
+        `ステータス: ${status}`,
+      ]
+      if (contract.contract_number) parts.push(`契約番号: ${contract.contract_number}`)
+      if (contract.projects?.name)  parts.push(`案件: ${contract.projects.name}`)
+      if (contract.start_date)      parts.push(`開始日: ${contract.start_date}`)
+      if (contract.end_date)        parts.push(`終了日: ${contract.end_date}`)
+      if (contract.renewal_date)    parts.push(`更新日: ${contract.renewal_date}`)
+      if (contract.auto_renewal != null) parts.push(`自動更新: ${contract.auto_renewal ? 'あり' : 'なし'}`)
+      const dl = contract.deadline
+      if (dl?.daysUntilExpiry != null) {
+        const daysLabel = dl.daysUntilExpiry < 0 ? `${Math.abs(dl.daysUntilExpiry)}日超過` : `残${dl.daysUntilExpiry}日`
+        parts.push(`期限: ${daysLabel}（${dl.label ?? dl.urgency}）`)
+      }
+      if (contract.notes) parts.push(`備考: ${contract.notes}`)
+      if (data.current_file?.file_name) parts.push(`ファイル: ${data.current_file.file_name}`)
+      return { success: true, text: parts.join('\n'), data, items: [{ id: contract.id, label: contract.title }] }
+    } catch {
+      return { success: false, text: '契約詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Inventory READ Tools ────────────────────────────────────
 
 const STOCK_STATUS_LABELS: Record<string, string> = {
@@ -1496,6 +1612,8 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getContracts,
+  getContractDetail,
   getInventory,
   getInventoryDetail,
   getInventoryHistory,

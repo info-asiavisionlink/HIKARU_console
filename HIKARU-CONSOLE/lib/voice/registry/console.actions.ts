@@ -131,6 +131,14 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '報告書PDFを生成してStorageに保存する（reportId必須、Confirmation必須）',
   },
+  'console.create_contract': {
+    level: 4 as const,
+    description: '契約を新規登録する（title・counterparty_type・client_id or partner_id必須、Confirmation必須）',
+  },
+  'console.update_contract': {
+    level: 4 as const,
+    description: '契約情報を更新する（contractId必須、status変更も含む、Confirmation必須）',
+  },
   'console.inventory_stock_in': {
     level: 4 as const,
     description: '在庫品目に入庫処理を行う（inventoryId・quantity必須、Confirmation必須）',
