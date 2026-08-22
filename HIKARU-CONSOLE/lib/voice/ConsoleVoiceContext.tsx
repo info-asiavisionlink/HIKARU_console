@@ -43,10 +43,6 @@ analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=
 「〜開いて」「〜の画面にして」「〜に移動して」「〜見せて」→ navigate_to
 情報を聞いている場合はNavigationだけで済ませない。画面を開く依頼ではデータ取得Toolを勝手に使わない。
 
-## 未対応機能
-まだToolが接続されていない機能（在庫数・契約詳細・報告書内容等）を聞かれた場合:
-架空データを返さず「現在Voiceから確認する機能はまだ接続されていません。画面は開けます。」と答える。
-
 ## Data Read（代表例 — 言い換えも意味から判断する）
 NavigationせずにDataツールを使う。
 案件・現場・仕事の状況 → get_projects（status/project_type/search指定可）
@@ -70,6 +66,13 @@ NavigationせずにDataツールを使う。
 シフト一覧・今日・今週 → get_shifts（date_from/date_to/employee_id/project_id指定可）
 シフト詳細 → get_shift_detail（shiftIdを指定）
 シフト×勤怠比較 → get_shift_attendance_status（今日のシフトあり打刻なしを確認）
+請求書・見積書一覧・詳細 → get_invoices / get_invoice_detail（invoice_type=quote/invoice）
+報告書一覧・詳細 → get_reports / get_report_detail（report_idを指定）
+在庫一覧・詳細 → get_inventory / get_inventory_detail（inventory_idを指定）
+契約一覧・詳細 → get_contracts / get_contract_detail（contract_idを指定・expiring_days=30で期限近い）
+品質KPI → get_quality_summary（period=7d/30d/90d/ytd）
+AI分析・ランキング → get_analytics（focus=overview/store/worker等）
+設定・会社情報 → get_settings
 
 ## シフト操作手順
 シフト一覧: get_shifts（date_from/date_to省略時は今日。employee_id/project_id/statusで絞り込み可）
@@ -214,7 +217,22 @@ Write時は特に厳格に実IDを確認してから実行する。
 - console.reject_attendance        → params: { correctionId, reject_reason }
 - console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
 - console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
-- console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }`
+- console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }
+- console.create_estimate_from_project → params: { projectId, project_name? }
+- console.create_invoice_from_project  → params: { projectId, project_name? }
+- console.update_invoice_status        → params: { invoiceId, status, cancel_reason? }
+- console.convert_estimate             → params: { invoiceId, invoice_number? }
+- console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
+- console.generate_report_pdf          → params: { reportId, report_number? }
+- console.inventory_stock_in           → params: { inventoryId, quantity, item_name?, reason? }
+- console.inventory_stock_out          → params: { inventoryId, quantity, item_name?, reason? }
+- console.adjust_inventory             → params: { inventoryId, target_quantity, reason, item_name? }
+- console.create_inventory_item        → params: { name, category?, unit?, min_stock?, storage_location?, notes? }
+- console.update_inventory_item        → params: { inventoryId, name?, category?, unit?, min_stock?, storage_location?, supplier_name?, notes? }
+- console.create_contract              → params: { title, counterparty_type, client_id?, partner_id?, project_id?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, notes? }
+- console.update_contract              → params: { contractId, title?, end_date?, start_date?, renewal_date?, auto_renewal?, status?, notes? }
+- console.mark_notification_read       → params: { notificationId, title? }
+- console.update_company_setting        → params: { field, value } ※field: name/address/phone/email/postal_code のみ`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -1030,13 +1048,273 @@ function buildConsoleRealtimeTools(
         return parts.length > 0 ? `今日（${todayJst}）のシフト対比: ${parts.join('。')}` : `今日のシフトメンバー全員が打刻済みです。`
       },
     }),
+    // ─── NEW: Invoice / Estimate ─────────────────────────────
+    toolFactory({
+      name: 'get_invoices',
+      description: '請求書・見積書の一覧を取得する。「請求書見せて」「見積書一覧」「未入金の請求は？」等。invoice_type=quote（見積書）またはinvoice（請求書）。',
+      parameters: { type: 'object', properties: { invoice_type: { type: 'string' }, status: { type: 'string' }, client_id: { type: 'string' } }, required: [], additionalProperties: false },
+      execute: async ({ invoice_type, status, client_id }: { invoice_type?: string; status?: string; client_id?: string }) => {
+        const q = new URLSearchParams()
+        if (invoice_type) q.set('invoice_type', invoice_type)
+        if (status)       q.set('status',       status)
+        if (client_id)    q.set('client_id',    client_id)
+        const data = await apiFetch(`/api/invoices?${q}`)
+        if (!data) return '請求書・見積書一覧を取得できませんでした。'
+        const list: any[] = data.invoices ?? []
+        if (list.length === 0) return '請求書・見積書はありません。'
+        const TL: Record<string,string> = { quote: '見積書', invoice: '請求書' }
+        const SL: Record<string,string> = { draft: '下書き', issued: '発行済み', accepted: '承認済み', awaiting_payment: '入金待ち', paid: '入金済み', cancelled: 'キャンセル' }
+        const lines = list.slice(0,8).map((inv: any) => {
+          const t = TL[inv.invoice_type] ?? inv.invoice_type
+          const s = SL[inv.status] ?? inv.status
+          const c = inv.clients?.name ?? '顧客不明'
+          const a = inv.total_amount != null ? `${Number(inv.total_amount).toLocaleString()}円` : ''
+          return `${inv.invoice_number ?? inv.id} ${t}（${c}）${a} [${s}] [id:${inv.id}]`
+        })
+        return `${lines.join('\n')}（全${list.length}件）`
+      },
+    }),
+    toolFactory({
+      name: 'get_invoice_detail',
+      description: '請求書または見積書の詳細を取得する。「詳しく」「金額は？」「支払期限は？」等。get_invoicesで取得したidを使う。',
+      parameters: { type: 'object', properties: { invoice_id: { type: 'string' } }, required: ['invoice_id'], additionalProperties: false },
+      execute: async ({ invoice_id }: { invoice_id: string }) => {
+        if (!invoice_id) return 'invoice_idを指定してください。'
+        const data = await apiFetch(`/api/invoices/${invoice_id}`)
+        if (!data) return '請求書・見積書が見つかりませんでした。'
+        const inv = data.invoice
+        if (!inv) return '見つかりませんでした。'
+        const TL: Record<string,string> = { quote: '見積書', invoice: '請求書' }
+        const SL: Record<string,string> = { draft: '下書き', issued: '発行済み', accepted: '承認済み', awaiting_payment: '入金待ち', paid: '入金済み', cancelled: 'キャンセル' }
+        const parts: string[] = [`${TL[inv.invoice_type]??inv.invoice_type} ${inv.invoice_number??inv.id}`, `ステータス: ${SL[inv.status]??inv.status}`, `顧客: ${inv.clients?.name??'不明'}`]
+        if (inv.issue_date)     parts.push(`発行日: ${inv.issue_date}`)
+        if (inv.due_date)       parts.push(`支払期限: ${inv.due_date}`)
+        if (inv.total_amount != null) parts.push(`合計: ${Number(inv.total_amount).toLocaleString()}円`)
+        if (inv.paid_amount != null && inv.invoice_type === 'invoice') parts.push(`入金済: ${Number(inv.paid_amount).toLocaleString()}円`)
+        return parts.join('\n')
+      },
+    }),
+    // ─── NEW: Reports ─────────────────────────────────────────
+    toolFactory({
+      name: 'get_reports',
+      description: '報告書・作業完了レポートの一覧を取得する。「報告書一覧」「最近の報告書ある？」「この案件の報告書は？」等。',
+      parameters: { type: 'object', properties: { project_id: { type: 'string' } }, required: [], additionalProperties: false },
+      execute: async ({ project_id }: { project_id?: string }) => {
+        const data = await apiFetch('/api/reports?pageSize=8')
+        if (!data) return '報告書一覧を取得できませんでした。'
+        let list: any[] = data.data ?? []
+        if (project_id) list = list.filter((r: any) => r.project_id === project_id)
+        if (list.length === 0) return '報告書はありません。'
+        const lines = list.slice(0,8).map((r: any) => {
+          const proj = r.projects?.name ?? '案件不明'
+          const date = r.jobs?.work_date ?? ''
+          const score = r.overall_score != null ? `${r.overall_score}点` : 'スコアなし'
+          const pdf = r.pdf_url ? 'PDF済' : 'PDF未生成'
+          return `${date} ${proj} v${r.version} [${score}・${pdf}] [id:${r.id}]`
+        })
+        return `${lines.join('\n')}（全${data.count??list.length}件）`
+      },
+    }),
+    toolFactory({
+      name: 'get_report_detail',
+      description: '報告書の詳細を取得する。「詳しく」「内容は？」「総合評価は？」「Before/After写真は？」等。get_reportsで取得したidを使う。',
+      parameters: { type: 'object', properties: { report_id: { type: 'string' } }, required: ['report_id'], additionalProperties: false },
+      execute: async ({ report_id }: { report_id: string }) => {
+        if (!report_id) return 'report_idを指定してください。'
+        const data = await apiFetch(`/api/reports/${report_id}`)
+        if (!data) return '報告書が見つかりませんでした。'
+        const rep = data.data
+        if (!rep) return '見つかりませんでした。'
+        const content = rep.content ?? {}
+        const summary = content.summary ?? {}
+        const parts: string[] = [`報告書 v${rep.version}`]
+        if (content.project?.name) parts.push(`案件: ${content.project.name}`)
+        if (content.job?.work_date) parts.push(`作業日: ${content.job.work_date}`)
+        if (summary.overall_score != null) parts.push(`総合スコア: ${summary.overall_score}点`)
+        if (summary.quality_assessment) parts.push(`品質評価: ${summary.quality_assessment}`)
+        const spots: any[] = content.spots ?? []
+        if (spots.length > 0) {
+          parts.push(`Before写真: ${spots.filter((s: any) => s.before_url).length}箇所、After写真: ${spots.filter((s: any) => s.after_url).length}箇所`)
+        }
+        parts.push(rep.pdf_url ? 'PDF生成済み' : 'PDF未生成')
+        return parts.join('\n')
+      },
+    }),
+    // ─── NEW: Inventory ───────────────────────────────────────
+    toolFactory({
+      name: 'get_inventory',
+      description: '在庫品目の一覧を取得する。「在庫一覧」「ワックス在庫ある？」「在庫少ないものある？」等。',
+      parameters: { type: 'object', properties: { search: { type: 'string' }, status: { type: 'string' } }, required: [], additionalProperties: false },
+      execute: async ({ search, status }: { search?: string; status?: string }) => {
+        const q = new URLSearchParams()
+        if (search) q.set('search', search)
+        if (status) q.set('status', status)
+        const data = await apiFetch(`/api/inventory?${q}`)
+        if (!data) return '在庫一覧を取得できませんでした。'
+        const items: any[] = data.items ?? []
+        const kpi = data.kpi ?? {}
+        if (items.length === 0) return '在庫品目はありません。'
+        const SL: Record<string,string> = { normal: '正常', low_stock: '在庫少', out_of_stock: '在庫切れ' }
+        const lines = items.slice(0,8).map((i: any) => {
+          const s = SL[i.stock_status] ?? i.stock_status
+          return `${i.name} 在庫:${i.stock_quantity}${i.unit} 最低:${i.min_stock}${i.unit} [${s}] [id:${i.id}]`
+        })
+        return `在庫少:${kpi.low_stock??0}件・在庫切れ:${kpi.out_of_stock??0}件\n${lines.join('\n')}`
+      },
+    }),
+    toolFactory({
+      name: 'get_inventory_detail',
+      description: '在庫品目の詳細を取得する。「現在庫何個？」「詳しく」等。get_inventoryで取得したidを使う。',
+      parameters: { type: 'object', properties: { inventory_id: { type: 'string' } }, required: ['inventory_id'], additionalProperties: false },
+      execute: async ({ inventory_id }: { inventory_id: string }) => {
+        if (!inventory_id) return 'inventory_idを指定してください。'
+        const data = await apiFetch(`/api/inventory/${inventory_id}`)
+        if (!data) return '在庫品目が見つかりませんでした。'
+        const item = data.item
+        if (!item) return '見つかりませんでした。'
+        const SL: Record<string,string> = { normal: '正常', low_stock: '在庫少', out_of_stock: '在庫切れ' }
+        const parts: string[] = [`品目: ${item.name}（${item.category}）`, `現在庫: ${item.stock_quantity}${item.unit}`, `最低在庫: ${item.min_stock}${item.unit}`, `ステータス: ${SL[item.stock_status]??item.stock_status}`]
+        if (item.storage_location) parts.push(`保管場所: ${item.storage_location}`)
+        return parts.join('\n')
+      },
+    }),
+    // ─── NEW: Contracts ───────────────────────────────────────
+    toolFactory({
+      name: 'get_contracts',
+      description: '契約一覧を取得する。「契約一覧教えて」「ABC社の契約ある？」「もうすぐ期限切れの契約は？」等。',
+      parameters: { type: 'object', properties: { search: { type: 'string' }, status: { type: 'string' }, expiring_days: { type: 'string' } }, required: [], additionalProperties: false },
+      execute: async ({ search, status, expiring_days }: { search?: string; status?: string; expiring_days?: string }) => {
+        const q = new URLSearchParams()
+        if (search)        q.set('search',        search)
+        if (status)        q.set('status',        status)
+        if (expiring_days) q.set('expiring_days', expiring_days)
+        const data = await apiFetch(`/api/contracts?${q}`)
+        if (!data) return '契約一覧を取得できませんでした。'
+        const list: any[] = data.contracts ?? []
+        const kpi = data.kpi ?? {}
+        if (list.length === 0) return '契約はありません。'
+        const SL: Record<string,string> = { draft: '下書き', active: '有効', signed: '締結済み', reviewing: '確認中', expired: '期限切れ', terminated: '解約' }
+        const lines = list.slice(0,8).map((c: any) => {
+          const stat  = SL[c.status] ?? c.status
+          const party = c.counterparty_type === 'client' ? (c.clients?.name ?? '顧客不明') : (c.partners?.company_name ?? '業者不明')
+          const end   = c.end_date ? `終了:${c.end_date}` : '期限なし'
+          const days  = c.deadline?.daysUntilExpiry != null ? (c.deadline.daysUntilExpiry < 0 ? '期限切れ' : `残${c.deadline.daysUntilExpiry}日`) : ''
+          return `${c.title}（${party}）[${stat}] ${end}${days ? ' '+days : ''} [id:${c.id}]`
+        })
+        return `有効:${kpi.active??0}件・30日以内期限:${kpi.expiring30d??0}件\n${lines.join('\n')}`
+      },
+    }),
+    toolFactory({
+      name: 'get_contract_detail',
+      description: '契約の詳細を取得する。「詳しく」「いつまで？」「更新日は？」等。get_contractsで取得したidを使う。',
+      parameters: { type: 'object', properties: { contract_id: { type: 'string' } }, required: ['contract_id'], additionalProperties: false },
+      execute: async ({ contract_id }: { contract_id: string }) => {
+        if (!contract_id) return 'contract_idを指定してください。'
+        const data = await apiFetch(`/api/contracts/${contract_id}`)
+        if (!data) return '契約が見つかりませんでした。'
+        const c = data.contract
+        if (!c) return '見つかりませんでした。'
+        const SL: Record<string,string> = { draft: '下書き', active: '有効', signed: '締結済み', reviewing: '確認中', expired: '期限切れ', terminated: '解約' }
+        const TL: Record<string,string> = { service: 'サービス', maintenance: 'メンテナンス', spot: 'スポット', nda: 'NDA', other: 'その他' }
+        const parts: string[] = [`契約: ${c.title}`, `ステータス: ${SL[c.status]??c.status}`, `種別: ${TL[c.contract_type]??c.contract_type}`]
+        const party = c.counterparty_type === 'client' ? (c.clients?.name ?? '顧客不明') : (c.partners?.company_name ?? '業者不明')
+        parts.push(`相手: ${party}`)
+        if (c.start_date)   parts.push(`開始日: ${c.start_date}`)
+        if (c.end_date)     parts.push(`終了日: ${c.end_date}`)
+        if (c.renewal_date) parts.push(`更新日: ${c.renewal_date}`)
+        if (c.auto_renewal != null) parts.push(`自動更新: ${c.auto_renewal ? 'あり' : 'なし'}`)
+        const dl = c.deadline
+        if (dl?.daysUntilExpiry != null) parts.push(`期限: ${dl.daysUntilExpiry < 0 ? `${Math.abs(dl.daysUntilExpiry)}日超過` : `残${dl.daysUntilExpiry}日`}`)
+        return parts.join('\n')
+      },
+    }),
+    // ─── NEW: Quality ─────────────────────────────────────────
+    toolFactory({
+      name: 'get_quality_summary',
+      description: '品質KPIサマリーを取得する。「品質状況教えて」「平均スコアは？」「低評価どれくらいある？」等。period=7d/30d/90d/ytd。',
+      parameters: { type: 'object', properties: { period: { type: 'string' } }, required: [], additionalProperties: false },
+      execute: async ({ period }: { period?: string }) => {
+        const p = period ?? '30d'
+        const data = await apiFetch(`/api/quality?period=${p}`)
+        if (!data) return '品質情報を取得できませんでした。'
+        const kpi = data.kpi ?? {}
+        if (!kpi.response_count && !kpi.total_completed) return `指定期間（${p}）の品質評価データはありません。`
+        const parts: string[] = []
+        if (kpi.total_completed != null) parts.push(`完了作業: ${kpi.total_completed}件`)
+        if (kpi.response_count  != null) parts.push(`顧客アンケート: ${kpi.response_count}件（回答率${kpi.response_rate??0}%）`)
+        if (kpi.avg_hqs         != null) parts.push(`HIKARU品質スコア: ${Math.round((kpi.avg_hqs as number)*10)/10}点`)
+        if (kpi.avg_rating      != null) parts.push(`顧客評価平均: ★${Math.round((kpi.avg_rating as number)*10)/10}`)
+        if ((kpi.low_rating_count as number) > 0) parts.push(`低評価: ${kpi.low_rating_count}件`)
+        return parts.join('\n') || '品質データはありません。'
+      },
+    }),
+    // ─── NEW: Analytics ───────────────────────────────────────
+    toolFactory({
+      name: 'get_analytics',
+      description: 'AI分析・品質・業務の総合データを取得する。「AI分析して」「ランキングは？」「品質分布は？」「月次推移は？」等。',
+      parameters: { type: 'object', properties: { focus: { type: 'string' } }, required: [], additionalProperties: false },
+      execute: async ({ focus }: { focus?: string }) => {
+        const data = await apiFetch('/api/analytics')
+        if (!data) return 'AI分析データを取得できませんでした。'
+        const { overview, trends, storeRankings, workerRankings } = data
+        const parts: string[] = []
+        if (overview) {
+          parts.push(`作業${overview.totalJobs??0}件（完了${overview.completedJobs??0}）今月${overview.thisMonthJobs??0}件`)
+          if (overview.avgQualityScore != null) parts.push(`AI品質平均: ${overview.avgQualityScore}点`)
+          if (overview.totalEvaluations > 0) parts.push(`評価${overview.totalEvaluations}件（合格率${overview.passRate}%）`)
+        }
+        if (!focus || focus === 'store') {
+          const top3 = ((storeRankings??[]) as any[]).slice(0,3)
+          if (top3.length > 0) parts.push(`店舗TOP3: ${top3.map((s: any,i: number) => `${i+1}位${s.storeName}${s.avgScore??'--'}点`).join('・')}`)
+        }
+        if (!focus || focus === 'worker') {
+          const top3 = ((workerRankings??[]) as any[]).slice(0,3)
+          if (top3.length > 0) parts.push(`作業者TOP3: ${top3.map((w: any,i: number) => `${i+1}位${w.workerName}${w.avgScore??'--'}点`).join('・')}`)
+        }
+        const recent = ((trends??[]) as any[]).filter((t: any) => t.jobCount > 0).slice(-2)
+        if (recent.length > 0) parts.push(`最近のトレンド: ${recent.map((t: any) => `${t.label}${t.avgScore!=null?t.avgScore+'点':'スコアなし'}`).join('→')}`)
+        return parts.join('\n') || '分析データはありません。'
+      },
+    }),
+    // ─── NEW: Settings ────────────────────────────────────────
+    toolFactory({
+      name: 'get_settings',
+      description: '会社設定・会社情報を取得する。「設定どうなってる？」「会社名は？」「電話番号は？」「住所は？」等。',
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      execute: async () => {
+        const data = await apiFetch('/api/settings')
+        if (!data) return '設定情報を取得できませんでした。'
+        const c = data.data
+        if (!c) return '設定情報が見つかりませんでした。'
+        const parts: string[] = ['【会社設定】']
+        if (c.name)    parts.push(`会社名: ${c.name}`)
+        if (c.address) parts.push(`住所: ${c.address}`)
+        if (c.phone)   parts.push(`電話: ${c.phone}`)
+        if (c.email)   parts.push(`メール: ${c.email}`)
+        parts.push(`電子印: ${c.has_seal ? '登録済み' : '未登録'}`)
+        if (c.bank_name) parts.push('銀行情報: 登録済み（詳細は管理画面で確認）')
+        return parts.join('\n')
+      },
+    }),
+    // ─── NEW: Pending requests ────────────────────────────────
+    toolFactory({
+      name: 'get_pending_requests',
+      description: '承認待ちの各種申請（勤怠修正・経費・案件依頼）の件数サマリーを取得する。「申請来てる？」「何か承認待ちある？」等。',
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      execute: async () => {
+        const data = await apiFetch('/api/project-requests?status=pending')
+        if (!data) return '承認待ち件数を取得できませんでした。'
+        const count = data.count ?? (data.data ?? []).length
+        return count > 0 ? `案件依頼の承認待ちが${count}件あります。` : '案件依頼の承認待ちはありません。'
+      },
+    }),
     toolFactory({
       name: 'execute_confirmed_action',
       description: 'ユーザーが「はい」と確認した後にのみ呼ぶ。Server Auth再検証して実行。',
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
