@@ -2045,7 +2045,18 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       session.on?.('transport_event', (event: any) => {
         const evType = event?.type as string | undefined
         if (evType === 'response.created' || evType === 'response.done' || evType === 'response.output_audio.done' || evType === 'response.cancelled' || evType === 'error') {
-          voiceTrace('transport_event', { evType, responseId: (event as any)?.response?.id })
+          if (evType === 'error') {
+            voiceTrace('realtime_error_detail', {
+              errorType:    (event as any)?.error?.type,
+              errorCode:    (event as any)?.error?.code,
+              errorMessage: typeof (event as any)?.error?.message === 'string'
+                ? ((event as any).error.message as string).slice(0, 200)
+                : undefined,
+              eventId:      (event as any)?.error?.event_id,
+            })
+          } else {
+            voiceTrace('transport_event', { evType, responseId: (event as any)?.response?.id })
+          }
         }
         if (evType !== 'conversation.item.input_audio_transcription.completed') return
         const text = (event.transcript ?? '').trim()
@@ -2058,8 +2069,13 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         addMessage('user', text)
       })
       session.on?.('error', (err: unknown) => {
-        const msg = (err as any)?.error?.message ?? (err as Error)?.message ?? String(err)
-        console.error('[console-realtime] session error (non-fatal):', msg)
+        const realtimeErrorMessage = (
+          (err as any)?.error?.error?.message ??
+          (err as any)?.error?.message ??
+          (err as Error)?.message ??
+          'Unknown realtime error'
+        )
+        console.error('[console-realtime] session error (non-fatal):', String(realtimeErrorMessage).slice(0, 200))
         // エラー時はmuteを解除してListening継続を試みる。
         muteMic(false)
       })
