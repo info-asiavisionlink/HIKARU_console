@@ -564,9 +564,10 @@ export async function POST(req: NextRequest) {
         const { correctionId } = params
         if (!correctionId) return Response.json({ error: 'correctionId required' }, { status: 400 })
 
+        const cookie = req.headers.get('cookie') ?? ''
         const res = await fetch(`${req.nextUrl.origin}/api/attendance/corrections/${correctionId}/approve`, {
           method:  'POST',
-          headers: { Cookie: req.headers.get('cookie') ?? '' },
+          headers: { Cookie: cookie },
         })
         const data = await res.json()
         logConsoleAudit({
@@ -576,7 +577,54 @@ export async function POST(req: NextRequest) {
           resourceType: 'attendance_correction', resourceId: correctionId,
         })
         if (!res.ok) return Response.json({ error: data?.error ?? '勤怠修正申請の承認に失敗しました。' }, { status: res.status })
+
+        // Read-back: GETでstatus=approvedを確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/attendance/corrections/${correctionId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.correction?.status !== 'approved') {
+            return Response.json({ error: '承認処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
         return Response.json({ success: true, voiceReply: '勤怠修正申請を承認しました。' })
+      }
+
+      // ─── L4: reject_attendance ───────────────────────────
+      case 'console.reject_attendance': {
+        const { correctionId, reject_reason } = params
+        if (!correctionId)          return Response.json({ error: 'correctionId required' }, { status: 400 })
+        if (!reject_reason?.trim()) return Response.json({ error: '却下理由は必須です' },   { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res = await fetch(`${req.nextUrl.origin}/api/attendance/corrections/${correctionId}/reject`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ reject_reason: reject_reason.trim() }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'attendance_correction', resourceId: correctionId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '勤怠修正申請の却下に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/attendance/corrections/${correctionId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.correction?.status !== 'rejected') {
+            return Response.json({ error: '却下処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: '勤怠修正申請を却下しました。' })
       }
 
       // ─── L4: create_employee ─────────────────────────────

@@ -417,23 +417,147 @@ const getExpenseDetail: ConsoleAgentTool = {
 
 const getPendingAttendance: ConsoleAgentTool = {
   name:        'get_pending_attendance',
-  description: '勤怠修正申請の承認待ちを確認する。「勤怠修正来てる？」「勤務時間の直しの申請ある？」「修正申請何件？」等に使う。',
+  description: '勤怠修正申請の承認待ち一覧を確認する。「勤怠修正来てる？」「修正申請何件？」「未処理の勤怠申請ある？」等に使う。',
   safetyLevel: 1,
   parameters:  { type: 'object', properties: {}, required: [] },
   async execute(_, ctx): Promise<ToolResult> {
     try {
-      const res = await apiFetch('/api/attendance/corrections?status=pending', ctx)
+      const res   = await apiFetch('/api/attendance/corrections?status=submitted', ctx)
       if (!res.ok) return { success: false, text: '勤怠修正申請を確認できませんでした。' }
       const data  = await res.json()
-      // API: { corrections: [...] }
       const items = Array.isArray(data?.corrections) ? data.corrections : []
-      if (items.length === 0) return { success: true, text: '承認待ちの勤怠修正申請はありません。' }
-      return {
-        success: true,
-        text:    `承認待ちの勤怠修正申請が${items.length}件あります。`,
-      }
+      if (items.length === 0) return { success: true, text: '承認待ちの勤怠修正申請はありません。', items: [] }
+      const list = items.slice(0, 5).map((e: any, i: number) => ({
+        id:    e.id,
+        label: `${i + 1}件目: ${e.worker?.name ?? '従業員'}、${e.attendance_record?.work_date ?? '不明'}`,
+      }))
+      return { success: true, text: `承認待ちの勤怠修正申請が${items.length}件あります。`, items: list }
     } catch {
       return { success: false, text: '勤怠修正申請の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getAttendanceCorrectionDetail: ConsoleAgentTool = {
+  name:        'get_attendance_correction_detail',
+  description: '指定した勤怠修正申請の詳細（現在値・申請値・理由）を取得する。「1件目詳しく」「この修正何を変えたいの？」「理由は？」等に使う。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: { correction_id: { type: 'string', description: '修正申請のID' } },
+    required:   ['correction_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const corrId = params.correction_id
+    if (!corrId) return { success: false, text: '修正申請IDが必要です。' }
+    try {
+      const res  = await apiFetch(`/api/attendance/corrections/${corrId}`, ctx)
+      if (!res.ok) return { success: false, text: '修正申請情報を取得できませんでした。' }
+      const data = await res.json()
+      const c    = data?.correction
+      if (!c) return { success: false, text: '修正申請が見つかりませんでした。' }
+      const name   = c.worker?.name ?? '従業員'
+      const date   = c.attendance_record?.work_date ?? '不明'
+      const reason = c.reason ? `理由: ${c.reason}` : '理由なし'
+      const fmtTime = (ts: string | null) => ts
+        ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        : '未設定'
+      const parts: string[] = [`${name}さんの${date}の勤怠修正申請`]
+      if (c.attendance_record?.clock_in || c.requested_clock_in)
+        parts.push(`出勤: ${fmtTime(c.attendance_record?.clock_in)}→${fmtTime(c.requested_clock_in)}`)
+      if (c.attendance_record?.clock_out || c.requested_clock_out)
+        parts.push(`退勤: ${fmtTime(c.attendance_record?.clock_out)}→${fmtTime(c.requested_clock_out)}`)
+      parts.push(reason)
+      return { success: true, text: `${parts.join('、')} [id:${corrId}]`, items: [{ id: corrId, label: `ID: ${corrId}` }] }
+    } catch {
+      return { success: false, text: '修正申請詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getAttendanceToday: ConsoleAgentTool = {
+  name:        'get_attendance_today',
+  description: '今日の出勤状況を確認する。「今日誰来てる？」「今日の勤怠状況教えて」「今出勤中の人いる？」「まだ働いてる人いる？」「退勤してない人いる？」等に使う。',
+  safetyLevel: 1,
+  parameters:  { type: 'object', properties: {}, required: [] },
+  async execute(_, ctx): Promise<ToolResult> {
+    try {
+      const todayJst = getJstDateString()
+      const y = todayJst.slice(0, 4)
+      const m = String(parseInt(todayJst.slice(5, 7), 10))
+      const res = await apiFetch(`/api/attendance?year=${y}&month=${m}`, ctx)
+      if (!res.ok) return { success: false, text: '勤怠情報を取得できませんでした。' }
+      const data    = await res.json()
+      const records: any[] = (data.data ?? []).filter((r: any) => r.work_date === todayJst)
+      if (records.length === 0) return { success: true, text: `今日（${todayJst}）の打刻記録はまだありません。`, items: [] }
+      const nameMap = new Map<string, string>()
+      for (const s of (data.summary ?? [])) nameMap.set(s.worker_id, s.name)
+      const fmtTime = (ts: string | null) => ts
+        ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        : null
+      const working: string[] = [], done: string[] = []
+      for (const r of records) {
+        const name = nameMap.get(r.worker_id) ?? '従業員'
+        const ci = fmtTime(r.clock_in), co = fmtTime(r.clock_out)
+        if (ci && !co) working.push(`${name}(${ci}〜)`)
+        else if (ci && co) done.push(`${name}(${ci}〜${co})`)
+      }
+      const parts: string[] = [`今日（${todayJst}）の出勤: ${records.length}名打刻済み`]
+      if (working.length > 0) parts.push(`勤務中: ${working.slice(0, 5).join('、')}`)
+      if (done.length    > 0) parts.push(`退勤済: ${done.slice(0, 5).join('、')}`)
+      return { success: true, text: parts.join('。') }
+    } catch {
+      return { success: false, text: '今日の勤怠情報の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getAttendanceRecords: ConsoleAgentTool = {
+  name:        'get_attendance_records',
+  description: '指定した従業員の勤怠記録詳細を取得する。「田中さん今日の勤怠教えて」「この人昨日何時に来た？」「今月の出勤記録見せて」「何時に退勤した？」等に使う。',
+  safetyLevel: 1,
+  parameters:  {
+    type: 'object',
+    properties: {
+      employee_id: { type: 'string', description: '従業員のID' },
+      year:        { type: 'string', description: '年（例: 2026）省略時は今年' },
+      month:       { type: 'string', description: '月（例: 8）省略時は今月' },
+    },
+    required: ['employee_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    const empId = params.employee_id
+    if (!empId) return { success: false, text: '従業員IDが必要です。' }
+    try {
+      const empRes = await apiFetch(`/api/employees/${empId}`, ctx)
+      if (!empRes.ok) return { success: false, text: '従業員情報を取得できませんでした。' }
+      const empData = await empRes.json()
+      const e = empData?.data
+      if (!e) return { success: false, text: '従業員が見つかりませんでした。' }
+      if (!e.auth_user_id) return { success: true, text: `${e.name}さんはシステムアカウントがないため勤怠記録を確認できません。` }
+      const y = params.year  ?? String(getJstYear())
+      const m = params.month ?? String(getJstMonth())
+      const attRes = await apiFetch(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`, ctx)
+      if (!attRes.ok) return { success: false, text: '勤怠記録を取得できませんでした。' }
+      const attData = await attRes.json()
+      const records: any[] = attData.data ?? []
+      if (records.length === 0) return { success: true, text: `${e.name}さんの${m}月の勤怠記録はありません。`, items: [] }
+      const summary: any = (attData.summary ?? []).find((s: any) => s.worker_id === e.auth_user_id)
+      const fmtTime = (ts: string | null) => ts
+        ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        : '--:--'
+      const recent = records.slice(-5).reverse().map((r: any) =>
+        `${r.work_date} ${fmtTime(r.clock_in)}〜${fmtTime(r.clock_out)}`
+      )
+      const hours = summary ? Math.round(summary.totalWorkMins / 60 * 10) / 10 : 0
+      const items = recent.map((label, i) => ({ id: String(i), label }))
+      return {
+        success: true,
+        text:    `${e.name}さんの${m}月: 出勤${summary?.workDays ?? records.length}日、総勤務${hours}時間。直近記録: ${recent.join(' / ')}`,
+        items,
+      }
+    } catch {
+      return { success: false, text: '勤怠記録の取得中にエラーが発生しました。' }
     }
   },
 }
@@ -878,10 +1002,13 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getEmployeeAttendanceSummary,
   getEmployeeShifts,
   getEmployeeQualitySummary,
+  getPendingAttendance,
+  getAttendanceCorrectionDetail,
+  getAttendanceToday,
+  getAttendanceRecords,
   getNotifications,
   getPendingExpenses,
   getExpenseDetail,
-  getPendingAttendance,
   getPendingRequests,
   getRevenueSummary,
   navigate,

@@ -324,19 +324,126 @@ const getExpenseDetailTool = tool({
 
 const getPendingAttendanceTool = tool({
   name:        'get_pending_attendance',
-  description: '勤怠修正申請の承認待ちを確認する。「勤怠修正来てる？」「勤務時間の直しの申請ある？」「修正申請何件？」等に使う。',
+  description: '勤怠修正申請の承認待ち一覧を確認する。「勤怠修正来てる？」「修正申請何件？」「未処理の勤怠申請ある？」等に使う。',
   parameters:  z.object({}),
   execute: async (_, runCtx) => {
-    const ctx   = runCtx!.context as ConsoleAgentSDKContext
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
     try {
-      const res   = await apiGet('/api/attendance/corrections?status=pending', ctx)
+      const res   = await apiGet('/api/attendance/corrections?status=submitted', ctx)
       if (!res.ok) return '勤怠修正申請を確認できませんでした。'
       const data  = await res.json()
-      // API: { corrections: [...] }
       const items = Array.isArray(data?.corrections) ? data.corrections : []
       if (items.length === 0) return '承認待ちの勤怠修正申請はありません。'
-      return `承認待ちの勤怠修正申請が${items.length}件あります。`
+      const list = items.slice(0, 5).map((e: any, i: number) => {
+        const name = e.worker?.name ?? '従業員'
+        const date = e.attendance_record?.work_date ?? '不明'
+        return `${i + 1}件目: ${name}、${date} [id:${e.id}]`
+      }).join(' / ')
+      return `承認待ちの勤怠修正申請が${items.length}件あります。${list}`
     } catch { return '勤怠修正申請の取得中にエラーが発生しました。' }
+  },
+})
+
+const getAttendanceCorrectionDetailTool = tool({
+  name:        'get_attendance_correction_detail',
+  description: '指定した勤怠修正申請の詳細（現在値・申請値・理由）を取得する。「1件目詳しく」「この修正何を変えたいの？」「理由は？」等に使う。',
+  parameters:  z.object({ correction_id: z.string().describe('修正申請のID') }),
+  execute: async ({ correction_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!correction_id) return '修正申請IDが必要です。'
+    try {
+      const res = await apiGet(`/api/attendance/corrections/${correction_id}`, ctx)
+      if (!res.ok) return '修正申請情報を取得できませんでした。'
+      const data = await res.json()
+      const c    = data?.correction
+      if (!c) return '修正申請が見つかりませんでした。'
+      const name   = c.worker?.name ?? '従業員'
+      const date   = c.attendance_record?.work_date ?? '不明'
+      const reason = c.reason ? `理由: ${c.reason}` : '理由なし'
+      const fmtTime = (ts: string | null) => ts
+        ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        : '未設定'
+      const parts: string[] = [`${name}さんの${date}の勤怠修正申請`]
+      if (c.attendance_record?.clock_in || c.requested_clock_in)
+        parts.push(`出勤: ${fmtTime(c.attendance_record?.clock_in)}→${fmtTime(c.requested_clock_in)}`)
+      if (c.attendance_record?.clock_out || c.requested_clock_out)
+        parts.push(`退勤: ${fmtTime(c.attendance_record?.clock_out)}→${fmtTime(c.requested_clock_out)}`)
+      parts.push(reason)
+      return `${parts.join('、')} [id:${correction_id}]`
+    } catch { return '修正申請詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const getAttendanceTodayTool = tool({
+  name:        'get_attendance_today',
+  description: '今日の出勤状況を確認する。「今日誰来てる？」「今日の勤怠状況教えて」「今出勤中の人いる？」「まだ働いてる人いる？」「退勤してない人いる？」等に使う。',
+  parameters:  z.object({}),
+  execute: async (_, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const todayJst = getJstDateString()
+      const y = todayJst.slice(0, 4)
+      const m = String(parseInt(todayJst.slice(5, 7), 10))
+      const res = await apiGet(`/api/attendance?year=${y}&month=${m}`, ctx)
+      if (!res.ok) return '勤怠情報を取得できませんでした。'
+      const data    = await res.json()
+      const records: any[] = (data.data ?? []).filter((r: any) => r.work_date === todayJst)
+      if (records.length === 0) return `今日（${todayJst}）の打刻記録はまだありません。`
+      const nameMap = new Map<string, string>()
+      for (const s of (data.summary ?? [])) nameMap.set(s.worker_id, s.name)
+      const fmtTime = (ts: string | null) => ts
+        ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        : null
+      const working: string[] = [], done: string[] = []
+      for (const r of records) {
+        const name = nameMap.get(r.worker_id) ?? '従業員'
+        const ci = fmtTime(r.clock_in), co = fmtTime(r.clock_out)
+        if (ci && !co) working.push(`${name}(${ci}〜)`)
+        else if (ci && co) done.push(`${name}(${ci}〜${co})`)
+      }
+      const parts: string[] = [`今日（${todayJst}）の出勤: ${records.length}名打刻済み`]
+      if (working.length > 0) parts.push(`勤務中: ${working.slice(0, 5).join('、')}`)
+      if (done.length    > 0) parts.push(`退勤済: ${done.slice(0, 5).join('、')}`)
+      return parts.join('。')
+    } catch { return '今日の勤怠情報の取得中にエラーが発生しました。' }
+  },
+})
+
+const getAttendanceRecordsTool = tool({
+  name:        'get_attendance_records',
+  description: '指定した従業員の勤怠記録詳細を取得する。「田中さん今日の勤怠教えて」「この人昨日何時に来た？」「今月の出勤記録見せて」「何時に退勤した？」等に使う。',
+  parameters:  z.object({
+    employee_id: z.string().describe('従業員のID'),
+    year:        z.string().optional().describe('年（例: 2026）省略時は今年'),
+    month:       z.string().optional().describe('月（例: 8）省略時は今月'),
+  }),
+  execute: async ({ employee_id, year, month }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!employee_id) return '従業員IDが必要です。'
+    try {
+      const empRes = await apiGet(`/api/employees/${employee_id}`, ctx)
+      if (!empRes.ok) return '従業員情報を取得できませんでした。'
+      const empData = await empRes.json()
+      const e = empData?.data
+      if (!e) return '従業員が見つかりませんでした。'
+      if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため勤怠記録を確認できません。`
+      const y = year  ?? String(getJstYear())
+      const m = month ?? String(getJstMonth())
+      const attRes = await apiGet(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`, ctx)
+      if (!attRes.ok) return '勤怠記録を取得できませんでした。'
+      const attData = await attRes.json()
+      const records: any[] = attData.data ?? []
+      if (records.length === 0) return `${e.name}さんの${m}月の勤怠記録はありません。`
+      const summary: any = (attData.summary ?? []).find((s: any) => s.worker_id === e.auth_user_id)
+      const fmtTime = (ts: string | null) => ts
+        ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        : '--:--'
+      const recent = records.slice(-5).reverse().map((r: any) =>
+        `${r.work_date} ${fmtTime(r.clock_in)}〜${fmtTime(r.clock_out)}`
+      ).join(' / ')
+      const hours = summary ? Math.round(summary.totalWorkMins / 60 * 10) / 10 : 0
+      return `${e.name}さんの${m}月: 出勤${summary?.workDays ?? records.length}日、総勤務${hours}時間。直近記録: ${recent}`
+    } catch { return '勤怠記録の取得中にエラーが発生しました。' }
   },
 })
 
@@ -689,7 +796,7 @@ const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status'),
     params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
@@ -815,6 +922,19 @@ propose_action → finalOutputに確認文 → 管理者「はい」→ Server�
 2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
 3. 却下の場合は必ず理由をユーザーから先に聞く（APIが却下理由必須のため）
 
+## 勤怠操作手順
+今日の出勤状況: get_attendance_today（全従業員の今日の打刻状況）
+従業員別勤怠記録: get_attendance_records（employeeIdが必要、year/month省略時は今月）
+修正申請一覧: get_pending_attendance（承認待ちのみ → correctionId取得）
+修正申請詳細: get_attendance_correction_detail（correctionIdが必要）
+承認: 対象確認後 → propose_action(console.approve_attendance, {correctionId})
+  確認文例: 「田中さんの8月22日の勤怠修正申請を承認します。よろしいですか？」
+却下: 却下理由を先にユーザーから聞く → propose_action(console.reject_attendance, {correctionId, reject_reason})
+  確認文例: 「田中さんの修正申請を『打刻ミスのため』で却下します。よろしいですか？」
+勤怠直接編集: 不可。「修正申請フローを使ってください」と回答。
+代理打刻: 不可。「本人打刻はHIKARUシステムから」と回答。
+correctionIdは必ずget_pending_attendanceのresultから取得する。AI生成ID禁止。
+
 ## 従業員操作手順
 従業員一覧: get_employees（search/status指定可）→ employeeId確認
 従業員詳細: get_employee_detail（employeeIdが必要）
@@ -845,6 +965,7 @@ employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止�
 - console.approve_expense          → params: { expenseId }
 - console.reject_expense           → params: { expenseId, reject_reason }
 - console.approve_attendance       → params: { correctionId }
+- console.reject_attendance        → params: { correctionId, reject_reason }
 - console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
 - console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
 - console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }
@@ -875,6 +996,9 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getPendingExpensesTool,
     getExpenseDetailTool,
     getPendingAttendanceTool,
+    getAttendanceCorrectionDetailTool,
+    getAttendanceTodayTool,
+    getAttendanceRecordsTool,
     getPendingRequestsTool,
     getRevenueTool,
     getQualitySummaryTool,

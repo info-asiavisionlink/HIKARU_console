@@ -54,7 +54,10 @@ NavigationせずにDataツールを使う。
 担当者 → get_project_assignments（project_idを指定）→ 実名を返す
 経費申請・処理待ちの申請 → get_pending_expenses（申請者・金額・カテゴリ付きで返す）
 経費詳細 → get_expense_detail（expense_idを指定）
-勤怠修正申請 → get_pending_attendance
+勤怠修正申請一覧 → get_pending_attendance（承認待ちのみ）
+勤怠修正詳細 → get_attendance_correction_detail（correction_idを指定）
+今日の出勤状況 → get_attendance_today
+従業員別勤怠記録 → get_attendance_records（employee_idが必要、year/month指定可）
 通知・連絡 → get_notifications
 ダッシュボード → get_dashboard_summary
 売上・未入金・未請求 → get_revenue_summary（navigationしない）
@@ -64,6 +67,23 @@ NavigationせずにDataツールを使う。
 従業員の勤怠概要 → get_employee_attendance_summary（employee_idを指定）
 従業員のシフト → get_employee_shifts（employee_idを指定）
 従業員の品質評価 → get_employee_quality_summary（employee_idを指定）
+
+## 勤怠操作手順
+今日の出勤状況: get_attendance_today（全従業員の今日の打刻状況）
+従業員別勤怠: get_attendance_records（employeeIdが必要、year/month省略時は今月）
+修正申請一覧: get_pending_attendance（承認待ちのみ → correctionId取得）
+修正申請詳細: get_attendance_correction_detail（correctionIdが必要）
+承認: correctionId確認後 → 確認後 execute_confirmed_action(console.approve_attendance, {correctionId})
+  確認文例: 「田中さんの8月22日の勤怠修正申請を承認します。よろしいですか？」
+却下: 理由を先にユーザーから聞く → 確認後 execute_confirmed_action(console.reject_attendance, {correctionId, reject_reason})
+  確認文例: 「田中さんの修正申請を『打刻ミスのため』で却下します。よろしいですか？」
+勤怠Record直接編集: 管理者から直接変更する機能はありません。「管理画面の修正申請フローを使ってください。」と答える。
+代理打刻: 音声で実行不可。「本人打刻はHIKARUシステムから行ってください。」と答える。
+勤怠削除: 音声で実行不可。
+
+## 勤怠ID記憶（最重要）
+correctionIdは必ずget_pending_attendanceのresultから取得する。AI生成ID禁止。
+複数申請時は「どの申請ですか？」と確認してから承認/却下する。
 
 ## 従業員操作手順
 従業員一覧: get_employees（search/status指定可）→ employeeId確認
@@ -164,6 +184,7 @@ Write時は特に厳格に実IDを確認してから実行する。
 - console.approve_expense          → params: { expenseId }
 - console.reject_expense           → params: { expenseId, reject_reason }
 - console.approve_attendance       → params: { correctionId }
+- console.reject_attendance        → params: { correctionId, reject_reason }
 - console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
 - console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
 - console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }`
@@ -518,16 +539,118 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_pending_attendance', description: '勤怠修正申請の承認待ちを確認する。「勤怠修正来てる？」「勤務時間の直しの申請ある？」「修正申請何件？」等に使う。',
+      name: 'get_pending_attendance',
+      description: '勤怠修正申請の承認待ち一覧を確認する。「勤怠修正来てる？」「修正申請何件？」「未処理の勤怠申請ある？」等に使う。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
-        const data = await apiFetch('/api/attendance/corrections?status=pending')
+        const data = await apiFetch('/api/attendance/corrections?status=submitted')
         if (!data) return '勤怠修正申請を確認できませんでした。'
-        // API: { corrections: [...] }（enriched: correction + worker { name } + attendance_record）
         const items = Array.isArray(data?.corrections) ? data.corrections : []
         if (items.length === 0) return '承認待ちの勤怠修正申請はありません。'
-        const list = items.slice(0, 3).map((e: any, i: number) => `${i + 1}: ${e.worker?.name ?? '従業員'} [id:${e.id}]`).join(', ')
+        const list = items.slice(0, 5).map((e: any, i: number) => {
+          const name = e.worker?.name ?? '従業員'
+          const date = e.attendance_record?.work_date ?? '不明'
+          return `${i + 1}件目: ${name}、${date} [id:${e.id}]`
+        }).join(' / ')
         return `承認待ちの勤怠修正申請が${items.length}件あります。${list}`
+      },
+    }),
+    toolFactory({
+      name: 'get_attendance_correction_detail',
+      description: '指定した勤怠修正申請の詳細（現在値・申請値・理由）を取得する。「1件目詳しく」「この修正何を変えたいの？」「理由は？」等に使う。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { correction_id: { type: 'string', description: '修正申請のID' } },
+        required: ['correction_id'], additionalProperties: false,
+      },
+      execute: async ({ correction_id }: { correction_id: string }) => {
+        if (!correction_id) return '修正申請IDが必要です。'
+        const data = await apiFetch(`/api/attendance/corrections/${correction_id}`)
+        if (!data) return '修正申請情報を取得できませんでした。'
+        const c = data?.correction
+        if (!c) return '修正申請が見つかりませんでした。'
+        const name = c.worker?.name ?? '従業員'
+        const date = c.attendance_record?.work_date ?? '不明'
+        const reason = c.reason ? `理由: ${c.reason}` : '理由なし'
+        const fmtTime = (ts: string | null) => {
+          if (!ts) return '未設定'
+          return new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+        }
+        const parts: string[] = [`${name}さんの${date}の勤怠修正申請`]
+        if (c.attendance_record?.clock_in || c.requested_clock_in)
+          parts.push(`出勤: ${fmtTime(c.attendance_record?.clock_in)}→${fmtTime(c.requested_clock_in)}`)
+        if (c.attendance_record?.clock_out || c.requested_clock_out)
+          parts.push(`退勤: ${fmtTime(c.attendance_record?.clock_out)}→${fmtTime(c.requested_clock_out)}`)
+        parts.push(reason)
+        return `${parts.join('、')} [id:${correction_id}]`
+      },
+    }),
+    toolFactory({
+      name: 'get_attendance_today',
+      description: '今日の出勤状況を確認する。「今日誰来てる？」「今日の勤怠状況教えて」「今出勤中の人いる？」「まだ働いてる人いる？」「退勤してない人いる？」等に使う。',
+      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      execute: async () => {
+        const todayJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+        const y = todayJst.slice(0, 4)
+        const m = String(parseInt(todayJst.slice(5, 7), 10))
+        const data = await apiFetch(`/api/attendance?year=${y}&month=${m}`)
+        if (!data) return '勤怠情報を取得できませんでした。'
+        const records: any[] = (data.data ?? []).filter((r: any) => r.work_date === todayJst)
+        if (records.length === 0) return `今日（${todayJst}）の打刻記録はまだありません。`
+        const nameMap = new Map<string, string>()
+        for (const s of (data.summary ?? [])) nameMap.set(s.worker_id, s.name)
+        const fmtTime = (ts: string | null) => ts
+          ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+          : null
+        const working: string[] = []
+        const done:    string[] = []
+        for (const r of records) {
+          const name = nameMap.get(r.worker_id) ?? r.worker_id.slice(0, 8)
+          const ci = fmtTime(r.clock_in)
+          const co = fmtTime(r.clock_out)
+          if (ci && !co) working.push(`${name}(${ci}〜)`)
+          else if (ci && co) done.push(`${name}(${ci}〜${co})`)
+        }
+        const parts: string[] = [`今日（${todayJst}）の出勤: ${records.length}名打刻済み`]
+        if (working.length > 0) parts.push(`勤務中: ${working.slice(0, 5).join('、')}`)
+        if (done.length    > 0) parts.push(`退勤済: ${done.slice(0, 5).join('、')}`)
+        return parts.join('。')
+      },
+    }),
+    toolFactory({
+      name: 'get_attendance_records',
+      description: '指定した従業員の勤怠記録詳細を取得する。「田中さん今日の勤怠教えて」「この人昨日何時に来た？」「今月の出勤記録見せて」等に使う。get_employee_attendance_summaryより詳細な日別記録を返す。',
+      parameters: {
+        type: 'object',
+        properties: {
+          employee_id: { type: 'string', description: '従業員のID' },
+          year:        { type: 'string', description: '年（例: 2026）省略時は今年' },
+          month:       { type: 'string', description: '月（例: 8）省略時は今月' },
+        },
+        required: ['employee_id'], additionalProperties: false,
+      },
+      execute: async ({ employee_id, year, month }: { employee_id: string; year?: string; month?: string }) => {
+        if (!employee_id) return '従業員IDが必要です。'
+        const empData = await apiFetch(`/api/employees/${employee_id}`)
+        if (!empData?.data) return '従業員情報を取得できませんでした。'
+        const e = empData.data
+        if (!e.auth_user_id) return `${e.name}さんはシステムアカウントがないため勤怠記録を確認できません。`
+        const jstDate = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+        const y = year  ?? jstDate.slice(0, 4)
+        const m = month ?? String(parseInt(jstDate.slice(5, 7), 10))
+        const attData = await apiFetch(`/api/attendance?worker_id=${e.auth_user_id}&year=${y}&month=${m}`)
+        if (!attData) return '勤怠記録を取得できませんでした。'
+        const records: any[] = attData.data ?? []
+        if (records.length === 0) return `${e.name}さんの${m}月の勤怠記録はありません。`
+        const summary: any = (attData.summary ?? []).find((s: any) => s.worker_id === e.auth_user_id)
+        const fmtTime = (ts: string | null) => ts
+          ? new Date(ts).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+          : '--:--'
+        const recent = records.slice(-5).reverse().map((r: any) =>
+          `${r.work_date} ${fmtTime(r.clock_in)}〜${fmtTime(r.clock_out)}`
+        ).join(' / ')
+        const hours = summary ? Math.round(summary.totalWorkMins / 60 * 10) / 10 : 0
+        return `${e.name}さんの${m}月: 出勤${summary?.workDays ?? records.length}日、総勤務${hours}時間。直近記録: ${recent}`
       },
     }),
     toolFactory({
@@ -763,7 +886,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
