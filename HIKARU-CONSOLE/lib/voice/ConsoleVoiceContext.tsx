@@ -1587,6 +1587,23 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const turnIdRef           = React.useRef(0)
   const lastRtResponseText  = React.useRef('')
   const lastRtResponseTime  = React.useRef(0)
+  const voiceTraceSeqRef        = React.useRef(0)
+  const realtimeSessionSeqRef   = React.useRef(0)
+
+  // ─── VOICE_TRACE helper（診断用、機密データ禁止）────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const voiceTrace = React.useCallback((event: string, extra?: Record<string, unknown>) => {
+    voiceTraceSeqRef.current += 1
+    console.log('[VOICE_TRACE]', {
+      seq:  voiceTraceSeqRef.current,
+      t:    new Date().toISOString(),
+      event,
+      mode: modeRef.current,
+      eng:  voiceEngineModeRef.current,
+      spk:  isSpeakingRef.current,
+      ...extra,
+    })
+  }, [])
 
   React.useEffect(() => { voiceSettingsRef.current = voiceSettings },    [voiceSettings])
   React.useEffect(() => { pathnameRef.current      = pathname },         [pathname])
@@ -1607,6 +1624,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   }, [])
 
   const interrupt = React.useCallback(() => {
+    voiceTrace('interrupt_called', { reason: 'manual' })
     if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     try { (realtimeSessionRef.current as any)?.interrupt?.() } catch {}
     isSpeakingRef.current = false
@@ -1912,6 +1930,8 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
 
     setVoiceEngineMode('realtime-connecting')
     voiceEngineModeRef.current = 'realtime-connecting'
+    realtimeSessionSeqRef.current += 1
+    voiceTrace('connect_start', { sessionSeq: realtimeSessionSeqRef.current })
 
     try {
       const tokenRes = await fetch('/api/ai/console-realtime-token', {
@@ -1951,18 +1971,21 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       // 次のaudio responseのagent_start前に窓が生じてbarge-inが発生する。
       session.on?.('agent_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        voiceTrace('agent_start')
         muteMic(true)
         if (modeRef.current === 'listening' || modeRef.current === 'idle') setModeSync('processing')
       })
       // audio_start: WebRTC modeでは発火しないがWebSocket fallback用に残す。
       session.on?.('audio_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        voiceTrace('audio_start')
         isSpeakingRef.current = true
         if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
         setModeSync('speaking')
       })
       session.on?.('audio_stopped', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        voiceTrace('audio_stopped')
         isSpeakingRef.current = false
         // Root Cause Fix: DO NOT unmute immediately after audio_stopped.
         // Mic was previously opened before the 300ms timer fired, giving the
@@ -1970,11 +1993,14 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         // Fix: keep mic muted until after the echo cooldown, then unmute + set listening atomically.
         setModeSync('processing')
         if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
+        voiceTrace('resume_timer_set', { delay: 700 })
         resumeTimerRef.current = setTimeout(() => {
           if (voiceEngineModeRef.current !== 'realtime') return
           if (modeRef.current !== 'processing') return
+          voiceTrace('resume_timer_fire')
           muteMic(false)
           setModeSync('listening')
+          voiceTrace('listening_restored')
         }, 700)
       })
       session.on?.('agent_end', (_ctx: unknown, _agent: unknown, output: string) => {
@@ -1982,11 +2008,15 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         // tool-only responseのagent_end→次audio responseのagent_startの窓でbarge-inが発生するため。
         if (voiceEngineModeRef.current !== 'realtime') return
         const text = (output ?? '').trim()
-        if (!text) return
+        if (!text) { voiceTrace('agent_end_empty'); return }
         // 時間ベースdedup: 同一テキストが3秒以内に再度来た場合はphantom turnの重複とみなす。
         // 直前メッセージがuserの場合でもブロックできるよう、refs単体で管理する。
         const now = Date.now()
-        if (text === lastRtResponseText.current && now - lastRtResponseTime.current < 3000) return
+        if (text === lastRtResponseText.current && now - lastRtResponseTime.current < 3000) {
+          voiceTrace('agent_end_dedup_skip', { outputLen: text.length })
+          return
+        }
+        voiceTrace('agent_end_add_message', { outputLen: text.length })
         lastRtResponseText.current = text
         lastRtResponseTime.current = now
         setResponse(text)
@@ -1994,28 +2024,36 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       })
       session.on?.('agent_tool_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        voiceTrace('agent_tool_start')
         muteMic(true)
         setModeSync('working')
       })
       session.on?.('agent_tool_end', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        voiceTrace('agent_tool_end')
         setModeSync('processing')
       })
       // audio_interrupted: WebRTC modeでは発火しない (WebSocket専用)。safety unmute。
       session.on?.('audio_interrupted', () => {
         if (voiceEngineModeRef.current !== 'realtime') return
+        voiceTrace('audio_interrupted')
         isSpeakingRef.current = false
         muteMic(false)
         if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
         setModeSync('listening')
       })
       session.on?.('transport_event', (event: any) => {
-        if (event?.type !== 'conversation.item.input_audio_transcription.completed') return
+        const evType = event?.type as string | undefined
+        if (evType === 'response.created' || evType === 'response.done' || evType === 'response.output_audio.done' || evType === 'response.cancelled' || evType === 'error') {
+          voiceTrace('transport_event', { evType, responseId: (event as any)?.response?.id })
+        }
+        if (evType !== 'conversation.item.input_audio_transcription.completed') return
         const text = (event.transcript ?? '').trim()
         if (!text || voiceEngineModeRef.current !== 'realtime') return
         setTranscript(text)
         const m = modeRef.current
         const isBusy = m === 'processing' || m === 'working' || m === 'speaking'
+        voiceTrace('user_transcript_completed', { textLen: text.length, busy: isBusy, interrupt: isInterruptPhrase(text) })
         if (isBusy && !isInterruptPhrase(text)) return
         addMessage('user', text)
       })
@@ -2029,6 +2067,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       // 予期せぬ切断時の自動Reconnect（1回）
       const transport = session.transport as any
       transport?.on?.('connection_change', (status: any) => {
+        voiceTrace('connection_change', { status })
         if (status !== 'disconnected') return
         if (!isSessionRef.current) return
         if (voiceEngineModeRef.current !== 'realtime') return
@@ -2038,19 +2077,23 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         setVoiceEngineMode('off')
         voiceEngineModeRef.current = 'off'
         setModeSync('processing')
+        voiceTrace('reconnect_scheduled', { delay: 1500 })
         setTimeout(() => {
           if (!isSessionRef.current) return
           if (voiceEngineModeRef.current !== 'off') return
+          voiceTrace('reconnect_start')
           connectRealtimeRef.current()
         }, 1500)
       })
 
       // connect()解決 = WebRTC確立。イベント待ちせず即座にrealtime状態をセット（Worker方式）。
+      voiceTrace('session_connecting')
       await session.connect({ apiKey: clientSecret } as any)
       realtimeSessionRef.current = session
       setVoiceEngineMode('realtime')
       voiceEngineModeRef.current = 'realtime'
       setModeSync('listening')
+      voiceTrace('session_connected')
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
