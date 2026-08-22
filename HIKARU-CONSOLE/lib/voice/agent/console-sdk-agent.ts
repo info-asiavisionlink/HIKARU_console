@@ -912,11 +912,100 @@ const getShiftAttendanceStatusTool = tool({
   },
 })
 
+const INVOICE_TYPE_LABELS_SDK: Record<string, string> = { quote: '見積書', invoice: '請求書' }
+const INVOICE_STATUS_LABELS_SDK: Record<string, string> = {
+  draft: '下書き', issued: '発行済み', accepted: '承認済み', rejected: '却下',
+  sent: '送付済み', awaiting_payment: '入金待ち', overdue: '期限超過',
+  paid: '入金済み', cancelled: 'キャンセル',
+}
+
+const getInvoicesTool = tool({
+  name:        'get_invoices',
+  description: '請求書・見積書の一覧を取得する。「見積書一覧」「請求書教えて」「未入金の請求は？」「ABC社の見積ある？」等。invoice_typeで絞り込み可。',
+  parameters:  z.object({
+    invoice_type: z.string().optional().describe('quote（見積書）またはinvoice（請求書）。省略時は両方'),
+    status:       z.string().optional().describe('draft/issued/accepted/rejected/sent/awaiting_payment/overdue/paid/cancelled'),
+    client_id:    z.string().optional().describe('顧客IDで絞り込む'),
+    project_id:   z.string().optional().describe('案件IDで絞り込む'),
+  }),
+  execute: async ({ invoice_type, status, client_id, project_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams()
+      if (invoice_type) q.set('invoice_type', invoice_type)
+      if (status)       q.set('status',       status)
+      if (client_id)    q.set('client_id',    client_id)
+      if (project_id)   q.set('project_id',   project_id)
+      const res = await apiGet(`/api/invoices?${q}`, ctx)
+      if (!res.ok) return '請求書・見積書の一覧を取得できませんでした。'
+      const data = await res.json()
+      const list: any[] = data.invoices ?? []
+      if (list.length === 0) {
+        const typeLabel = invoice_type ? INVOICE_TYPE_LABELS_SDK[invoice_type] ?? invoice_type : '請求書・見積書'
+        return `${typeLabel}はありません。`
+      }
+      const lines = list.slice(0, 10).map((inv: any) => {
+        const type   = INVOICE_TYPE_LABELS_SDK[inv.invoice_type] ?? inv.invoice_type
+        const stat   = INVOICE_STATUS_LABELS_SDK[inv.status] ?? inv.status
+        const client = inv.clients?.name ?? '顧客不明'
+        const amount = inv.total_amount != null ? `${Number(inv.total_amount).toLocaleString()}円` : '金額不明'
+        return `${inv.invoice_number ?? inv.id} ${type}（${client}）${amount} [${stat}] [id:${inv.id}]`
+      })
+      const total = list.length > 10 ? `（全${list.length}件中10件表示）` : `（全${list.length}件）`
+      return `${lines.join('\n')} ${total}`
+    } catch { return '請求書・見積書一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getInvoiceDetailTool = tool({
+  name:        'get_invoice_detail',
+  description: '請求書または見積書の詳細を取得する。「1件目詳しく」「この見積いくら？」「支払期限いつ？」「明細は？」「入金状況は？」等。get_invoicesで取得したidを使う。',
+  parameters:  z.object({
+    invoice_id: z.string().describe('請求書/見積書のID（get_invoicesのid）'),
+  }),
+  execute: async ({ invoice_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet(`/api/invoices/${invoice_id}`, ctx)
+      if (!res.ok) return '請求書・見積書が見つかりませんでした。'
+      const data = await res.json()
+      const inv = data.invoice
+      if (!inv) return '請求書・見積書が見つかりませんでした。'
+      const type   = INVOICE_TYPE_LABELS_SDK[inv.invoice_type] ?? inv.invoice_type
+      const status = INVOICE_STATUS_LABELS_SDK[inv.status] ?? inv.status
+      const parts: string[] = [
+        `${type}番号: ${inv.invoice_number ?? inv.id}`,
+        `顧客: ${inv.clients?.name ?? '不明'}`,
+        `ステータス: ${status}`,
+      ]
+      if (inv.projects?.name) parts.push(`案件: ${inv.projects.name}`)
+      if (inv.issue_date)     parts.push(`発行日: ${inv.issue_date}`)
+      if (inv.due_date)       parts.push(`支払期限: ${inv.due_date}`)
+      if (inv.subtotal   != null) parts.push(`小計: ${Number(inv.subtotal).toLocaleString()}円`)
+      if (inv.tax_amount != null) parts.push(`消費税: ${Number(inv.tax_amount).toLocaleString()}円`)
+      if (inv.total_amount != null) parts.push(`合計: ${Number(inv.total_amount).toLocaleString()}円`)
+      if (inv.paid_amount  != null && inv.invoice_type === 'invoice') {
+        parts.push(`入金済: ${Number(inv.paid_amount).toLocaleString()}円`)
+        const remaining = (inv.total_amount ?? 0) - (inv.paid_amount ?? 0)
+        if (remaining > 0) parts.push(`残額: ${remaining.toLocaleString()}円`)
+      }
+      const items: any[] = inv.invoice_items ?? []
+      if (items.length > 0) {
+        const itemLines = items.map((it: any) =>
+          `  ・${it.description} ${it.quantity}${it.unit ?? ''}×${Number(it.unit_price).toLocaleString()}円＝${Number(it.amount).toLocaleString()}円`
+        )
+        parts.push(`明細:\n${itemLines.join('\n')}`)
+      }
+      return parts.join('\n')
+    } catch { return '請求書・見積書詳細の取得中にエラーが発生しました。' }
+  },
+})
+
 const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment'),
     params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
@@ -1086,6 +1175,37 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## 見積書（quote）操作手順
+見積書一覧: get_invoices(invoice_type='quote', status?, client_id?)
+見積書詳細: get_invoice_detail(invoice_id)
+見積書作成: get_projects で案件確認 → propose_action(console.create_estimate_from_project, {projectId, project_name?})
+  ※金額はサーバーが案件の料金情報から計算する。AIが金額を計算・入力禁止。
+  ※料金情報未登録の案件は作成不可。APIがエラーを返す。
+  確認文例: 「ABC株式会社の『銀座店 床清掃』案件の見積書を作成します。よろしいですか？」
+見積書ステータス変更: get_invoice_detail で現在ステータス確認 → propose_action(console.update_invoice_status, {invoiceId, status})
+  quote の有効遷移: draft→issued/cancelled、issued→accepted/rejected/cancelled、accepted→cancelled、rejected→draft/cancelled
+  確認文例: 「見積書QT-2026-001を発行済みに変更します。よろしいですか？」
+見積書→請求書変換: get_invoice_detail で見積書確認（issued/acceptedのみ変換可）→ propose_action(console.convert_estimate, {invoiceId, invoice_number?})
+  ※金額は見積書のSnapshotを引き継ぐ。AIが金額を変更禁止。
+  確認文例: 「見積書QT-2026-001を請求書に変換します。よろしいですか？」
+見積書削除: 不可。「管理画面から操作してください。」と答える。
+
+## 請求書（invoice）操作手順
+請求書一覧: get_invoices(invoice_type='invoice', status?, client_id?)
+請求書詳細: get_invoice_detail(invoice_id)
+請求書作成（スポット案件）: get_projects で案件確認 → propose_action(console.create_invoice_from_project, {projectId, project_name?})
+  ※完了済み作業がある案件のみ作成可能。スポット案件専用API。
+  ※金額はサーバーが計算（見積書Snapshotまたはproject_pricesから）。AIが金額を計算・入力禁止。
+  確認文例: 「ABC株式会社の『銀座店 床清掃』案件の請求書を作成します。よろしいですか？」
+請求書ステータス変更: get_invoice_detail で現在ステータス確認 → propose_action(console.update_invoice_status, {invoiceId, status, cancel_reason?})
+  invoice の有効遷移: draft→issued/cancelled、issued→sent/awaiting_payment/cancelled、sent→awaiting_payment/cancelled、awaiting_payment→paid/overdue/cancelled、overdue→paid/cancelled
+  確認文例: 「請求書INV-2026-001を発行済みに変更します。よろしいですか？」
+入金記録: get_invoice_detail で残額確認 → propose_action(console.record_payment, {invoiceId, amount, paid_at, payment_method?, notes?})
+  ※paid_atはYYYY-MM-DD形式。amountは数値文字列。
+  ※AIが金額を推測禁止。ユーザーが「全額」と言った場合は残額をget_invoice_detailで確認してから提案する。
+  確認文例: 「請求書INV-2026-001に50,000円の入金を記録します。よろしいですか？」
+請求書削除: 不可。キャンセル操作を案内する。
+
 ## propose_actionのactionとparamsの対応
 - console.update_project_status    → params: { projectId, status }
 - console.create_project           → params: { name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes? }
@@ -1105,6 +1225,11 @@ employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止�
 - console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
 - console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
 - console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }
+- console.create_estimate_from_project → params: { projectId, project_name? }
+- console.create_invoice_from_project  → params: { projectId, project_name? }
+- console.update_invoice_status        → params: { invoiceId, status, cancel_reason? }
+- console.convert_estimate             → params: { invoiceId, invoice_number? }
+- console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -1147,6 +1272,8 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getInvoicesTool,
+    getInvoiceDetailTool,
     proposeActionTool,
     navigateTool,
   ],

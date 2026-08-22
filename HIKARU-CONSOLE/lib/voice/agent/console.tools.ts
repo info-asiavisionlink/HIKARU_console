@@ -1112,6 +1112,111 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── Invoice / Estimate READ Tools ───────────────────────────
+
+const INVOICE_TYPE_LABELS: Record<string, string> = { quote: '見積書', invoice: '請求書' }
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: '下書き', issued: '発行済み', accepted: '承認済み', rejected: '却下',
+  sent: '送付済み', awaiting_payment: '入金待ち', overdue: '期限超過',
+  paid: '入金済み', cancelled: 'キャンセル',
+}
+
+const getInvoices: ConsoleAgentTool = {
+  name:        'get_invoices',
+  description: '請求書・見積書の一覧を取得する。「見積書一覧」「請求書教えて」「未入金の請求は？」「ABC社の見積ある？」等。invoice_typeで絞り込み可。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      invoice_type: { type: 'string', description: 'quote（見積書）またはinvoice（請求書）。省略時は両方' },
+      status:       { type: 'string', description: 'draft/issued/accepted/rejected/sent/awaiting_payment/overdue/paid/cancelled' },
+      client_id:    { type: 'string', description: '顧客IDで絞り込む' },
+      project_id:   { type: 'string', description: '案件IDで絞り込む' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const q = new URLSearchParams()
+      if (params.invoice_type) q.set('invoice_type', params.invoice_type)
+      if (params.status)       q.set('status',       params.status)
+      if (params.client_id)    q.set('client_id',    params.client_id)
+      if (params.project_id)   q.set('project_id',   params.project_id)
+      const res = await apiFetch(`/api/invoices?${q}`, ctx)
+      if (!res.ok) return { success: false, text: '請求書・見積書の一覧を取得できませんでした。' }
+      const data = await res.json()
+      const list: any[] = data.invoices ?? []
+      if (list.length === 0) {
+        const typeLabel = params.invoice_type ? INVOICE_TYPE_LABELS[params.invoice_type] ?? params.invoice_type : '請求書・見積書'
+        return { success: true, text: `${typeLabel}はありません。`, data }
+      }
+      const lines = list.slice(0, 10).map((inv: any) => {
+        const type   = INVOICE_TYPE_LABELS[inv.invoice_type] ?? inv.invoice_type
+        const status = INVOICE_STATUS_LABELS[inv.status] ?? inv.status
+        const client = inv.clients?.name ?? '顧客不明'
+        const amount = inv.total_amount != null ? `${inv.total_amount.toLocaleString()}円` : '金額不明'
+        return `${inv.invoice_number ?? inv.id} ${type}（${client}）${amount} [${status}] [id:${inv.id}]`
+      })
+      const total = list.length > 10 ? `（全${list.length}件中10件表示）` : `（全${list.length}件）`
+      return { success: true, text: `${lines.join('\n')} ${total}`, data, items: list.slice(0, 10).map((inv: any) => ({ id: inv.id, label: `${inv.invoice_number ?? inv.id} ${INVOICE_TYPE_LABELS[inv.invoice_type] ?? ''} ${inv.clients?.name ?? ''}` })) }
+    } catch {
+      return { success: false, text: '請求書・見積書一覧の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
+const getInvoiceDetail: ConsoleAgentTool = {
+  name:        'get_invoice_detail',
+  description: '請求書または見積書の詳細を取得する。「1件目詳しく」「この見積いくら？」「支払期限いつ？」「明細は？」等。get_invoicesで取得したidを使う。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      invoice_id: { type: 'string', description: '請求書/見積書のID（get_invoicesのid）' },
+    },
+    required: ['invoice_id'],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const { invoice_id } = params
+      if (!invoice_id) return { success: false, text: 'invoice_idを指定してください。' }
+      const res = await apiFetch(`/api/invoices/${invoice_id}`, ctx)
+      if (!res.ok) return { success: false, text: '請求書・見積書が見つかりませんでした。' }
+      const data = await res.json()
+      const inv = data.invoice
+      if (!inv) return { success: false, text: '請求書・見積書が見つかりませんでした。' }
+      const type   = INVOICE_TYPE_LABELS[inv.invoice_type] ?? inv.invoice_type
+      const status = INVOICE_STATUS_LABELS[inv.status] ?? inv.status
+      const parts: string[] = [
+        `${type}番号: ${inv.invoice_number ?? inv.id}`,
+        `顧客: ${inv.clients?.name ?? '不明'}`,
+        `ステータス: ${status}`,
+      ]
+      if (inv.projects?.name) parts.push(`案件: ${inv.projects.name}`)
+      if (inv.issue_date)     parts.push(`発行日: ${inv.issue_date}`)
+      if (inv.due_date)       parts.push(`支払期限: ${inv.due_date}`)
+      if (inv.subtotal   != null) parts.push(`小計: ${inv.subtotal.toLocaleString()}円`)
+      if (inv.tax_amount != null) parts.push(`消費税: ${inv.tax_amount.toLocaleString()}円`)
+      if (inv.total_amount != null) parts.push(`合計: ${inv.total_amount.toLocaleString()}円`)
+      if (inv.paid_amount  != null && inv.invoice_type === 'invoice') {
+        parts.push(`入金済: ${inv.paid_amount.toLocaleString()}円`)
+        const remaining = (inv.total_amount ?? 0) - (inv.paid_amount ?? 0)
+        if (remaining > 0) parts.push(`残額: ${remaining.toLocaleString()}円`)
+      }
+      const items: any[] = inv.invoice_items ?? []
+      if (items.length > 0) {
+        const itemLines = items.map((it: any) =>
+          `  ・${it.description} ${it.quantity}${it.unit ?? ''}×${it.unit_price?.toLocaleString()}円＝${it.amount?.toLocaleString()}円`
+        )
+        parts.push(`明細:\n${itemLines.join('\n')}`)
+      }
+      return { success: true, text: parts.join('\n'), data, items: [{ id: inv.id, label: inv.invoice_number ?? inv.id }] }
+    } catch {
+      return { success: false, text: '請求書・見積書詳細の取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Registry ────────────────────────────────────────────────
 export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getDashboardSummary,
@@ -1143,6 +1248,8 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getInvoices,
+  getInvoiceDetail,
   navigate,
 ]
 

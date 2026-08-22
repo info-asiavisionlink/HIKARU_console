@@ -1020,6 +1020,241 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: `従業員のステータスを${STATUS_LABELS[status] ?? status}に変更しました。` })
       }
 
+      // ─── L4: create_estimate_from_project ───────────────
+      case 'console.create_estimate_from_project': {
+        const { projectId, project_name } = params
+        if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/quote`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({}),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'invoice',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '見積書の作成に失敗しました。' }, { status: res.status })
+
+        const quote = data?.quote
+        if (!quote?.id) return Response.json({ error: '見積書IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/invoices/${quote.id}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const inv = verifyData?.invoice
+          if (!inv?.id || inv.invoice_type !== 'quote') {
+            return Response.json({ error: '見積書の作成を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const projLabel = project_name ? `「${project_name}」の` : ''
+        const existing  = data?.existing === true ? '（既存の下書きを返しました）' : ''
+        return Response.json({
+          success:    true,
+          voiceReply: `${projLabel}見積書 ${quote.invoice_number ?? quote.id} を作成しました。${existing}`,
+        })
+      }
+
+      // ─── L4: create_invoice_from_project ─────────────────
+      case 'console.create_invoice_from_project': {
+        const { projectId, project_name } = params
+        if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/projects/${projectId}/invoice`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({}),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'invoice',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '請求書の作成に失敗しました。' }, { status: res.status })
+
+        const invoice = data?.invoice
+        if (!invoice?.id) return Response.json({ error: '請求書IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/invoices/${invoice.id}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const inv = verifyData?.invoice
+          if (!inv?.id || inv.invoice_type !== 'invoice') {
+            return Response.json({ error: '請求書の作成を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const projLabel = project_name ? `「${project_name}」の` : ''
+        const existing  = data?.existing === true ? '（既存の下書きを返しました）' : ''
+        return Response.json({
+          success:    true,
+          voiceReply: `${projLabel}請求書 ${invoice.invoice_number ?? invoice.id} を作成しました。${existing}`,
+        })
+      }
+
+      // ─── L4: update_invoice_status ───────────────────────
+      case 'console.update_invoice_status': {
+        const { invoiceId, status: newStatus, cancel_reason } = params
+        if (!invoiceId)  return Response.json({ error: 'invoiceId required' },  { status: 400 })
+        if (!newStatus)  return Response.json({ error: 'status required' },      { status: 400 })
+
+        const VALID_STATUSES = ['issued', 'accepted', 'rejected', 'sent', 'awaiting_payment', 'overdue', 'paid', 'cancelled']
+        if (!VALID_STATUSES.includes(newStatus)) {
+          return Response.json({ error: `statusは${VALID_STATUSES.join('/')}のみ変更可能です` }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/invoices/${invoiceId}/status`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ status: newStatus, cancel_reason: cancel_reason ?? null }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'invoice', resourceId: invoiceId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'ステータス変更に失敗しました。' }, { status: res.status })
+
+        // Read-back
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/invoices/${invoiceId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.invoice?.status !== newStatus) {
+            return Response.json({ error: 'ステータス変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const STATUS_LABELS: Record<string, string> = {
+          issued: '発行済み', accepted: '承認済み', rejected: '却下', sent: '送付済み',
+          awaiting_payment: '入金待ち', overdue: '期限超過', paid: '入金済み', cancelled: 'キャンセル',
+        }
+        return Response.json({ success: true, voiceReply: `ステータスを${STATUS_LABELS[newStatus] ?? newStatus}に変更しました。` })
+      }
+
+      // ─── L4: convert_estimate ────────────────────────────
+      case 'console.convert_estimate': {
+        const { invoiceId, invoice_number } = params
+        if (!invoiceId) return Response.json({ error: 'invoiceId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 変換前確認: issued または accepted のquoteのみ変換可
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/invoices/${invoiceId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (!currentRes.ok) return Response.json({ error: '見積書が見つかりませんでした。' }, { status: 404 })
+        const currentData = await currentRes.json()
+        const quote = currentData?.invoice
+        if (!quote?.id) return Response.json({ error: '見積書が見つかりませんでした。' }, { status: 404 })
+        if (quote.invoice_type !== 'quote') {
+          return Response.json({ error: '見積書のみ変換できます。' }, { status: 400 })
+        }
+        if (quote.converted_from_id) {
+          return Response.json({ error: 'この見積書はすでに請求書に変換されています。' }, { status: 400 })
+        }
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/invoices/${invoiceId}/convert`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({}),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'invoice', resourceId: invoiceId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '見積書の変換に失敗しました。' }, { status: res.status })
+
+        const newInvoice = data?.invoice
+        if (!newInvoice?.id) return Response.json({ error: '請求書IDを取得できませんでした。' }, { status: 500 })
+
+        // Read-back: 新しい請求書の確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/invoices/${newInvoice.id}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const inv = verifyData?.invoice
+          if (!inv?.id || inv.invoice_type !== 'invoice') {
+            return Response.json({ error: '請求書の作成を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const quoteNumber = invoice_number ?? quote.invoice_number ?? invoiceId
+        return Response.json({
+          success:    true,
+          voiceReply: `見積書 ${quoteNumber} を請求書 ${newInvoice.invoice_number ?? newInvoice.id} に変換しました。`,
+        })
+      }
+
+      // ─── L4: record_payment ──────────────────────────────
+      case 'console.record_payment': {
+        const { invoiceId, amount, paid_at, payment_method, notes, invoice_number } = params
+        if (!invoiceId) return Response.json({ error: 'invoiceId required' },  { status: 400 })
+        if (!amount)    return Response.json({ error: 'amount required' },      { status: 400 })
+        if (!paid_at)   return Response.json({ error: 'paid_at required' },     { status: 400 })
+
+        const paymentAmount = Number(amount)
+        if (isNaN(paymentAmount) || paymentAmount <= 0) {
+          return Response.json({ error: '入金額は0より大きい値を指定してください' }, { status: 400 })
+        }
+
+        const dateRe = /^\d{4}-\d{2}-\d{2}$/
+        if (!dateRe.test(paid_at)) {
+          return Response.json({ error: 'paid_atはYYYY-MM-DD形式で指定してください' }, { status: 400 })
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/invoices/${invoiceId}/payment`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({
+            amount:         paymentAmount,
+            paid_at,
+            payment_method: payment_method ?? null,
+            notes:          notes ?? null,
+          }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'invoice_payment', resourceId: invoiceId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '入金記録に失敗しました。' }, { status: res.status })
+
+        const invLabel = invoice_number ? `請求書 ${invoice_number} に` : ''
+        const fullyPaid = data?.is_fully_paid === true
+        const remaining = data?.remaining ?? 0
+        let reply = `${invLabel}${paymentAmount.toLocaleString()}円の入金を記録しました（${paid_at}）。`
+        if (fullyPaid) {
+          reply += ' 全額入金完了です。'
+        } else if (remaining > 0) {
+          reply += ` 残額 ${remaining.toLocaleString()}円です。`
+        }
+        return Response.json({ success: true, voiceReply: reply })
+      }
+
       default:
         return Response.json({ error: 'unsupported action' }, { status: 400 })
     }

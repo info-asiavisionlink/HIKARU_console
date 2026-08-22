@@ -176,6 +176,26 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '勤怠修正申請を却下する（却下理由必須、Confirmation必須）',
   },
+  'console.create_estimate_from_project': {
+    level: 4 as const,
+    description: '案件の料金情報から見積書を自動作成する（案件必須、金額はサーバー計算、Confirmation必須）',
+  },
+  'console.create_invoice_from_project': {
+    level: 4 as const,
+    description: '案件から請求書を作成する（スポット/定期/ホテル対応、金額はサーバー計算、Confirmation必須）',
+  },
+  'console.update_invoice_status': {
+    level: 4 as const,
+    description: '請求書または見積書のステータスを変更する（発行・承認・取消等、Confirmation必須）',
+  },
+  'console.convert_estimate': {
+    level: 4 as const,
+    description: '見積書を請求書に変換する（見積ID必須、金額スナップショット、Confirmation必須）',
+  },
+  'console.record_payment': {
+    level: 4 as const,
+    description: '請求書に入金を記録する（invoiceId・金額必須、Confirmation必須）',
+  },
   'console.create_shift': {
     level: 4 as const,
     description: 'シフトを新規登録する（案件・担当者・日時必須、Confirmation必須）',
