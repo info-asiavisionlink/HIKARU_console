@@ -939,6 +939,91 @@ const getShiftAttendanceStatusTool = tool({
   },
 })
 
+const getAnalyticsTool = tool({
+  name:        'get_analytics',
+  description: 'AI分析・品質・業務の総合データを取得する。「AI分析して」「全体的にどう？」「ランキングは？」「品質分布は？」「月次推移は？」「一番品質高い店舗は？」「評価が低い作業者は？」等。全期間集計。',
+  parameters:  z.object({
+    focus: z.string().optional().describe('overview/store/worker/distribution/trends/spots（省略時は全体）'),
+  }),
+  execute: async ({ focus }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const res = await apiGet('/api/analytics', ctx)
+      if (!res.ok) return 'AI分析データを取得できませんでした。'
+      const data = await res.json()
+      const { overview, trends, storeRankings, workerRankings, distribution, spotRankings } = data
+      const f = focus ?? 'overview'
+      const parts: string[] = []
+
+      if (!focus || f === 'overview') {
+        if (overview) {
+          parts.push('【概要（全期間）】')
+          parts.push(`案件数: ${overview.totalProjects ?? 0}件・店舗数: ${overview.totalStores ?? 0}店`)
+          parts.push(`作業件数合計: ${overview.totalJobs ?? 0}件（完了: ${overview.completedJobs ?? 0}・進行中: ${overview.activeJobs ?? 0}）`)
+          parts.push(`今月の作業: ${overview.thisMonthJobs ?? 0}件`)
+          if (overview.avgQualityScore != null) parts.push(`AI品質スコア平均: ${overview.avgQualityScore}点（0-100）`)
+          if ((overview.totalEvaluations ?? 0) > 0) {
+            parts.push(`AI評価: ${overview.totalEvaluations}件（合格${overview.passRate}%・やり直し${overview.redoRate}%）`)
+          }
+          parts.push(`報告書: ${overview.totalReports ?? 0}件・写真: ${overview.totalPhotos ?? 0}枚`)
+        }
+      }
+
+      if (!focus || f === 'overview' || f === 'trends') {
+        const recentTrends = ((trends ?? []) as any[]).slice(-3).filter((t: any) => t.jobCount > 0)
+        if (recentTrends.length > 0) {
+          parts.push('【最近3ヶ月のトレンド】')
+          for (const t of recentTrends) {
+            parts.push(`${t.label}: 作業${t.jobCount}件 ${t.avgScore != null ? 'スコア' + t.avgScore + '点' : 'スコアなし'}`)
+          }
+        }
+      }
+
+      if (!focus || f === 'store') {
+        const topStores = ((storeRankings ?? []) as any[]).slice(0, 5)
+        if (topStores.length > 0) {
+          parts.push('【店舗品質ランキング（上位5件）】')
+          topStores.forEach((s: any, i: number) => {
+            parts.push(`${i + 1}位 ${s.storeName}: ${s.avgScore != null ? s.avgScore + '点' : '--'} （${s.jobCount}件）`)
+          })
+        }
+      }
+
+      if (!focus || f === 'worker') {
+        const topWorkers = ((workerRankings ?? []) as any[]).slice(0, 5)
+        if (topWorkers.length > 0) {
+          parts.push('【作業者品質ランキング（上位5件）】')
+          topWorkers.forEach((w: any, i: number) => {
+            parts.push(`${i + 1}位 ${w.workerName}: ${w.avgScore != null ? w.avgScore + '点' : '--'} 合格率${w.passRate}% （${w.jobCount}件）`)
+          })
+        }
+      }
+
+      if (!focus || f === 'distribution') {
+        const dist: any[] = (distribution ?? []) as any[]
+        if (dist.some((d: any) => d.count > 0)) {
+          parts.push('【品質スコア分布】')
+          for (const d of dist) {
+            if (d.count > 0) parts.push(`${d.label}: ${d.count}件（${d.pct}%）`)
+          }
+        }
+      }
+
+      if (f === 'spots') {
+        const topSpots = ((spotRankings ?? []) as any[]).slice(0, 3)
+        if (topSpots.length > 0) {
+          parts.push('【撮影箇所別スコア（上位3件）】')
+          topSpots.forEach((s: any, i: number) => {
+            parts.push(`${i + 1}位 ${s.spotName}: ${s.avgScore}点 やり直し率${s.redoRate}%`)
+          })
+        }
+      }
+
+      return parts.length > 0 ? parts.join('\n') : '分析データがありません。'
+    } catch { return 'AI分析データの取得中にエラーが発生しました。' }
+  },
+})
+
 const getSurveysTool = tool({
   name:        'get_surveys',
   description: '顧客アンケート・満足度調査の一覧を取得する。「顧客満足度どう？」「低い評価ある？」「クレームある？」「1星の評価ある？」「ABC案件の評価は？」等。',
@@ -1570,6 +1655,23 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 権限変更: 音声実行不可。「権限変更は管理画面から操作してください。」と答える。
 employeeIdは必ずget_employeesの結果から取得する。AI生成ID禁止。
 
+## AI分析操作手順
+総合AI分析: get_analytics（focus=overview/store/worker/distribution/trends/spots）
+  ・全期間集計データ（期間フィルタなし）
+  ・スコア: AI評価 0-100点。顧客評価とは別系統。
+  ・「AI分析して」「ランキングは？」「全体的にどう？」→ get_analytics
+  ・「品質スコア分布は？」→ get_analytics(focus=distribution)
+  ・「店舗別ランキングは？」→ get_analytics(focus=store)
+  ・「月次推移は？」→ get_analytics(focus=trends)
+品質KPI（満足度含む）: get_quality_summary（期間指定可）
+作業者品質詳細: get_workers_quality / get_employee_quality_summary
+案件品質トレンド: get_project_quality
+売上: get_revenue_summary（AIが売上を推測しない）
+数値の根拠: 全数値は実APIデータ。LLMが計算・推測した数値を事実として述べない。
+WHY回答: 観察事実→関連指標→可能性の順。因果断定禁止。
+予測: 正式予測モデルなし。「来月の予測は現在実装されていません。」と回答。
+AI分析画面を開く: navigate(console.open_analytics)
+
 ## 通知操作手順
 通知一覧: get_notifications（unread_only=trueで未読のみ）
   ※このToolはREADのみ。呼ぶだけで既読にならない。「読んで」はREAD、「既読にして」はWRITE。
@@ -1765,6 +1867,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getShiftsTool,
     getShiftDetailTool,
     getShiftAttendanceStatusTool,
+    getAnalyticsTool,
     getSurveysTool,
     getWorkersQualityTool,
     getProjectQualityTool,

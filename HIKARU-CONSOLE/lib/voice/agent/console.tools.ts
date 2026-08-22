@@ -1147,6 +1147,115 @@ const getShiftAttendanceStatus: ConsoleAgentTool = {
   },
 }
 
+// ─── AI Analysis Tool ────────────────────────────────────────
+
+const getAnalytics: ConsoleAgentTool = {
+  name:        'get_analytics',
+  description: 'AI分析・品質・業務の総合データを取得する。「AI分析して」「全体的にどう？」「ランキングは？」「品質分布は？」「月次推移は？」「問題ある？」「トップの店舗は？」「スコアが低い作業者は？」等。全期間集計。',
+  safetyLevel: 1,
+  parameters: {
+    type:       'object',
+    properties: {
+      focus: { type: 'string', description: 'overview/store/worker/distribution/trends/spots（省略時は全体）' },
+    },
+    required: [],
+  },
+  async execute(params, ctx): Promise<ToolResult> {
+    try {
+      const res = await apiFetch('/api/analytics', ctx)
+      if (!res.ok) return { success: false, text: 'AI分析データを取得できませんでした。' }
+      const data = await res.json()
+      const { overview, trends, storeRankings, workerRankings, distribution, spotRankings } = data
+      const focus = params.focus ?? 'overview'
+      const parts: string[] = []
+
+      // Overview
+      if (!focus || focus === 'overview') {
+        if (overview) {
+          parts.push('【概要（全期間）】')
+          parts.push(`案件数: ${overview.totalProjects ?? 0}件・店舗数: ${overview.totalStores ?? 0}店`)
+          parts.push(`作業件数合計: ${overview.totalJobs ?? 0}件（完了: ${overview.completedJobs ?? 0}・進行中: ${overview.activeJobs ?? 0}）`)
+          parts.push(`今月の作業: ${overview.thisMonthJobs ?? 0}件`)
+          if (overview.avgQualityScore != null) parts.push(`AI品質スコア平均: ${overview.avgQualityScore}点（0-100）`)
+          if (overview.totalEvaluations > 0) {
+            parts.push(`AI評価件数: ${overview.totalEvaluations}件（合格${overview.passRate}%・やり直し${overview.redoRate}%）`)
+          }
+          parts.push(`報告書: ${overview.totalReports ?? 0}件・写真: ${overview.totalPhotos ?? 0}枚`)
+        }
+      }
+
+      // Trends (最新3ヶ月)
+      if (!focus || focus === 'overview' || focus === 'trends') {
+        const recentTrends = (trends ?? []).slice(-3).filter((t: any) => t.jobCount > 0)
+        if (recentTrends.length > 0) {
+          parts.push('【最近3ヶ月のトレンド】')
+          for (const t of recentTrends) {
+            const score = t.avgScore != null ? `スコア${t.avgScore}点` : 'スコアなし'
+            parts.push(`${t.label}: 作業${t.jobCount}件 ${score}`)
+          }
+        }
+      }
+
+      // Store Rankings (top 5)
+      if (!focus || focus === 'store') {
+        const topStores = (storeRankings ?? []).slice(0, 5)
+        if (topStores.length > 0) {
+          parts.push('【店舗品質ランキング（上位5件）】')
+          topStores.forEach((s: any, i: number) => {
+            parts.push(`${i + 1}位 ${s.storeName}: ${s.avgScore != null ? s.avgScore + '点' : '--'} （${s.jobCount}件）`)
+          })
+        }
+        const bottomStores = (storeRankings ?? []).slice(-3).filter((s: any) => s.avgScore != null)
+        if (bottomStores.length > 0 && bottomStores[0].storeId !== topStores[0]?.storeId) {
+          parts.push('【要注意店舗（下位3件）】')
+          bottomStores.forEach((s: any) => {
+            parts.push(`${s.storeName}: ${s.avgScore}点 （${s.jobCount}件）`)
+          })
+        }
+      }
+
+      // Worker Rankings (top 5)
+      if (!focus || focus === 'worker') {
+        const topWorkers = (workerRankings ?? []).slice(0, 5)
+        if (topWorkers.length > 0) {
+          parts.push('【作業者品質ランキング（上位5件）】')
+          topWorkers.forEach((w: any, i: number) => {
+            parts.push(`${i + 1}位 ${w.workerName}: ${w.avgScore != null ? w.avgScore + '点' : '--'} 合格率${w.passRate}% （${w.jobCount}件）`)
+          })
+        }
+      }
+
+      // Distribution
+      if (!focus || focus === 'distribution') {
+        const dist: any[] = distribution ?? []
+        if (dist.some((d: any) => d.count > 0)) {
+          parts.push('【品質スコア分布】')
+          for (const d of dist) {
+            if (d.count > 0) parts.push(`${d.label}: ${d.count}件（${d.pct}%）`)
+          }
+        }
+      }
+
+      // Spot Rankings (top 3)
+      if (!focus || focus === 'spots') {
+        const topSpots = (spotRankings ?? []).slice(0, 3)
+        if (topSpots.length > 0) {
+          parts.push('【撮影箇所別スコア（上位3件）】')
+          topSpots.forEach((s: any, i: number) => {
+            parts.push(`${i + 1}位 ${s.spotName}: ${s.avgScore}点 やり直し率${s.redoRate}%`)
+          })
+        }
+      }
+
+      if (parts.length === 0) return { success: true, text: '分析データがありません。', data }
+
+      return { success: true, text: parts.join('\n'), data }
+    } catch {
+      return { success: false, text: 'AI分析データの取得中にエラーが発生しました。' }
+    }
+  },
+}
+
 // ─── Quality / Satisfaction READ Tools ───────────────────────
 
 const getQualitySummary: ConsoleAgentTool = {
@@ -1803,6 +1912,7 @@ export const CONSOLE_AGENT_TOOLS: ConsoleAgentTool[] = [
   getExpenseDetail,
   getPendingRequests,
   getRevenueSummary,
+  getAnalytics,
   getQualitySummary,
   getSurveys,
   getWorkersQuality,
