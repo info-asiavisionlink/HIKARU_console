@@ -3,8 +3,6 @@
 import * as React from 'react'
 import { use } from 'react'
 import Link from 'next/link'
-import { getWorkerAnalyticsDetail } from '@/services/analytics.service'
-import type { WorkerAnalyticsDetail } from '@/services/analytics.service'
 import {
   Card, CardContent, CardHeader, CardTitle, Skeleton, PageHeader,
 } from '@hikaru/ui'
@@ -13,6 +11,19 @@ import {
   ChevronLeft, Sparkles, RefreshCw, CheckCircle2, AlertTriangle, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
+
+// ローカル型（Server API レスポンス契約）
+interface WorkerDetailData {
+  workerName:     string
+  totalJobs:      number
+  avgScore:       number | null
+  passRate:       number
+  redoCount:      number
+  chatCount:      number
+  monthlyTrends:  Array<{ month: string; label: string; avgScore: number | null; jobCount: number }>
+  spotScores:     Array<{ spotName: string; avgScore: number; evalCount: number; redoRate: number }>
+  hasAnalysisData: boolean
+}
 
 interface AIWorkerResult {
   overallFeedback: string
@@ -27,16 +38,38 @@ export default function WorkerAnalyticsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const [detail,    setDetail]    = React.useState<WorkerAnalyticsDetail | null>(null)
+  const [detail,    setDetail]    = React.useState<WorkerDetailData | null>(null)
   const [loading,   setLoading]   = React.useState(true)
+  const [error,     setError]     = React.useState<string | null>(null)
   const [aiResult,  setAiResult]  = React.useState<AIWorkerResult | null>(null)
   const [aiLoading, setAiLoading] = React.useState(false)
 
   React.useEffect(() => {
-    getWorkerAnalyticsDetail(id).then((d) => {
-      setDetail(d)
-      setLoading(false)
-    })
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/analytics/profile/${id}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        if (cancelled) return
+        if (!res.ok) {
+          setError('分析データを取得できませんでした。')
+          return
+        }
+        const data: WorkerDetailData = await res.json()
+        if (!cancelled) setDetail(data)
+      } catch {
+        if (!cancelled) setError('分析データを取得できませんでした。')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => { cancelled = true }
   }, [id])
 
   async function fetchAI() {
@@ -72,6 +105,11 @@ export default function WorkerAnalyticsPage({
       {loading ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
           {[1,2,3,4].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <p className="text-[var(--color-error)]">{error}</p>
+          <Link href="/analytics" className="mt-2 text-sm text-[var(--color-primary)] hover:underline">← 戻る</Link>
         </div>
       ) : detail ? (
         <>
