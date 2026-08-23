@@ -351,6 +351,134 @@ const getExpenseDetailTool = tool({
   },
 })
 
+const getExpenseSummaryTool = tool({
+  name:        'get_expense_summary',
+  description: '経費の期間集計・合計・内訳を取得する。「今月の経費いくら？」「先月は？」「今週の経費」「承認済みだけいくら？」「交通費だけ」「カテゴリ別内訳」「今月と先月比較して」等。承認待ち一覧はget_pending_expenses。個別詳細はget_expense_detail。',
+  parameters:  z.object({
+    period:         z.string().optional().describe('this_month=今月 / last_month=先月 / this_week=今週（date_from/date_toより優先）'),
+    date_from:      z.string().optional().describe('開始日 YYYY-MM-DD'),
+    date_to:        z.string().optional().describe('終了日 YYYY-MM-DD'),
+    status:         z.string().optional().describe('submitted=申請中 / approved=承認済み / settled=精算済み / rejected=却下'),
+    category:       z.string().optional().describe('transport=交通費 / parking=駐車料 / supplies=備品費 / consumables=消耗品費 / other=その他'),
+    compare_period: z.string().optional().describe('this_month_vs_last=今月vs先月比較'),
+  }),
+  execute: async ({ period, date_from, date_to, status, category, compare_period }, runCtx) => {
+    const ctx  = runCtx!.context as ConsoleAgentSDKContext
+    const CATS: Record<string, string>  = { transport: '交通費', parking: '駐車料', supplies: '備品費', consumables: '消耗品費', other: 'その他' }
+    const STATS: Record<string, string> = { submitted: '申請中', approved: '承認済み', settled: '精算済み', rejected: '却下' }
+    const fmtJpy = (n: number) => `${Math.round(n).toLocaleString('ja-JP')}円`
+    try {
+      const nowJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+      const [y, m] = nowJst.split('-').map(Number)
+      const thisMonthStart = `${y}-${String(m).padStart(2, '0')}-01`
+      const nextMonthStr   = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+      const thisMonthEnd   = new Date(new Date(nextMonthStr).getTime() - 86400000)
+        .toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+      const lmDate = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }
+      const lastMonthStart = `${lmDate.y}-${String(lmDate.m).padStart(2, '0')}-01`
+      const lastMonthEnd   = new Date(new Date(thisMonthStart).getTime() - 86400000)
+        .toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+      const weekDay = nowJst
+      const weekStart = new Date(new Date(weekDay).setDate(
+        new Date(weekDay).getDate() - new Date().getDay()
+      )).toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+
+      if (compare_period === 'this_month_vs_last') {
+        const qA = new URLSearchParams({ date_from: thisMonthStart, date_to: thisMonthEnd })
+        const qB = new URLSearchParams({ date_from: lastMonthStart, date_to: lastMonthEnd })
+        if (status)   { qA.set('status', status);   qB.set('status', status) }
+        if (category) { qA.set('category', category); qB.set('category', category) }
+        const [rA, rB] = await Promise.all([
+          apiGet(`/api/expenses?${qA}`, ctx),
+          apiGet(`/api/expenses?${qB}`, ctx),
+        ])
+        if (!rA.ok || !rB.ok) return '経費情報を取得できませんでした。'
+        const [dA, dB] = await Promise.all([rA.json(), rB.json()])
+        const sumA = (dA.expenses ?? []).reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
+        const sumB = (dB.expenses ?? []).reduce((s: number, e: any) => s + (e.amount ?? 0), 0)
+        const diff = sumA - sumB
+        const label = status ? `${STATS[status] ?? status}の` : ''
+        let result = `${label}経費 今月: ${fmtJpy(sumA)} / 先月: ${fmtJpy(sumB)}`
+        if (sumB === 0) {
+          result += '\n先月は0円のため増加率は算出できません。'
+        } else {
+          const pct = Math.round((diff / sumB) * 100)
+          result += `\n差額: ${diff >= 0 ? '+' : ''}${fmtJpy(diff)}（${diff >= 0 ? '+' : ''}${pct}%）`
+        }
+        return result
+      }
+
+      let from = date_from
+      let to   = date_to
+      let periodLabel = ''
+      if (period === 'this_month') { from = thisMonthStart; to = thisMonthEnd; periodLabel = '今月' }
+      if (period === 'last_month') { from = lastMonthStart; to = lastMonthEnd; periodLabel = '先月' }
+      if (period === 'this_week')  { from = weekStart;      to = nowJst;      periodLabel = '今週' }
+      if (!from && !to && !period) { from = thisMonthStart; to = thisMonthEnd; periodLabel = '今月' }
+      if (!periodLabel && from && to) periodLabel = `${from}〜${to}`
+
+      const q = new URLSearchParams()
+      if (from)     q.set('date_from', from)
+      if (to)       q.set('date_to',   to)
+      if (status)   q.set('status',    status)
+      if (category) q.set('category',  category)
+
+      const res = await apiGet(`/api/expenses?${q}`, ctx)
+      if (!res.ok) return '経費情報を取得できませんでした。'
+      const data     = await res.json()
+      const expenses: any[] = data.expenses ?? []
+
+      if (expenses.length === 0) {
+        const label = [periodLabel, status ? STATS[status] : '', category ? CATS[category] : ''].filter(Boolean).join('・')
+        return `${label}の経費はありません。`
+      }
+
+      const total = expenses.reduce((s, e) => s + (e.amount ?? 0), 0)
+      const parts: string[] = []
+      const filterLabel = [periodLabel, status ? STATS[status] : '', category ? CATS[category] : ''].filter(Boolean).join('・')
+      parts.push(`${filterLabel}の経費合計: ${fmtJpy(total)}（${expenses.length}件）`)
+
+      if (!category) {
+        const byCategory: Record<string, number> = {}
+        for (const e of expenses) {
+          const k = CATS[e.category] ?? e.category ?? 'その他'
+          byCategory[k] = (byCategory[k] ?? 0) + (e.amount ?? 0)
+        }
+        const catLines = Object.entries(byCategory)
+          .filter(([, v]) => v > 0)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5)
+          .map(([k, v]) => `  ${k}: ${fmtJpy(v)}`)
+        if (catLines.length > 1) parts.push(`カテゴリ別:\n${catLines.join('\n')}`)
+      }
+      if (!status) {
+        const byStat: Record<string, number> = {}
+        for (const e of expenses) {
+          const k = STATS[e.status] ?? e.status ?? '不明'
+          byStat[k] = (byStat[k] ?? 0) + (e.amount ?? 0)
+        }
+        const statLines = Object.entries(byStat)
+          .filter(([, v]) => v > 0)
+          .sort(([, a], [, b]) => b - a)
+          .map(([k, v]) => `  ${k}: ${fmtJpy(v)}`)
+        if (statLines.length > 1) parts.push(`ステータス別:\n${statLines.join('\n')}`)
+      }
+      const byPerson: Record<string, { name: string; amount: number }> = {}
+      for (const e of expenses) {
+        const pid  = e.worker_id ?? 'unknown'
+        const name = e.profiles?.name ?? '不明'
+        if (!byPerson[pid]) byPerson[pid] = { name, amount: 0 }
+        byPerson[pid].amount += e.amount ?? 0
+      }
+      const topPersons = Object.values(byPerson).sort((a, b) => b.amount - a.amount).slice(0, 3)
+      if (topPersons.length > 1) {
+        parts.push(`申請者TOP3:\n${topPersons.map((p, i) => `  ${i + 1}位 ${p.name}: ${fmtJpy(p.amount)}`).join('\n')}`)
+      }
+      return parts.join('\n')
+    } catch { return '経費集計の取得中にエラーが発生しました。' }
+  },
+})
+
 const getPendingAttendanceTool = tool({
   name:        'get_pending_attendance',
   description: '勤怠修正申請の承認待ち一覧を確認する。「勤怠修正来てる？」「修正申請何件？」「未処理の勤怠申請ある？」等に使う。',
@@ -1938,6 +2066,18 @@ propose_action → finalOutputに確認文 → 管理者「はい」→ Server�
 - resolve_store: clientId決定後にclient_id指定で絞り込む
 - 解決前にpropose_actionを呼ばない。新規顧客・店舗を勝手に作らない。
 
+## 経費READ手順
+承認待ち一覧: get_pending_expenses
+個別詳細: get_expense_detail（expense_idが必要）
+期間集計・合計・内訳: get_expense_summary
+  ・「今月の経費いくら？」→ get_expense_summary(period="this_month")
+  ・「先月は？」→ get_expense_summary(period="last_month")
+  ・「承認済みだけ」→ get_expense_summary(period="this_month", status="approved")
+  ・「交通費だけ」→ get_expense_summary(period="this_month", category="transport")
+  ・「今月と先月比較して」→ get_expense_summary(compare_period="this_month_vs_last")
+  ・APIはPaginationなし（全件返却）→ 合計値は正確
+  ・employee filterはworker_id（音声では未解決のためUNSUPPORTED）
+
 ## Expense Approve/Reject 手順
 1. get_pending_expenses か get_expense_detail で対象IDを確認する
 2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
@@ -2266,6 +2406,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getNotificationsTool,
     getPendingExpensesTool,
     getExpenseDetailTool,
+    getExpenseSummaryTool,
     getPendingAttendanceTool,
     getAttendanceCorrectionDetailTool,
     getAttendanceTodayTool,
