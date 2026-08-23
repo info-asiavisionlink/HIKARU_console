@@ -2329,9 +2329,9 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   React.useEffect(() => { pathnameRef.current      = pathname },         [pathname])
   React.useEffect(() => { voiceEngineModeRef.current = voiceEngineMode }, [voiceEngineMode])
 
-  const isSpeechSupported = React.useMemo(() => {
-    if (typeof window === 'undefined') return false
-    return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window
+  const [isSpeechSupported, setIsSpeechSupported] = React.useState(false)
+  React.useEffect(() => {
+    setIsSpeechSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
   }, [])
 
   const setModeSync = React.useCallback((m: VoiceMode) => {
