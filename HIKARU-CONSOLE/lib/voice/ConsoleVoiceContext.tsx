@@ -111,7 +111,8 @@ NavigationせずにDataツールを使う。
 従業員の担当案件 → get_employee_projects（employee_idを指定）
 従業員の勤怠概要 → get_employee_attendance_summary（employee_idを指定）
 従業員のシフト → get_employee_shifts（employee_idを指定）
-従業員の品質評価 → get_employee_quality_summary（employee_idを指定）
+従業員の直近品質評価（30日等） → get_employee_quality_summary（employee_idを指定）
+従業員のAI分析・全期間Analytics詳細（分析結果・品質傾向・再清掃・箇所別スコア） → get_employee_analytics_detail（employee_idを指定）
 シフト一覧・今日・今週 → get_shifts（date_from/date_to/employee_id/project_id指定可）
 シフト詳細 → get_shift_detail（shiftIdを指定）
 シフト×勤怠比較 → get_shift_attendance_status（今日のシフトあり打刻なしを確認）
@@ -192,7 +193,12 @@ correctionIdは必ずget_pending_attendanceのresultから取得する。AI生�
 担当案件: get_employee_projects（employeeIdが必要）
 勤怠概要: get_employee_attendance_summary（employeeIdが必要）
 シフト: get_employee_shifts（employeeIdが必要）
-品質評価: get_employee_quality_summary（employeeIdが必要、データなし時は正直に回答）
+直近品質評価: get_employee_quality_summary（employeeIdが必要、データなし時は正直に回答）
+AI分析・全期間Analytics詳細: get_employee_analytics_detail（employeeIdが必要）
+  ← 「AI分析」「分析結果」「品質傾向」「再清掃」「箇所別評価」「全体的な状況」等
+  ← このToolは保存済み集計Analyticsのみ返す。強み・改善点などのオンデマンドAI生成はしない。
+  ← hasAnalysisData=falseの場合は「データがありません」。推測禁止。
+  ← Voiceで数値以外の人格評価・能力断定禁止。
 従業員登録: name確認後 → 確認後 execute_confirmed_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
   確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
   ※パスワード・ログイン設定は管理画面から実施。AIでパスワード生成禁止。
@@ -1323,6 +1329,72 @@ function buildConsoleRealtimeTools(
         if (w.avg_ai_score != null) parts.push(`AI評価平均: ${Math.round(w.avg_ai_score * 10) / 10}点`)
         if (w.avg_customer_score != null) parts.push(`顧客評価平均: ${Math.round(w.avg_customer_score * 10) / 10}点`)
         return parts.join('、')
+      },
+    }),
+    toolFactory({
+      name: 'get_employee_analytics_detail',
+      description: '従業員・作業者ごとのAI分析/Analytics詳細を取得する。総作業回数・平均品質スコア・合格率・再清掃回数・AIチャット利用・過去6ヶ月品質推移・箇所別スコアを確認する。「田中さんのAI分析は？」「この人の品質傾向は？」「再清掃多い？」「最近スコア上がってる？」「箇所別の評価は？」等に使用。直近30日品質のみならget_employee_quality_summary。このToolは保存済み集計Analyticsのみ返す。強み・改善点・研修提案のオンデマンドAI生成はしない。employee_idは必ずTool Result由来。AI生成禁止。',
+      parameters: {
+        type: 'object',
+        properties: {
+          employee_id: {
+            type: 'string',
+            description: 'employees.id。必ずget_employees/get_employee_detail等のTool Result由来。AI生成禁止。',
+          },
+        },
+        required: ['employee_id'],
+        additionalProperties: false,
+      },
+      execute: async ({ employee_id }: { employee_id: string }) => {
+        if (!employee_id?.trim()) return '従業員IDが必要です。'
+        try {
+          const res = await fetch(`/api/analytics/worker/${employee_id}`, {
+            credentials: 'include',
+            cache: 'no-store' as RequestCache,
+          })
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}))
+            if (errData?.code === 'PROFILE_NOT_FOUND') return '従業員のシステムアカウントがないため分析データを確認できません。'
+            return '従業員の分析データを確認できませんでした。もう一度お試しください。'
+          }
+          const data = await res.json()
+          const name = data.workerName ?? '従業員'
+
+          if (!data.hasAnalysisData) {
+            return `${name}さんには、まだ分析に利用できる品質評価データがありません。 [employee_id:${employee_id}|profile_id:${data.profile_id ?? ''}]`
+          }
+
+          const parts: string[] = [`${name}さんのAI分析`]
+          parts.push(`総作業回数: ${data.totalJobs}回`)
+          if (data.avgScore != null)  parts.push(`平均品質スコア: ${data.avgScore}点`)
+          if (data.passRate != null)  parts.push(`合格率: ${data.passRate}%`)
+          parts.push(`再清掃: ${data.redoCount}回`)
+          parts.push(`AIチャット利用: ${data.chatCount}件`)
+
+          // 直近3ヶ月のtrendを要約（scoreのある月のみ）
+          const trends: { month: string; avgScore: number | null; jobs: number }[] = data.monthlyTrends ?? []
+          const recentTrends = trends.slice(-3).filter((t) => t.avgScore != null)
+          if (recentTrends.length > 0) {
+            const trendText = recentTrends.map((t) => {
+              const [, m] = t.month.split('-')
+              return `${parseInt(m)}月${t.avgScore}点`
+            }).join('→')
+            parts.push(`直近推移: ${trendText}`)
+          }
+
+          // 要改善箇所TOP3（avgScore昇順）
+          const spots: { spotName: string; avgScore: number; count: number }[] = data.spotScores ?? []
+          if (spots.length > 0) {
+            const topSpots = spots.slice(0, 3)
+            parts.push(`注意箇所: ${topSpots.map((s) => `${s.spotName}${s.avgScore}点`).join('・')}`)
+          }
+
+          // profile_idをContextに保持。UUIDは読み上げ対象外。
+          const profileId = data.profile_id ?? ''
+          return `${parts.join('\n')} [employee_id:${employee_id}|profile_id:${profileId}]`
+        } catch {
+          return '従業員の分析データを確認できませんでした。もう一度お試しください。'
+        }
       },
     }),
     // ─── Shift Tools ────────────────────────────────────────
