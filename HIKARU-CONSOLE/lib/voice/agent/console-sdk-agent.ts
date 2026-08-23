@@ -2262,6 +2262,9 @@ AI分析・全期間Analytics詳細: get_employee_analytics_detail（employeeId�
   ← 「AI分析」「分析結果」「品質傾向」「再清掃」「箇所別評価」「全体的な品質状況」等
   ← 保存済み集計Analyticsのみ返す。強み・改善点のオンデマンドAI生成はしない。
   ← hasAnalysisData=falseの場合は「データがありません」。推測・人格評価禁止。
+AI分析画面Navigation: get_employee_analytics_detailのTool Result [profile_id:xxx] → navigate(analytics_worker, profile_id)
+  ← analytics_workerのidは必ずprofile_id（= profiles.id）。employees.id使用禁止。AI生成UUID禁止。
+  ← 「その人のAI分析画面開いて」「分析結果を画面で見せて」等が対象。
 従業員登録: name確認後 → propose_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
   確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
   ※パスワード・ログイン設定は管理画面から。AIでパスワード生成禁止。
@@ -2304,7 +2307,10 @@ APIキー・Secret: Voice読み上げ・変更禁止。「セキュリティ上�
 数値の根拠: 全数値は実APIデータ。LLMが計算・推測した数値を事実として述べない。
 WHY回答: 観察事実→関連指標→可能性の順。因果断定禁止。
 予測: 正式予測モデルなし。「来月の予測は現在実装されていません。」と回答。
-AI分析画面を開く: navigate(console.open_analytics)
+AI分析一覧画面を開く: navigate(console.open_analytics)
+従業員個人AI分析画面を開く: navigate_to_detail(analytics_worker, profile_id)
+  ← profile_idはget_employee_analytics_detailのTool Result [profile_id:xxx] から取得。
+  ← employees.id使用禁止。profile_id不明なら先にget_employee_analytics_detailを呼ぶ。
 
 ## 通知操作手順
 通知一覧: get_notifications（unread_only=trueで未読のみ）

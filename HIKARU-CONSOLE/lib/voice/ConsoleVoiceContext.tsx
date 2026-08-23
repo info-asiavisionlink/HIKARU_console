@@ -52,6 +52,10 @@ entity enum: project / client / employee / partner / expense / invoice / report 
 「この経費申請を開いて」→ navigate_to_detail(expense, expenseId)
 「この依頼のページ開いて」→ 詳細ページなし。navigate_to(project_requests)
 「このマニュアル開いて」→ 詳細ページなし。navigate_to(manuals)
+「○○さんのAI分析画面開いて」「その人の分析画面を見せて」→ navigate_to_detail(analytics_worker, profile_id)
+  ← analytics_workerのidは必ずget_employee_analytics_detailのTool Result内 [profile_id:xxx] から取得。
+  ← employees.idをanalytics_workerのidとして使用禁止。AI生成UUID禁止。
+  ← profile_idが不明な場合はまずget_employee_analytics_detailを呼んでから navigate_to_detail。
 entity_id不明なら先に検索Tool。ID不明でnavigateしない。
 
 ## 新規登録ページNavigation（「○○登録画面開いて」「○○追加ページ」）
@@ -199,6 +203,8 @@ AI分析・全期間Analytics詳細: get_employee_analytics_detail（employeeId�
   ← このToolは保存済み集計Analyticsのみ返す。強み・改善点などのオンデマンドAI生成はしない。
   ← hasAnalysisData=falseの場合は「データがありません」。推測禁止。
   ← Voiceで数値以外の人格評価・能力断定禁止。
+AI分析画面Navigation: get_employee_analytics_detailのTool Result [profile_id:xxx] → navigate_to_detail(analytics_worker, profile_id)
+  ← employees.idを使用禁止。AI生成UUID禁止。
 従業員登録: name確認後 → 確認後 execute_confirmed_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
   確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
   ※パスワード・ログイン設定は管理画面から実施。AIでパスワード生成禁止。
