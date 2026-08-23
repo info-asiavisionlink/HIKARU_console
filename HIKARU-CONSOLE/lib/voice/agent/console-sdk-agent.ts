@@ -1767,6 +1767,20 @@ const navigateTool = tool({
   },
 })
 
+const navigateDetailTool = tool({
+  name:        'navigate_detail',
+  description: '特定エンティティの詳細ページへ移動。「この案件開いて」「田中さんのページを開いて」「この請求書を表示して」「この経費申請を開いて」「この契約を開いて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。',
+  parameters:  z.object({
+    entity:    z.enum(['project', 'client', 'employee', 'partner', 'expense', 'invoice', 'report', 'inventory', 'contract', 'attendance_correction', 'analytics_store', 'analytics_worker', 'worker']).describe('エンティティ種別'),
+    entity_id: z.string().describe('直前のTool Result由来のID。AI生成禁止。'),
+  }),
+  execute: async ({ entity, entity_id }) => {
+    const id = entity_id?.trim()
+    if (!id) return 'IDが見つかりません。先に検索してください。'
+    return JSON.stringify({ __navigate_detail: true, entity, entity_id: id })
+  },
+})
+
 // ─── Agent（モジュールレベル1インスタンス）───────────────────
 const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
 清掃業務管理システムの管理者・マネージャーをサポートする音声アシスタントです。
@@ -1777,8 +1791,22 @@ const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタ�
 
 ## Read vs Navigate の判断
 「〜教えて」「どうなってる？」「いくら？」「何件？」「誰が？」「ある？」→ データ取得Tool
-「〜開いて」「〜の画面にして」「〜に移動して」「〜見せて」→ navigate（データ取得しない）
+「〜開いて」「〜の画面にして」「〜に移動して」「〜見せて」→ navigate（リスト画面）/ navigate_detail（詳細画面）
 情報を聞いている場合はNavigationだけで済ませない。画面を開く依頼ではデータ取得Toolを勝手に使わない。
+
+## 詳細ページNavigation（最重要）
+「この案件開いて」→ navigate_detail(entity="project", entity_id=<直前Tool Result由来のprojectId>)
+「田中さんのページ開いて」→ navigate_detail(entity="employee", entity_id=<employeeId>)
+「この請求書を表示して」→ navigate_detail(entity="invoice", entity_id=<invoiceId>)
+「この経費申請を開いて」→ navigate_detail(entity="expense", entity_id=<expenseId>)
+「この報告書開いて」→ navigate_detail(entity="report", entity_id=<reportId>)
+「この在庫品開いて」→ navigate_detail(entity="inventory", entity_id=<inventoryId>)
+「この契約開いて」→ navigate_detail(entity="contract", entity_id=<contractId>)
+「この業者開いて」→ navigate_detail(entity="partner", entity_id=<partnerId>)
+「この申請開いて（勤怠修正）」→ navigate_detail(entity="attendance_correction", entity_id=<correctionId>)
+entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。
+「この依頼のページ開いて」→ 詳細ページなし。navigate(console.open_project_requests)
+「このマニュアル開いて」→ 詳細ページなし。navigate(console.open_manuals)
 
 ## 未対応機能
 まだToolが接続されていない機能（在庫数・契約詳細・報告書内容等）を聞かれた場合:
@@ -2208,5 +2236,6 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getProjectRequestsTool,
     proposeActionTool,
     navigateTool,
+    navigateDetailTool,
   ],
 })

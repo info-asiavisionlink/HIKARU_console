@@ -16,6 +16,7 @@ import type {
 import type { ConsoleActionName } from '@/lib/voice/registry/console.actions'
 import {
   CONSOLE_NAV_DESTINATIONS, executeConsoleNavigation,
+  CONSOLE_DETAIL_ENTITIES, executeConsoleDetailNavigation,
 } from '@/lib/voice/registry/console.navigation'
 
 // ─── CONSOLE Realtime定数 ─────────────────────────────────────
@@ -33,6 +34,17 @@ stores=店舗管理 / employees=従業員管理 / workers=作業者管理 / part
 shifts=シフト管理 / attendance=勤怠管理 / expenses=経費管理 / invoices=請求管理 /
 notifications=通知 / quality=品質管理 / manuals=マニュアル管理 / reports=報告書 /
 analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=設定 / back=前の画面
+
+## 詳細ページNavigation（「この○○開いて」「○○のページ見せて」）
+navigate_to_detail(entity, entity_id) を使う。entity_idは必ず直前のTool Result由来。AI生成禁止。
+entity enum: project / client / employee / partner / expense / invoice / report / inventory / contract / attendance_correction / analytics_store / analytics_worker / worker
+「この案件開いて」→ navigate_to_detail(project, projectId)
+「田中さんのページ開いて」→ navigate_to_detail(employee, employeeId)
+「この請求書を表示して」→ navigate_to_detail(invoice, invoiceId)
+「この経費申請を開いて」→ navigate_to_detail(expense, expenseId)
+「この依頼のページ開いて」→ 詳細ページなし。navigate_to(project_requests)
+「このマニュアル開いて」→ 詳細ページなし。navigate_to(manuals)
+entity_id不明なら先に検索Tool。ID不明でnavigateしない。
 
 ## 自然言語理解の原則
 ユーザーは機能名や画面名を正確に言わない。発話の意味・文脈から最適なToolを選ぶ。
@@ -823,6 +835,28 @@ function buildConsoleRealtimeTools(
       },
       execute: async ({ destination }: { destination: string }) =>
         executeConsoleNavigation(destination, router),
+    }),
+    toolFactory({
+      name:        'navigate_to_detail',
+      description: '特定エンティティの詳細ページへ移動。「この案件開いて」「田中さんのページを開いて」「この請求書を表示して」「この経費申請を開いて」「この契約を開いて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。',
+      parameters:  {
+        type:       'object',
+        properties: {
+          entity: {
+            type:        'string',
+            enum:        [...CONSOLE_DETAIL_ENTITIES],
+            description: 'エンティティ種別',
+          },
+          entity_id: {
+            type:        'string',
+            description: '直前Tool Result由来のID。AI生成禁止。',
+          },
+        },
+        required:             ['entity', 'entity_id'],
+        additionalProperties: false,
+      },
+      execute: async ({ entity, entity_id }: { entity: string; entity_id: string }) =>
+        executeConsoleDetailNavigation(entity, entity_id, router),
     }),
     // ─── Employee Tools ─────────────────────────────────────
     toolFactory({
@@ -2190,6 +2224,20 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         setResponse(confirmMsg)
         addMessage('assistant', confirmMsg)
         speakAndMaybeResume(confirmMsg)
+        return
+      }
+
+      if (result.navigateDetail) {
+        const { entity, entity_id } = result.navigateDetail as { entity: string; entity_id: string }
+        const reply = executeConsoleDetailNavigation(entity, entity_id, router)
+        setResponse(reply)
+        addMessage('assistant', reply)
+        conversationCtxRef.current = {
+          ...conversationCtxRef.current,
+          lastIntent: `navigate_detail.${entity}`,
+          lastAction: undefined,
+        }
+        speakAndMaybeResume(reply)
         return
       }
 

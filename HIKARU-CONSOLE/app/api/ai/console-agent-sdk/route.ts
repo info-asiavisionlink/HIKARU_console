@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
 
     const finalOutput = result.finalOutput ?? ''
     let navigateAction: string | null = null
+    let navigateDetail: { entity: string; entity_id: string } | null = null
     let pendingConfirmation: Record<string, unknown> | null = null
 
     for (const item of result.newItems ?? []) {
@@ -82,6 +83,9 @@ export async function POST(req: NextRequest) {
           const output = typeof item.output === 'string' ? item.output : ''
           const parsed = JSON.parse(output)
           if (parsed.__navigate && parsed.action) navigateAction = parsed.action
+          if (parsed.__navigate_detail && parsed.entity && parsed.entity_id) {
+            navigateDetail = { entity: parsed.entity, entity_id: parsed.entity_id }
+          }
           if (parsed.__pendingConfirmation) {
             pendingConfirmation = {
               action:      parsed.action,
@@ -102,10 +106,12 @@ export async function POST(req: NextRequest) {
       voiceReply:          finalOutput || null,
       pendingApproval:     false,
       pendingConfirmation: pendingConfirmation ?? undefined,
+      navigateDetail:      navigateDetail ?? undefined,
       previousResponseId:  result.lastResponseId,
     } satisfies ConsoleAgentApiResponse & {
       pendingApproval?:    boolean
       pendingConfirmation?: Record<string, unknown>
+      navigateDetail?:     { entity: string; entity_id: string }
       previousResponseId?: string
     })
 

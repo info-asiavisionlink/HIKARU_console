@@ -105,3 +105,81 @@ export function executeConsoleNavigation(
   router.push(route)
   return `${label}を開きます。`
 }
+
+// ============================================================
+// Detail Navigation — entity + entityId → 実在Route
+// ============================================================
+
+export const CONSOLE_DETAIL_ENTITIES = [
+  'project',
+  'client',
+  'employee',
+  'partner',
+  'expense',
+  'invoice',
+  'report',
+  'inventory',
+  'contract',
+  'attendance_correction',
+  'analytics_store',
+  'analytics_worker',
+  'worker',
+] as const
+
+export type ConsoleDetailEntity = (typeof CONSOLE_DETAIL_ENTITIES)[number]
+
+const CONSOLE_DETAIL_LABELS: Record<ConsoleDetailEntity, string> = {
+  project:               '案件詳細',
+  client:                '顧客詳細',
+  employee:              '従業員詳細',
+  partner:               '協力業者詳細',
+  expense:               '経費申請詳細',
+  invoice:               '請求書詳細',
+  report:                '報告書詳細',
+  inventory:             '在庫品詳細',
+  contract:              '契約詳細',
+  attendance_correction: '勤怠修正申請詳細',
+  analytics_store:       'AI分析（店舗）',
+  analytics_worker:      'AI分析（作業者）',
+  worker:                '作業者詳細',
+}
+
+/** entity → /path/prefix/ （末尾スラッシュあり） */
+const CONSOLE_DETAIL_ROUTE_PREFIXES: Record<ConsoleDetailEntity, string> = {
+  project:               '/projects/',
+  client:                '/clients/',
+  employee:              '/employees/',
+  partner:               '/partners/',
+  expense:               '/expenses/',
+  invoice:               '/invoices/',
+  report:                '/reports/',
+  inventory:             '/inventory/',
+  contract:              '/contracts/',
+  attendance_correction: '/attendance/corrections/',
+  analytics_store:       '/analytics/store/',
+  analytics_worker:      '/analytics/worker/',
+  worker:                '/workers/',
+}
+
+export function isConsoleDetailEntity(v: string): v is ConsoleDetailEntity {
+  return CONSOLE_DETAIL_ENTITIES.includes(v as ConsoleDetailEntity)
+}
+
+/** 安全な詳細ページNavigation。entity + entityId → 実在ルートへ router.push。 */
+export function executeConsoleDetailNavigation(
+  entity:   string,
+  entityId: string,
+  router:   { push: (p: string) => void }
+): string {
+  if (!isConsoleDetailEntity(entity)) {
+    return `その詳細ページには移動できません。`
+  }
+  const id = entityId?.trim()
+  if (!id) {
+    return `IDが見つかりません。先に検索してください。`
+  }
+  const prefix = CONSOLE_DETAIL_ROUTE_PREFIXES[entity]
+  const label  = CONSOLE_DETAIL_LABELS[entity]
+  router.push(`${prefix}${id}`)
+  return `${label}を開きます。`
+}
