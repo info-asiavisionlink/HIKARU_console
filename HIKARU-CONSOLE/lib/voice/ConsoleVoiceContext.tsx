@@ -2369,6 +2369,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     voiceTrace('interrupt_called', { reason: 'manual' })
     if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
     try { (realtimeSessionRef.current as any)?.interrupt?.() } catch {}
+    browserTTS.stop()
     isSpeakingRef.current = false
     muteMic(false)
     turnIdRef.current++
@@ -2791,13 +2792,12 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         }, 700)
       })
       session.on?.('agent_end', (_ctx: unknown, _agent: unknown, output: string) => {
-        // agent_endでunmuteしない: audio_stoppedを唯一の正規unmute経路とする。
-        // tool-only responseのagent_end→次audio responseのagent_startの窓でbarge-inが発生するため。
+        // PLAN A: Text-only mode。agent_endのFinal TextをBrowser TTSで読み上げる。
+        // audio_stoppedはoutput_modalities:['text']で発火しないため、TTS onEndがMic復帰の正規経路。
         if (voiceEngineModeRef.current !== 'realtime') return
         const text = (output ?? '').trim()
         if (!text) { voiceTrace('agent_end_empty'); return }
         // 時間ベースdedup: 同一テキストが3秒以内に再度来た場合はphantom turnの重複とみなす。
-        // 直前メッセージがuserの場合でもブロックできるよう、refs単体で管理する。
         const now = Date.now()
         if (text === lastRtResponseText.current && now - lastRtResponseTime.current < 3000) {
           voiceTrace('agent_end_dedup_skip', { outputLen: text.length })
@@ -2808,6 +2808,21 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         lastRtResponseTime.current = now
         setResponse(text)
         addMessage('assistant', text)
+        // Final TextをそのままBrowser TTSで読み上げ。TTS終了後700msでMic復帰。
+        voiceTrace('tts_start', { textLen: text.length })
+        setModeSync('speaking')
+        if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+        browserTTS.speak(text, () => {
+          voiceTrace('tts_end')
+          if (voiceEngineModeRef.current !== 'realtime') return
+          if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current)
+          resumeTimerRef.current = setTimeout(() => {
+            if (voiceEngineModeRef.current !== 'realtime') return
+            muteMic(false)
+            setModeSync('listening')
+            voiceTrace('listening_restored')
+          }, 700)
+        }, voiceSettingsRef.current)
       })
       session.on?.('agent_tool_start', () => {
         if (voiceEngineModeRef.current !== 'realtime') return

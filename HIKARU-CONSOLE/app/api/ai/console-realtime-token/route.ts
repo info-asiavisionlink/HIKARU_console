@@ -34,8 +34,9 @@ export async function POST(req: NextRequest) {
     // openai SDK v7: realtime.clientSecrets.create() でEphemeral Tokenを発行
     const secret = await openai.realtime.clientSecrets.create({
       session: {
-        type:  'realtime',
-        model: model as 'gpt-realtime-2.1',
+        type:              'realtime',
+        model:             model as 'gpt-realtime-2.1',
+        output_modalities: ['text'],
         audio: {
           output: { voice: voice as 'alloy' },
         },
