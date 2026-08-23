@@ -228,9 +228,10 @@ export async function generateScopedManualQA(
     ],
     temperature: 0.3,
     max_tokens:  maxTokens,
-  } as Parameters<typeof openai.chat.completions.create>[0])
+    stream:      false,
+  })
 
-  const answer = (completion.choices[0]?.message as { content?: string | null })?.content?.trim() ?? ''
+  const answer = completion.choices[0]?.message?.content?.trim() ?? ''
 
   if (!answer) {
     return { answer: NO_EVIDENCE_REPLY, sources: [], evidence_found: false }
