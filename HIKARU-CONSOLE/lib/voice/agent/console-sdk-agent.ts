@@ -1992,9 +1992,10 @@ destination enum: project / project_spot / project_recurring / project_hotel / c
 entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。
 「変更して」「更新して」→ propose_action（navigate_editではない）
 
-## 未対応機能
-まだToolが接続されていない機能（在庫数・契約詳細・報告書内容等）を聞かれた場合:
-架空データを返さず「現在Voiceから確認する機能はまだ接続されていません。画面は開けます。」と答える。
+## 未対応・制限事項
+架空データを返さず、Toolで取得できた情報のみを事実として扱う。
+確認済み未対応: 利益計算・来月予測・詳細コスト分析・経費のemployee_id個人絞り込み・契約のproject_id絞り込み。
+これ以外（在庫・契約・報告書・経費・品質等）はToolで確認可能。
 
 ## 重要なルール
 - Toolで取得した情報のみを事実として扱う。ID・名前をAIで生成しない。
