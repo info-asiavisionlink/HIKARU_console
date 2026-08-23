@@ -1958,7 +1958,10 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         transport: 'webrtc',
         model:     RT_MODEL,
         config:    {
-          audio: { input: { turnDetection: { type: 'semantic_vad', eagerness: 'high', interruptResponse: false } } },
+          // createResponse:false = Server VADはspeech detectionのみ担当。
+          // response.createはSDK ResponseCreateSequencer経由でHIKARUが明示管理。
+          // これによりServer VAD auto-responseとSDK Sequencerの二重Ownerを解消する。
+          audio: { input: { turnDetection: { type: 'semantic_vad', eagerness: 'high', interruptResponse: false, createResponse: false } } },
         },
       } as any)
 
@@ -2067,6 +2070,9 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         voiceTrace('user_transcript_completed', { textLen: text.length, busy: isBusy, interrupt: isInterruptPhrase(text) })
         if (isBusy && !isInterruptPhrase(text)) return
         addMessage('user', text)
+        // createResponse:false により Server が auto-response を生成しないため、
+        // ResponseCreateSequencer 経由で明示的に response.create を送信する。
+        ;(realtimeSessionRef.current?.transport as any)?.requestResponse?.()
       })
       session.on?.('error', (err: unknown) => {
         const realtimeErrorMessage = (
