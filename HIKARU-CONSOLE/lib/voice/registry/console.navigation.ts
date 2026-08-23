@@ -183,3 +183,108 @@ export function executeConsoleDetailNavigation(
   router.push(`${prefix}${id}`)
   return `${label}を開きます。`
 }
+
+// ============================================================
+// New Navigation — destination enum → 実在New Route
+// ============================================================
+
+export const CONSOLE_NEW_DESTINATIONS = [
+  'project',
+  'project_spot',
+  'project_recurring',
+  'project_hotel',
+  'client',
+  'employee',
+  'partner',
+  'shift',
+  'invoice',
+  'contract',
+] as const
+
+export type ConsoleNewDestination = (typeof CONSOLE_NEW_DESTINATIONS)[number]
+
+const CONSOLE_NEW_LABELS: Record<ConsoleNewDestination, string> = {
+  project:           '案件登録',
+  project_spot:      'スポット案件登録',
+  project_recurring: '定期案件登録',
+  project_hotel:     'ホテル案件登録',
+  client:            '顧客登録',
+  employee:          '従業員登録',
+  partner:           '協力業者登録',
+  shift:             'シフト登録',
+  invoice:           '請求書新規作成',
+  contract:          '契約登録',
+}
+
+const CONSOLE_NEW_ROUTE_MAP: Record<ConsoleNewDestination, string> = {
+  project:           '/projects/new',
+  project_spot:      '/projects/spot/new',
+  project_recurring: '/projects/recurring/new',
+  project_hotel:     '/projects/hotel/new',
+  client:            '/clients/new',
+  employee:          '/employees/new',
+  partner:           '/partners/new',
+  shift:             '/shifts/new',
+  invoice:           '/invoices/new',
+  contract:          '/contracts/new',
+}
+
+export function isConsoleNewDestination(v: string): v is ConsoleNewDestination {
+  return CONSOLE_NEW_DESTINATIONS.includes(v as ConsoleNewDestination)
+}
+
+/** 安全なNew Page Navigation。destination enum → 実在新規ルートへ router.push。 */
+export function executeConsoleNewNavigation(
+  destination: string,
+  router:      { push: (p: string) => void }
+): string {
+  if (!isConsoleNewDestination(destination)) {
+    return `その登録ページには移動できません。`
+  }
+  const route = CONSOLE_NEW_ROUTE_MAP[destination]
+  const label = CONSOLE_NEW_LABELS[destination]
+  router.push(route)
+  return `${label}ページを開きます。`
+}
+
+// ============================================================
+// Edit Navigation — entity + entityId → 実在Edit Route
+// ============================================================
+
+export const CONSOLE_EDIT_ENTITIES = [
+  'project',
+] as const
+
+export type ConsoleEditEntity = (typeof CONSOLE_EDIT_ENTITIES)[number]
+
+const CONSOLE_EDIT_LABELS: Record<ConsoleEditEntity, string> = {
+  project: '案件編集',
+}
+
+/** entity → /path/prefix/ + entityId + /edit（末尾パターン） */
+const CONSOLE_EDIT_ROUTE_BUILDERS: Record<ConsoleEditEntity, (id: string) => string> = {
+  project: (id) => `/projects/${id}/edit`,
+}
+
+export function isConsoleEditEntity(v: string): v is ConsoleEditEntity {
+  return CONSOLE_EDIT_ENTITIES.includes(v as ConsoleEditEntity)
+}
+
+/** 安全なEdit Page Navigation。entity + entityId → 実在編集ルートへ router.push。 */
+export function executeConsoleEditNavigation(
+  entity:   string,
+  entityId: string,
+  router:   { push: (p: string) => void }
+): string {
+  if (!isConsoleEditEntity(entity)) {
+    return `その編集ページには移動できません。`
+  }
+  const id = entityId?.trim()
+  if (!id) {
+    return `IDが見つかりません。先に対象を検索してください。`
+  }
+  const builder = CONSOLE_EDIT_ROUTE_BUILDERS[entity]
+  const label   = CONSOLE_EDIT_LABELS[entity]
+  router.push(builder(id))
+  return `${label}ページを開きます。`
+}

@@ -17,6 +17,8 @@ import type { ConsoleActionName } from '@/lib/voice/registry/console.actions'
 import {
   CONSOLE_NAV_DESTINATIONS, executeConsoleNavigation,
   CONSOLE_DETAIL_ENTITIES, executeConsoleDetailNavigation,
+  CONSOLE_NEW_DESTINATIONS, executeConsoleNewNavigation,
+  CONSOLE_EDIT_ENTITIES, executeConsoleEditNavigation,
 } from '@/lib/voice/registry/console.navigation'
 
 // ─── CONSOLE Realtime定数 ─────────────────────────────────────
@@ -45,6 +47,28 @@ entity enum: project / client / employee / partner / expense / invoice / report 
 「この依頼のページ開いて」→ 詳細ページなし。navigate_to(project_requests)
 「このマニュアル開いて」→ 詳細ページなし。navigate_to(manuals)
 entity_id不明なら先に検索Tool。ID不明でnavigateしない。
+
+## 新規登録ページNavigation（「○○登録画面開いて」「○○追加ページ」）
+navigate_to_new(destination) を使う。destinationは以下enumのみ。
+destination enum: project / project_spot / project_recurring / project_hotel / client / employee / partner / shift / invoice / contract
+「案件登録画面開いて」→ navigate_to_new(project)
+「スポット案件登録」→ navigate_to_new(project_spot)
+「定期案件登録画面」→ navigate_to_new(project_recurring)
+「ホテル案件登録画面」→ navigate_to_new(project_hotel)
+「顧客登録画面」→ navigate_to_new(client)
+「従業員登録画面」→ navigate_to_new(employee)
+「協力業者登録画面」→ navigate_to_new(partner)
+「シフト登録画面」→ navigate_to_new(shift)
+「請求書新規作成」→ navigate_to_new(invoice)
+「契約登録画面」→ navigate_to_new(contract)
+「登録して」「追加して」→ CREATE（navigate_to_newではない）
+
+## 編集ページNavigation（「この○○の編集画面開いて」）
+navigate_to_edit(entity, entity_id) を使う。entity_idは必ず直前のTool Result由来。AI生成禁止。
+entity enum: project
+「この案件の編集画面開いて」→ navigate_to_edit(project, projectId)
+「変更して」「更新して」→ UPDATE（navigate_to_editではない）
+entity_id不明なら先に検索Tool。
 
 ## 自然言語理解の原則
 ユーザーは機能名や画面名を正確に言わない。発話の意味・文脈から最適なToolを選ぶ。
@@ -857,6 +881,46 @@ function buildConsoleRealtimeTools(
       },
       execute: async ({ entity, entity_id }: { entity: string; entity_id: string }) =>
         executeConsoleDetailNavigation(entity, entity_id, router),
+    }),
+    toolFactory({
+      name:        'navigate_to_new',
+      description: '新規登録・追加ページへ移動。「案件登録画面開いて」「顧客追加ページ」「従業員登録画面」「シフト登録画面」等。実際の登録は行わない（「登録して」はCREATEを使う）。',
+      parameters:  {
+        type:       'object',
+        properties: {
+          destination: {
+            type:        'string',
+            enum:        [...CONSOLE_NEW_DESTINATIONS],
+            description: '登録先エンティティ。enumのみ使用。',
+          },
+        },
+        required:             ['destination'],
+        additionalProperties: false,
+      },
+      execute: async ({ destination }: { destination: string }) =>
+        executeConsoleNewNavigation(destination, router),
+    }),
+    toolFactory({
+      name:        'navigate_to_edit',
+      description: '編集ページへ移動。「この案件の編集画面開いて」「この案件を編集するページ見せて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。「変更して」はUPDATEを使う（navigate_to_editではない）。',
+      parameters:  {
+        type:       'object',
+        properties: {
+          entity: {
+            type:        'string',
+            enum:        [...CONSOLE_EDIT_ENTITIES],
+            description: 'エンティティ種別',
+          },
+          entity_id: {
+            type:        'string',
+            description: '直前Tool Result由来のID。AI生成禁止。',
+          },
+        },
+        required:             ['entity', 'entity_id'],
+        additionalProperties: false,
+      },
+      execute: async ({ entity, entity_id }: { entity: string; entity_id: string }) =>
+        executeConsoleEditNavigation(entity, entity_id, router),
     }),
     // ─── Employee Tools ─────────────────────────────────────
     toolFactory({
@@ -2235,6 +2299,34 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         conversationCtxRef.current = {
           ...conversationCtxRef.current,
           lastIntent: `navigate_detail.${entity}`,
+          lastAction: undefined,
+        }
+        speakAndMaybeResume(reply)
+        return
+      }
+
+      if (result.navigateNew) {
+        const { destination } = result.navigateNew as { destination: string }
+        const reply = executeConsoleNewNavigation(destination, router)
+        setResponse(reply)
+        addMessage('assistant', reply)
+        conversationCtxRef.current = {
+          ...conversationCtxRef.current,
+          lastIntent: `navigate_new.${destination}`,
+          lastAction: undefined,
+        }
+        speakAndMaybeResume(reply)
+        return
+      }
+
+      if (result.navigateEdit) {
+        const { entity, entity_id } = result.navigateEdit as { entity: string; entity_id: string }
+        const reply = executeConsoleEditNavigation(entity, entity_id, router)
+        setResponse(reply)
+        addMessage('assistant', reply)
+        conversationCtxRef.current = {
+          ...conversationCtxRef.current,
+          lastIntent: `navigate_edit.${entity}`,
           lastAction: undefined,
         }
         speakAndMaybeResume(reply)

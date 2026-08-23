@@ -75,6 +75,8 @@ export async function POST(req: NextRequest) {
     const finalOutput = result.finalOutput ?? ''
     let navigateAction: string | null = null
     let navigateDetail: { entity: string; entity_id: string } | null = null
+    let navigateNew:    { destination: string } | null = null
+    let navigateEdit:   { entity: string; entity_id: string } | null = null
     let pendingConfirmation: Record<string, unknown> | null = null
 
     for (const item of result.newItems ?? []) {
@@ -85,6 +87,12 @@ export async function POST(req: NextRequest) {
           if (parsed.__navigate && parsed.action) navigateAction = parsed.action
           if (parsed.__navigate_detail && parsed.entity && parsed.entity_id) {
             navigateDetail = { entity: parsed.entity, entity_id: parsed.entity_id }
+          }
+          if (parsed.__navigate_new && parsed.destination) {
+            navigateNew = { destination: parsed.destination }
+          }
+          if (parsed.__navigate_edit && parsed.entity && parsed.entity_id) {
+            navigateEdit = { entity: parsed.entity, entity_id: parsed.entity_id }
           }
           if (parsed.__pendingConfirmation) {
             pendingConfirmation = {
@@ -107,11 +115,15 @@ export async function POST(req: NextRequest) {
       pendingApproval:     false,
       pendingConfirmation: pendingConfirmation ?? undefined,
       navigateDetail:      navigateDetail ?? undefined,
+      navigateNew:         navigateNew    ?? undefined,
+      navigateEdit:        navigateEdit   ?? undefined,
       previousResponseId:  result.lastResponseId,
     } satisfies ConsoleAgentApiResponse & {
       pendingApproval?:    boolean
       pendingConfirmation?: Record<string, unknown>
       navigateDetail?:     { entity: string; entity_id: string }
+      navigateNew?:        { destination: string }
+      navigateEdit?:       { entity: string; entity_id: string }
       previousResponseId?: string
     })
 

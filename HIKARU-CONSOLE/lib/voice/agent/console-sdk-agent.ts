@@ -1767,6 +1767,31 @@ const navigateTool = tool({
   },
 })
 
+const navigateNewTool = tool({
+  name:        'navigate_new',
+  description: '新規登録・追加ページへ移動。「案件登録画面開いて」「顧客追加ページ」「従業員登録画面」「シフト登録画面」等。実際の登録は行わない。「登録して」「追加して」はCREATEを使う（navigate_newではない）。',
+  parameters:  z.object({
+    destination: z.enum(['project', 'project_spot', 'project_recurring', 'project_hotel', 'client', 'employee', 'partner', 'shift', 'invoice', 'contract']).describe('登録先エンティティ'),
+  }),
+  execute: async ({ destination }) => {
+    return JSON.stringify({ __navigate_new: true, destination })
+  },
+})
+
+const navigateEditTool = tool({
+  name:        'navigate_edit',
+  description: '編集ページへ移動。「この案件の編集画面開いて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。「変更して」「更新して」はUPDATEを使う（navigate_editではない）。',
+  parameters:  z.object({
+    entity:    z.enum(['project']).describe('エンティティ種別'),
+    entity_id: z.string().describe('直前のTool Result由来のID。AI生成禁止。'),
+  }),
+  execute: async ({ entity, entity_id }) => {
+    const id = entity_id?.trim()
+    if (!id) return 'IDが見つかりません。先に対象を検索してください。'
+    return JSON.stringify({ __navigate_edit: true, entity, entity_id: id })
+  },
+})
+
 const navigateDetailTool = tool({
   name:        'navigate_detail',
   description: '特定エンティティの詳細ページへ移動。「この案件開いて」「田中さんのページを開いて」「この請求書を表示して」「この経費申請を開いて」「この契約を開いて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。',
@@ -1807,6 +1832,26 @@ const CONSOLE_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタ�
 entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。
 「この依頼のページ開いて」→ 詳細ページなし。navigate(console.open_project_requests)
 「このマニュアル開いて」→ 詳細ページなし。navigate(console.open_manuals)
+
+## 新規登録ページNavigation
+「○○登録画面開いて」「○○追加ページ」「○○の新規ページ」→ navigate_new(destination)
+destination enum: project / project_spot / project_recurring / project_hotel / client / employee / partner / shift / invoice / contract
+「案件登録画面開いて」→ navigate_new(destination="project")
+「スポット案件登録」→ navigate_new(destination="project_spot")
+「定期案件登録画面」→ navigate_new(destination="project_recurring")
+「ホテル案件登録画面」→ navigate_new(destination="project_hotel")
+「顧客登録画面」→ navigate_new(destination="client")
+「従業員登録画面」→ navigate_new(destination="employee")
+「協力業者登録画面」→ navigate_new(destination="partner")
+「シフト登録画面」→ navigate_new(destination="shift")
+「請求書新規作成」→ navigate_new(destination="invoice")
+「契約登録画面」→ navigate_new(destination="contract")
+「登録して」「追加して」→ propose_action（navigate_newではない）
+
+## 編集ページNavigation
+「この案件の編集画面開いて」「この案件を編集するページ」→ navigate_edit(entity="project", entity_id=<直前Tool Result由来>)
+entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。
+「変更して」「更新して」→ propose_action（navigate_editではない）
 
 ## 未対応機能
 まだToolが接続されていない機能（在庫数・契約詳細・報告書内容等）を聞かれた場合:
@@ -2236,6 +2281,8 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getProjectRequestsTool,
     proposeActionTool,
     navigateTool,
+    navigateNewTool,
+    navigateEditTool,
     navigateDetailTool,
   ],
 })
