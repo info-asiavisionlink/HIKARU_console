@@ -99,7 +99,7 @@ NavigationせずにDataツールを使う。
 従業員別勤怠記録 → get_attendance_records（employee_idが必要、year/month指定可）
 通知・連絡 → get_notifications（unread_only=trueで未読のみ）
 ダッシュボード → get_dashboard_summary
-売上・未入金・未請求 → get_revenue_summary（navigationしない）
+売上・未入金・未請求 → get_revenue_summary（navigationしない。売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。）
 協力業者・外注先一覧 → get_partners（search/status指定可）
 協力業者詳細・連絡先・担当案件 → get_partner_detail（partner_idを指定）
 マニュアル一覧・検索 → get_manuals（search/type/category指定可）
@@ -386,7 +386,7 @@ function buildConsoleRealtimeTools(
   toolFactory: (opts: any) => any,
 ) {
   const apiFetch = async (path: string) => {
-    const res = await fetch(path, { credentials: 'include' })
+    const res = await fetch(path, { credentials: 'include', cache: 'no-store' })
     if (!res.ok) return null
     return res.json()
   }
