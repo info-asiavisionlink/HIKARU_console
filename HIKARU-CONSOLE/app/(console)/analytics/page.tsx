@@ -16,9 +16,24 @@ import {
 import {
   BarChart3, CheckCircle2, AlertTriangle, XCircle, Camera,
   Users, Store, FileText, MessageSquare, Sparkles,
-  TrendingUp, TrendingDown, Minus, RefreshCw, ChevronRight,
+  TrendingUp, TrendingDown, Minus, RefreshCw, ChevronRight, Search,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
+
+// ============================================================
+// 従業員Analytics型
+// ============================================================
+
+interface EmployeeAnalyticsItem {
+  employee_id:     string
+  profile_id:      string | null
+  workerName:      string
+  jobCount:        number
+  avgScore:        number | null
+  passRate:        number | null
+  redoCount:       number
+  hasAnalysisData: boolean
+}
 
 // ============================================================
 // AI分析の型
@@ -114,6 +129,14 @@ export default function AnalyticsPage() {
   const [loading,       setLoading]       = React.useState(true)
   const [aiLoading,     setAiLoading]     = React.useState(false)
 
+  // 従業員分析 state
+  const [activeTab,                  setActiveTab]                  = React.useState('overview')
+  const [employeeAnalytics,          setEmployeeAnalytics]          = React.useState<EmployeeAnalyticsItem[]>([])
+  const [employeeAnalyticsLoading,   setEmployeeAnalyticsLoading]   = React.useState(false)
+  const [employeeAnalyticsLoaded,    setEmployeeAnalyticsLoaded]    = React.useState(false)
+  const [employeeAnalyticsError,     setEmployeeAnalyticsError]     = React.useState<string | null>(null)
+  const [employeeSearch,             setEmployeeSearch]             = React.useState('')
+
   React.useEffect(() => {
     async function load() {
       try {
@@ -138,6 +161,31 @@ export default function AnalyticsPage() {
     load()
   }, [])
 
+  // 従業員分析タブ初回表示時のみfetch (lazy single-fetch)
+  React.useEffect(() => {
+    if (activeTab !== 'employees' || employeeAnalyticsLoaded || employeeAnalyticsLoading) return
+
+    async function loadEmployees() {
+      setEmployeeAnalyticsLoading(true)
+      setEmployeeAnalyticsError(null)
+      try {
+        const res = await fetch('/api/analytics/employees')
+        if (!res.ok) {
+          setEmployeeAnalyticsError('従業員分析データを取得できませんでした。')
+          return
+        }
+        const data = await res.json()
+        setEmployeeAnalytics(data.employees ?? [])
+        setEmployeeAnalyticsLoaded(true)
+      } catch {
+        setEmployeeAnalyticsError('従業員分析データを取得できませんでした。')
+      } finally {
+        setEmployeeAnalyticsLoading(false)
+      }
+    }
+    loadEmployees()
+  }, [activeTab, employeeAnalyticsLoaded, employeeAnalyticsLoading])
+
   async function fetchAISuggestions() {
     setAiLoading(true)
     try {
@@ -161,6 +209,15 @@ export default function AnalyticsPage() {
 
   const totalEvals = overview ? overview.passCount + overview.checkCount + overview.redoCount : 0
 
+  // 従業員検索: client-side filter のみ (API再呼び出し不要)
+  const filteredEmployees = React.useMemo(() => {
+    const q = employeeSearch.trim()
+    if (!q) return employeeAnalytics
+    return employeeAnalytics.filter((e) =>
+      e.workerName.toLowerCase().includes(q.toLowerCase())
+    )
+  }, [employeeAnalytics, employeeSearch])
+
   return (
     <div>
       <PageHeader
@@ -168,11 +225,12 @@ export default function AnalyticsPage() {
         description="清掃品質データの統合分析"
       />
 
-      <Tabs defaultValue="overview">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="overview">概要</TabsTrigger>
           <TabsTrigger value="quality">品質分析</TabsTrigger>
           <TabsTrigger value="rankings">ランキング</TabsTrigger>
+          <TabsTrigger value="employees">従業員分析</TabsTrigger>
           <TabsTrigger value="ai">AI提案</TabsTrigger>
         </TabsList>
 
@@ -569,6 +627,108 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ======================================== */}
+        {/* 従業員分析タブ                            */}
+        {/* ======================================== */}
+        <TabsContent value="employees">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">従業員分析</CardTitle>
+              <p className="text-xs text-[var(--color-muted-foreground)]">全従業員のAI評価サマリー</p>
+            </CardHeader>
+            <CardContent>
+              {/* 検索欄: client-side filter のみ */}
+              {!employeeAnalyticsLoading && employeeAnalyticsLoaded && (
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-muted-foreground)]" />
+                  <input
+                    type="text"
+                    placeholder="従業員名で検索..."
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    className="w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-background)] pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                  />
+                </div>
+              )}
+
+              {/* Loading */}
+              {employeeAnalyticsLoading && (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              )}
+
+              {/* Error */}
+              {!employeeAnalyticsLoading && employeeAnalyticsError && (
+                <p className="py-8 text-center text-sm text-[var(--color-error)]">
+                  {employeeAnalyticsError}
+                </p>
+              )}
+
+              {/* 一覧 */}
+              {!employeeAnalyticsLoading && !employeeAnalyticsError && employeeAnalyticsLoaded && (
+                <>
+                  {filteredEmployees.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">
+                      {employeeSearch ? '該当する従業員が見つかりません' : '従業員データがありません'}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredEmployees.map((emp) => (
+                        <div
+                          key={emp.employee_id}
+                          className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] px-4 py-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-[var(--color-foreground)] truncate">
+                              {emp.workerName}
+                            </p>
+                            {emp.hasAnalysisData ? (
+                              <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">
+                                {emp.jobCount}回作業
+                                {emp.passRate != null && ` · 合格率 ${emp.passRate}%`}
+                                {emp.redoCount > 0 && ` · 再清掃 ${emp.redoCount}件`}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">
+                                まだ分析データがありません
+                              </p>
+                            )}
+                          </div>
+
+                          {emp.hasAnalysisData && emp.avgScore != null && (
+                            <div className="flex items-baseline gap-0.5 shrink-0">
+                              <span className={cn('text-lg font-bold tabular-nums', scoreColor(emp.avgScore))}>
+                                {emp.avgScore}
+                              </span>
+                              <span className="text-xs text-[var(--color-muted-foreground)]">点</span>
+                            </div>
+                          )}
+
+                          {emp.profile_id ? (
+                            <Link
+                              href={`/analytics/worker/${emp.profile_id}`}
+                              className="shrink-0 flex items-center gap-1 rounded-[var(--radius-lg)] border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-foreground)] hover:bg-[var(--color-muted)] transition-colors"
+                            >
+                              詳細 <ChevronRight className="h-3 w-3" />
+                            </Link>
+                          ) : (
+                            <span className="shrink-0 text-xs text-[var(--color-muted-foreground)]">
+                              詳細不可
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ======================================== */}
