@@ -107,8 +107,8 @@ NavigationせずにDataツールを使う。
 シフト一覧・今日・今週 → get_shifts（date_from/date_to/employee_id/project_id指定可）
 シフト詳細 → get_shift_detail（shiftIdを指定）
 シフト×勤怠比較 → get_shift_attendance_status（今日のシフトあり打刻なしを確認）
-請求書・見積書一覧・詳細 → get_invoices / get_invoice_detail（invoice_type=quote/invoice）
-報告書一覧・詳細 → get_reports / get_report_detail（report_idを指定）
+請求書・見積書一覧・詳細 → get_invoices / get_invoice_detail（invoice_type=quote/invoice、project_idで案件に絞り込み可）
+報告書一覧・詳細 → get_reports / get_report_detail（report_idを指定、project_idで絞り込み可）
 在庫一覧・詳細 → get_inventory / get_inventory_detail（inventory_idを指定）
 在庫入出庫履歴 → get_inventory_history（inventory_id必須、直前Tool Result由来のIDを使う）
 契約一覧・詳細 → get_contracts / get_contract_detail（contract_idを指定・expiring_days=30で期限近い）
@@ -118,6 +118,18 @@ NavigationせずにDataツールを使う。
 案件別品質トレンド → get_project_quality（project_id必須、直前Tool Result由来のID使用）
 AI分析・ランキング → get_analytics（focus=overview/store/worker等）
 設定・会社情報 → get_settings
+
+## 案件を起点とするCross-READ（案件Contextを維持）
+「この案件の〜は？」「さっきの案件の〜は？」「1件目の〜は？」は直前に確定したproject_idを使う。
+担当者: get_project_assignments(project_id)
+報告書: get_reports(project_id)
+品質: get_project_quality(project_id)
+アンケート: get_surveys(project_id)
+シフト: get_shifts(project_id, date_from?, date_to?)
+請求書: get_invoices(project_id, invoice_type="invoice")
+見積書: get_invoices(project_id, invoice_type="quote")
+project_id不明なら先にget_projectsで検索。勝手なIDを使わない。
+契約・経費のproject_id絞り込みは現在未対応（全体一覧から案内する）。
 
 ## シフト操作手順
 シフト一覧: get_shifts（date_from/date_to省略時は今日。employee_id/project_id/statusで絞り込み可）
@@ -1230,13 +1242,14 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Invoice / Estimate ─────────────────────────────
     toolFactory({
       name: 'get_invoices',
-      description: '請求書・見積書の一覧を取得する。「請求書見せて」「見積書一覧」「未入金の請求は？」等。invoice_type=quote（見積書）またはinvoice（請求書）。',
-      parameters: { type: 'object', properties: { invoice_type: { type: 'string' }, status: { type: 'string' }, client_id: { type: 'string' } }, required: [], additionalProperties: false },
-      execute: async ({ invoice_type, status, client_id }: { invoice_type?: string; status?: string; client_id?: string }) => {
+      description: '請求書・見積書の一覧を取得する。「請求書見せて」「見積書一覧」「未入金の請求は？」「この案件の請求書は？」「この案件の見積は？」等。invoice_type=quote（見積書）またはinvoice（請求書）。project_idで案件に紐づく請求書を絞り込める。',
+      parameters: { type: 'object', properties: { invoice_type: { type: 'string' }, status: { type: 'string' }, client_id: { type: 'string' }, project_id: { type: 'string', description: '案件IDで絞り込む（get_projectsで取得したid）' } }, required: [], additionalProperties: false },
+      execute: async ({ invoice_type, status, client_id, project_id }: { invoice_type?: string; status?: string; client_id?: string; project_id?: string }) => {
         const q = new URLSearchParams()
         if (invoice_type) q.set('invoice_type', invoice_type)
         if (status)       q.set('status',       status)
         if (client_id)    q.set('client_id',    client_id)
+        if (project_id)   q.set('project_id',   project_id)
         const data = await apiFetch(`/api/invoices?${q}`)
         if (!data) return '請求書・見積書一覧を取得できませんでした。'
         const list: any[] = data.invoices ?? []
