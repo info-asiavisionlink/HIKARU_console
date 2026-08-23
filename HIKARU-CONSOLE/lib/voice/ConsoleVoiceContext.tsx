@@ -111,7 +111,10 @@ NavigationせずにDataツールを使う。
 報告書一覧・詳細 → get_reports / get_report_detail（report_idを指定）
 在庫一覧・詳細 → get_inventory / get_inventory_detail（inventory_idを指定）
 契約一覧・詳細 → get_contracts / get_contract_detail（contract_idを指定・expiring_days=30で期限近い）
-品質KPI → get_quality_summary（period=7d/30d/90d/ytd）
+品質KPI全体 → get_quality_summary（period=7d/30d/90d/ytd）
+顧客アンケート・満足度 → get_surveys（project_id/rating/date_from/date_to指定可）
+作業者別品質ランキング → get_workers_quality（days=30など）
+案件別品質トレンド → get_project_quality（project_id必須、直前Tool Result由来のID使用）
 AI分析・ランキング → get_analytics（focus=overview/store/worker等）
 設定・会社情報 → get_settings
 
@@ -1421,6 +1424,100 @@ function buildConsoleRealtimeTools(
         if (kpi.avg_rating      != null) parts.push(`顧客評価平均: ★${Math.round((kpi.avg_rating as number)*10)/10}`)
         if ((kpi.low_rating_count as number) > 0) parts.push(`低評価: ${kpi.low_rating_count}件`)
         return parts.join('\n') || '品質データはありません。'
+      },
+    }),
+    toolFactory({
+      name: 'get_surveys',
+      description: '顧客アンケート・満足度調査の一覧を取得する。「顧客満足度どう？」「最近のアンケート結果は？」「低評価のアンケートある？」「お客様のコメント教えて」「クレームある？」「この案件の評価は？」等。',
+      parameters: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '案件IDで絞り込む（直前Tool Result由来）' },
+          rating:     { type: 'string', description: '星評価で絞り込む（1〜5）' },
+          date_from:  { type: 'string', description: '開始日 YYYY-MM-DD' },
+          date_to:    { type: 'string', description: '終了日 YYYY-MM-DD' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ project_id, rating, date_from, date_to }: { project_id?: string; rating?: string; date_from?: string; date_to?: string }) => {
+        const q = new URLSearchParams({ limit: '10' })
+        if (project_id) q.set('project_id', project_id)
+        if (rating)     q.set('rating',     rating)
+        if (date_from)  q.set('date_from',  date_from)
+        if (date_to)    q.set('date_to',    date_to)
+        const data = await apiFetch(`/api/surveys?${q}`)
+        if (!data) return 'アンケートデータを取得できませんでした。'
+        const surveys: any[] = data.surveys ?? []
+        const total = data.total ?? 0
+        if (surveys.length === 0) return '顧客アンケートはありません。'
+        const starMap = ['', '★☆☆☆☆', '★★☆☆☆', '★★★☆☆', '★★★★☆', '★★★★★']
+        const lines = surveys.slice(0, 5).map((s: any) => {
+          const star    = starMap[s.rating] ?? `${s.rating}点`
+          const proj    = s.jobs?.projects?.name ?? '案件不明'
+          const worker  = s.jobs?.worker?.name ?? ''
+          const date    = s.jobs?.work_date ?? ''
+          const comment = s.comment ? `「${String(s.comment).slice(0, 40)}」` : ''
+          return `${date} ${proj} ${worker} ${star} ${comment}`.trim()
+        })
+        const suffix = total > 5 ? `（全${total}件中5件表示）` : `（全${total}件）`
+        return `顧客アンケート ${suffix}\n${lines.join('\n')}`
+      },
+    }),
+    toolFactory({
+      name: 'get_workers_quality',
+      description: '作業者別の品質集計を取得する。「作業者の品質ランキングは？」「評価が高い作業者は？」「品質が低い作業者いる？」「スタッフ別の評価を教えて」等。',
+      parameters: {
+        type: 'object',
+        properties: {
+          days: { type: 'string', description: '集計対象日数（省略時30日）' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ days }: { days?: string }) => {
+        const d = days ?? '30'
+        const data = await apiFetch(`/api/quality/workers?days=${d}`)
+        if (!data) return '作業者品質データを取得できませんでした。'
+        const workers: any[] = data.workers ?? []
+        if (workers.length === 0) return `過去${d}日間の品質評価データはありません。`
+        const lines = workers.slice(0, 5).map((w: any, i: number) => {
+          const hqs  = w.avg_hqs      != null ? `HQS:${Math.round(w.avg_hqs)}点` : ''
+          const ai   = w.avg_ai_score != null ? `AI:${Math.round(w.avg_ai_score)}点` : ''
+          const cust = w.avg_rating   != null ? `顧客:★${(w.avg_rating as number).toFixed(1)}` : ''
+          const low  = w.low_rating_count > 0 ? `低評価:${w.low_rating_count}件` : ''
+          return `${i + 1}位 ${w.name}（${w.job_count}件）${[hqs, ai, cust, low].filter(Boolean).join('・')}`
+        })
+        return `作業者品質（過去${d}日）:\n${lines.join('\n')}`
+      },
+    }),
+    toolFactory({
+      name: 'get_project_quality',
+      description: '案件別の品質トレンドを取得する。「この案件の品質は？」「この現場のAI評価は？」「○○案件のスコアを教えて」等。project_idが必要。get_projectsで取得したidを使う。',
+      parameters: {
+        type: 'object',
+        properties: {
+          project_id: { type: 'string', description: '案件ID（get_projects / get_project_detailのid）' },
+          days:       { type: 'string', description: '集計日数（省略時90日）' },
+        },
+        required: ['project_id'], additionalProperties: false,
+      },
+      execute: async ({ project_id, days }: { project_id: string; days?: string }) => {
+        if (!project_id?.trim()) return 'project_idが必要です。先に案件を検索してください。'
+        const d = days ?? '90'
+        const data = await apiFetch(`/api/quality/trends?project_id=${project_id}&days=${d}`)
+        if (!data) return '案件品質データを取得できませんでした。'
+        const trends: any[] = data.trends ?? []
+        if (trends.length === 0) return `この案件の過去${d}日間の品質評価データはありません。`
+        const scores = trends.map((t: any) => t.hqs).filter((v: any) => v != null) as number[]
+        const avgHqs = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+        const latest = trends[trends.length - 1]
+        const parts  = [
+          `作業${trends.length}回（過去${d}日間）`,
+          avgHqs != null ? `平均HQS: ${avgHqs}点` : '',
+          latest?.hqs      != null ? `最新スコア: ${Math.round(latest.hqs)}点（${latest.work_date}）` : '',
+          latest?.ai_score != null ? `最新AI評価: ${Math.round(latest.ai_score)}点` : '',
+          latest?.rating   != null ? `最新顧客評価: ★${latest.rating}` : '',
+        ].filter(Boolean)
+        return parts.join('\n')
       },
     }),
     // ─── NEW: Analytics ───────────────────────────────────────
