@@ -86,6 +86,38 @@ export const CONSOLE_ACTIONS = {
     level: 2 as const,
     description: '勤怠管理・出退勤記録を開く',
   },
+  'console.open_attendance_corrections': {
+    level: 2 as const,
+    description: '勤怠修正申請一覧を開く',
+  },
+  'console.open_invoices_quotes': {
+    level: 2 as const,
+    description: '見積書一覧を開く',
+  },
+  'console.open_invoices_bills': {
+    level: 2 as const,
+    description: '請求書一覧を開く',
+  },
+  'console.open_quality_surveys': {
+    level: 2 as const,
+    description: '顧客アンケート一覧を開く',
+  },
+  'console.open_quality_workers': {
+    level: 2 as const,
+    description: '作業者品質ランキングを開く',
+  },
+  'console.open_project_spot_list': {
+    level: 2 as const,
+    description: 'スポット案件一覧を開く',
+  },
+  'console.open_project_recurring_list': {
+    level: 2 as const,
+    description: '定期案件一覧を開く',
+  },
+  'console.open_project_hotel_list': {
+    level: 2 as const,
+    description: 'ホテル案件一覧を開く',
+  },
   'console.open_expenses': {
     level: 2 as const,
     description: '経費管理・経費申請一覧を開く',

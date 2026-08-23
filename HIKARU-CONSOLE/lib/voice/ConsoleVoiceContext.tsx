@@ -33,9 +33,15 @@ const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント�
 navigate_to(destination) を使う。destinationは以下のenum値のみ使用。任意URLは絶対使用しない。
 dashboard=ダッシュボード / projects=案件管理 / project_requests=案件依頼 / clients=顧客管理 /
 stores=店舗管理 / employees=従業員管理 / workers=作業者管理 / partners=協力業者管理 /
-shifts=シフト管理 / attendance=勤怠管理 / expenses=経費管理 / invoices=請求管理 /
-notifications=通知 / quality=品質管理 / manuals=マニュアル管理 / reports=報告書 /
-analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 / settings=設定 / back=前の画面
+shifts=シフト管理 / attendance=勤怠管理 / attendance_corrections=勤怠修正申請一覧 /
+expenses=経費管理 / invoices=請求管理 / invoices_quotes=見積書一覧 / invoices_bills=請求書一覧 /
+notifications=通知 / quality=品質管理 / quality_surveys=顧客アンケート / quality_workers=作業者品質 /
+manuals=マニュアル管理 / reports=報告書 / analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 /
+settings=設定 / back=前の画面
+project_spot_list=スポット案件一覧 / project_recurring_list=定期案件一覧 / project_hotel_list=ホテル案件一覧
+「勤怠修正申請一覧を開いて」→ navigate_to(attendance_corrections)
+「スポット案件の一覧」→ navigate_to(project_spot_list)
+「見積書一覧開いて」→ navigate_to(invoices_quotes)
 
 ## 詳細ページNavigation（「この○○開いて」「○○のページ見せて」）
 navigate_to_detail(entity, entity_id) を使う。entity_idは必ず直前のTool Result由来。AI生成禁止。
@@ -2236,17 +2242,25 @@ function executeConsoleL2Navigation(
     'console.open_employees':        'employees',
     'console.open_partners':         'partners',
     'console.open_shifts':           'shifts',
-    'console.open_attendance':       'attendance',
-    'console.open_expenses':         'expenses',
-    'console.open_invoices':         'invoices',
-    'console.open_notifications':    'notifications',
-    'console.open_quality':          'quality',
-    'console.open_manuals':          'manuals',
-    'console.open_reports':          'reports',
-    'console.open_analytics':        'analytics',
-    'console.open_inventory':        'inventory',
-    'console.open_contracts':        'contracts',
-    'console.open_settings':         'settings',
+    'console.open_attendance':              'attendance',
+    'console.open_attendance_corrections':  'attendance_corrections',
+    'console.open_expenses':                'expenses',
+    'console.open_invoices':                'invoices',
+    'console.open_invoices_quotes':         'invoices_quotes',
+    'console.open_invoices_bills':          'invoices_bills',
+    'console.open_notifications':           'notifications',
+    'console.open_quality':                 'quality',
+    'console.open_quality_surveys':         'quality_surveys',
+    'console.open_quality_workers':         'quality_workers',
+    'console.open_manuals':                 'manuals',
+    'console.open_reports':                 'reports',
+    'console.open_analytics':               'analytics',
+    'console.open_inventory':               'inventory',
+    'console.open_contracts':               'contracts',
+    'console.open_settings':                'settings',
+    'console.open_project_spot_list':       'project_spot_list',
+    'console.open_project_recurring_list':  'project_recurring_list',
+    'console.open_project_hotel_list':      'project_hotel_list',
   }
   const destination = ACTION_TO_DESTINATION[action]
   if (!destination) return ''

@@ -2216,7 +2216,7 @@ AI分析画面を開く: navigate(console.open_analytics)
 通知Cross-Navigation: get_notificationsの結果に [関連:expense:{id}] や [関連:report:{id}] が含まれる場合それが関連EntityのID。
   「その経費開いて」→ navigate_detail(entity="expense", entity_id={id})
   「その報告書開いて」→ navigate_detail(entity="report", entity_id={id})
-  [関連:勤怠修正一覧] → navigate(console.open_attendance) で一覧へ案内
+  [関連:勤怠修正一覧] → navigate(console.open_attendance_corrections) で修正申請一覧へ案内
   [関連:案件依頼一覧] → navigate(console.open_project_requests) で一覧へ案内
   [関連:*]がない通知 → 「この通知には直接開ける関連ページ情報がありません。」
   IDは必ず [関連:entity:{id}] タグ由来のみ。本文から推測禁止。
