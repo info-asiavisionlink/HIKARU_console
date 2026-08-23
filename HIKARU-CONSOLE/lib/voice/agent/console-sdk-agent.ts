@@ -26,6 +26,14 @@ async function apiGet(path: string, ctx: ConsoleAgentSDKContext): Promise<Respon
   })
 }
 
+async function apiPost(path: string, body: unknown, ctx: ConsoleAgentSDKContext): Promise<Response> {
+  return fetch(`${ctx.baseUrl}${path}`, {
+    method:  'POST',
+    headers: { Cookie: ctx.cookieHeader, 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  })
+}
+
 // ─── Tools ───────────────────────────────────────────────────
 
 const getDashboardTool = tool({
@@ -900,6 +908,32 @@ const resolveManualTool = tool({
       }).join(' / ')
       return `「${search}」で${manuals.length}件見つかりました。どのマニュアルですか？ ${list}`
     } catch { return 'マニュアルの解決中にエラーが発生しました。' }
+  },
+})
+
+const askManualTool = tool({
+  name:        'ask_manual',
+  description: 'HIKARUに登録されたマニュアルだけを根拠に、清掃方法・汚れ・素材・洗剤・薬剤・機械の使い方・作業手順・安全注意・ホテル客室清掃・現場作業等の自然言語の質問へ回答する。ユーザーの言い方がManualタイトルや登録文言と完全一致していなくても意味について質問している場合に使用する。例：「床の黒ずみどうする？」「油汚れが落ちない」「連泊の部屋どう掃除する？」「ワックス剥離の注意点は？」「この現場ではどうする？」。マニュアル一覧を知りたいだけの場合はget_manualsを使用する。L0操作。Confirmationなし。即実行。',
+  parameters:  z.object({
+    question:   z.string().describe('ユーザーがマニュアルについて聞いた自然言語の質問。意味を変えずに渡す。'),
+    project_id: z.string().optional().describe('案件固有Manualを参照する場合のみ。必ず直前のTool ResultまたはConversation Target由来のproject_id。AI生成禁止。'),
+  }),
+  execute: async ({ question, project_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!question?.trim()) return 'マニュアルへの質問内容が必要です。'
+    try {
+      const body: { question: string; project_id?: string } = { question: question.trim() }
+      if (project_id?.trim()) body.project_id = project_id.trim()
+      const res  = await apiPost('/api/ai/console-manual-qa', body, ctx)
+      if (!res.ok) return 'マニュアル情報を確認できませんでした。もう一度お試しください。'
+      const data = await res.json()
+      const answer = (data.answer ?? '').trim()
+      if (!answer) return '登録されているマニュアルからは、その内容を確認できませんでした。'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const titles = (data.sources ?? []).map((s: any) => s.title).filter(Boolean).slice(0, 3)
+      const sourceNote = titles.length > 0 ? `\n参照: ${titles.join('・')}` : ''
+      return `${answer}${sourceNote}`
+    } catch { return 'マニュアル情報を確認できませんでした。もう一度お試しください。' }
   },
 })
 
@@ -2137,7 +2171,10 @@ requestIdは必ずget_project_requestsのresultから取得する。AI生成ID�
   確認文例: 「タイトルを『○○手順 改訂版』に変更します。よろしいですか？」
 マニュアル削除: 音声実行不可。「管理画面から操作してください。」と答える。
 公開状態: マニュアルに公開/非公開フィールドなし。「公開状態の管理機能はありません。」と答える。
-「床の汚れはどう落とす？」等の知識質問 → Manual AI（ConsoleでのVoice未対応）→「管理画面の質問機能を使ってください。」と答える。
+「床の汚れはどう落とす？」「油汚れが落ちない」「ワックス剥離の注意点は？」等の知識質問 → ask_manual（登録Manualだけを根拠に回答。Confirmationなし。即実行）
+ユーザーの言葉がManualタイトルやカテゴリと完全一致していなくても、清掃方法・汚れ・素材・洗剤・薬剤・機械・安全注意・ホテル作業等の内容についての質問ならask_manualを使用する。
+ask_manualのTool Resultは登録Manualを根拠とした正式回答。手順・数値・薬剤名・注意事項を変更しない。Tool Resultにない事実を追加しない。一般知識で補完しない。
+evidence_found=falseの場合は回答をそのままユーザーへ返す。「一般的には〜」を追加しない。
 「マニュアル管理開いて」→ navigate(console.open_manuals)
 manualIdは必ずget_manualsまたはresolve_manualのresultから取得する。AI生成ID禁止。
 
@@ -2401,6 +2438,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getManualsTool,
     getManualDetailTool,
     resolveManualTool,
+    askManualTool,
     getPartnersTool,
     getPartnerDetailTool,
     resolvePartnerTool,
