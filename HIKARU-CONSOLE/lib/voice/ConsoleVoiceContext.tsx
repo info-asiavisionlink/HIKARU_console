@@ -59,6 +59,8 @@ NavigationせずにDataツールを使う。
 売上・未入金・未請求 → get_revenue_summary（navigationしない）
 協力業者・外注先一覧 → get_partners（search/status指定可）
 協力業者詳細・連絡先・担当案件 → get_partner_detail（partner_idを指定）
+マニュアル一覧・検索 → get_manuals（search/type/category指定可）
+マニュアル詳細・内容確認 → get_manual_detail（manual_idを指定）
 従業員一覧・スタッフ情報 → get_employees（search/status指定可）
 従業員詳細・連絡先 → get_employee_detail（employee_idを指定）
 従業員の担当案件 → get_employee_projects（employee_idを指定）
@@ -149,6 +151,32 @@ Write時は特に厳格に実IDを確認してから実行する。
   変更可能: name/code/phone/email/address/contact_name/notes/is_active
   確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
 顧客削除: 音声で実行不可。「管理画面から操作してください。」と答える。
+
+## マニュアル操作手順
+マニュアル一覧: get_manuals（search/type/category指定可）→ manualId確認
+マニュアル詳細: get_manual_detail（manualIdが必要）
+マニュアル検索: get_manuals(search=キーワード) — title/content全文検索
+マニュアル種別: text=文章 / faq=FAQ / note=注意事項 / pdf=PDF / image=画像 / video=動画
+  ※pdf/image/video はファイルアップロードが必要なため音声では作成・編集不可
+マニュアル作成: title・type・内容確認後 → 確認後 execute_confirmed_action(console.create_manual, {title, type, content?, category?})
+  typeはtext/faq/noteのみ音声対応。category=自由テキスト。
+  確認文例: 「『床洗浄 基本手順』というタイトルでFAQタイプのマニュアルを作成します。よろしいですか？」
+  ※本文が長い場合、全文読み上げず概要のみ確認する。
+マニュアル編集: get_manual_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_manual, {manualId, [変更フィールド]: 値})
+  変更可能: title/content/category/type(text/faq/noteのみ)
+  確認文例: 「タイトルを『○○手順 改訂版』に変更します。よろしいですか？」
+マニュアル削除: 音声で実行不可。「マニュアルの削除は管理画面から操作してください。」と答える。
+「マニュアル管理開いて」→ navigate_to(manuals)
+
+## マニュアル Knowledge vs Management
+「床清掃について書いてあるマニュアル探して」 → get_manuals(search=キーワード)
+「床の黒ずみはどう落とす？」 → Manual AI/RAG質問（ConsoleではVoice未対応、管理画面の質問機能を案内）
+「このマニュアル公開されてる？」 → 公開/非公開状態フィールドなし。「マニュアルに公開状態の管理機能はありません。」と答える。
+
+## マニュアルIDルール（最重要）
+manualIdは必ずget_manualsのresultから取得する。AI生成ID禁止。
+同名マニュアルが複数: 「どのマニュアルですか？」と確認してから操作する。
+pdf/image/video typeを音声で作成/編集しようとした場合: 「このtype変更は音声非対応です。管理画面から操作してください。」と答える。
 
 ## 協力業者操作手順
 協力業者一覧: get_partners（search/status指定可）→ partnerId確認
@@ -258,7 +286,9 @@ Write時は特に厳格に実IDを確認してから実行する。
 - console.update_company_setting        → params: { field, value } ※field: name/address/phone/email/postal_code のみ
 - console.create_partner               → params: { company_name, contact_person_name?, phone?, email?, address?, notes? }
 - console.update_partner               → params: { partnerId, [変更フィールド]: 値 } ※変更可: company_name/company_name_kana/contact_person_name/phone/email/address/notes
-- console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }`
+- console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }
+- console.create_manual               → params: { title, type: text/faq/note, content?, category? }
+- console.update_manual               → params: { manualId, title?, content?, category?, type? } ※type変更はtext/faq/noteのみ`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -1324,6 +1354,92 @@ function buildConsoleRealtimeTools(
     }),
     // ─── NEW: Pending requests ────────────────────────────────
     toolFactory({
+      name: 'get_manuals',
+      description: 'マニュアル・手順書・作業資料の一覧を確認・検索する。「マニュアル一覧教えて」「床清掃のマニュアルある？」「登録されてる手順書は？」「FAQマニュアル見せて」「カテゴリ○○のマニュアルは？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      parameters: {
+        type: 'object',
+        properties: {
+          search:   { type: 'string', description: 'タイトル・本文で検索' },
+          type:     { type: 'string', description: 'text=文章 / faq=FAQ / note=注意事項 / pdf=PDF / image=画像 / video=動画' },
+          category: { type: 'string', description: 'カテゴリ名で絞り込み（自由テキスト）' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ search, type: manualType, category }: { search?: string; type?: string; category?: string }) => {
+        const q = new URLSearchParams()
+        if (search)     q.set('search', search)
+        if (manualType) q.set('type', manualType)
+        if (category)   q.set('category', category)
+        const data = await apiFetch(`/api/manuals?${q}`)
+        if (!data) return 'マニュアル情報を取得できませんでした。'
+        const manuals: any[] = data.data ?? []
+        if (manuals.length === 0) return search ? `「${search}」に関するマニュアルは見つかりませんでした。` : 'マニュアルは登録されていません。'
+        const TYPE_LABEL: Record<string, string> = { text: '文章', faq: 'FAQ', note: '注意事項', pdf: 'PDF', image: '画像', video: '動画' }
+        const items = manuals.slice(0, 5).map((m: any, i: number) => {
+          const t   = TYPE_LABEL[m.type] ?? m.type ?? '不明'
+          const cat = m.category ? `、${m.category}` : ''
+          return `${i + 1}件目: ${m.title}（${t}${cat}） [id:${m.id}]`
+        }).join(' / ')
+        const suffix = manuals.length > 5 ? `（最初の5件）` : ''
+        return `マニュアル${manuals.length}件${suffix}。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_manual_detail',
+      description: '指定したマニュアルの詳細情報（タイトル・種別・カテゴリ・本文概要等）を取得する。「1件目詳しく」「このマニュアルの内容教えて」「カテゴリは？」「何について書いてある？」等。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { manual_id: { type: 'string', description: 'マニュアルのID' } },
+        required: ['manual_id'], additionalProperties: false,
+      },
+      execute: async ({ manual_id }: { manual_id: string }) => {
+        if (!manual_id) return 'マニュアルIDが必要です。'
+        const data = await apiFetch(`/api/manuals/${manual_id}`)
+        if (!data) return 'マニュアル情報を取得できませんでした。'
+        const m = data?.data
+        if (!m) return 'マニュアルが見つかりませんでした。'
+        const TYPE_LABEL: Record<string, string> = { text: '文章', faq: 'FAQ', note: '注意事項', pdf: 'PDF', image: '画像', video: '動画' }
+        const parts: string[] = [`「${m.title}」、種別: ${TYPE_LABEL[m.type] ?? m.type}`]
+        if (m.category)    parts.push(`カテゴリ: ${m.category}`)
+        if (m.is_template) parts.push('テンプレート')
+        if (m.projects?.name) parts.push(`案件: ${m.projects.name}`)
+        if (m.content) {
+          const preview = m.content.slice(0, 150)
+          parts.push(`内容: ${preview}${m.content.length > 150 ? '…（続きは管理画面で確認してください）' : ''}`)
+        } else if (m.type === 'pdf' || m.type === 'image' || m.type === 'video') {
+          parts.push(`${TYPE_LABEL[m.type]}ファイル（内容は管理画面で確認してください）`)
+        }
+        return `${parts.join('、')} [id:${manual_id}]`
+      },
+    }),
+    toolFactory({
+      name: 'resolve_manual',
+      description: 'タイトルや検索語からマニュアルのIDを解決する。Write操作前に必ず使う。「床清掃マニュアルのID教えて」「○○手順書を見つけて」等。',
+      parameters: {
+        type: 'object',
+        properties: { search: { type: 'string', description: 'タイトルや内容で検索するキーワード' } },
+        required: ['search'], additionalProperties: false,
+      },
+      execute: async ({ search }: { search: string }) => {
+        if (!search) return '検索キーワードが必要です。'
+        const data = await apiFetch(`/api/manuals?search=${encodeURIComponent(search)}`)
+        if (!data) return 'マニュアルを検索できませんでした。'
+        const manuals: any[] = data.data ?? []
+        if (manuals.length === 0) return `「${search}」に関するマニュアルは見つかりませんでした。`
+        const TYPE_LABEL: Record<string, string> = { text: '文章', faq: 'FAQ', note: '注意事項', pdf: 'PDF', image: '画像', video: '動画' }
+        if (manuals.length === 1) {
+          const m = manuals[0]
+          return `manual:${m.id}:${m.title}（${TYPE_LABEL[m.type] ?? m.type}）`
+        }
+        const list = manuals.slice(0, 5).map((m: any, i: number) => {
+          const t = TYPE_LABEL[m.type] ?? m.type
+          const cat = m.category ? `、${m.category}` : ''
+          return `${i + 1}件目: ${m.title}（${t}${cat}） [id:${m.id}]`
+        }).join(' / ')
+        return `「${search}」で${manuals.length}件見つかりました。どのマニュアルですか？ ${list}`
+      },
+    }),
+    toolFactory({
       name: 'get_partners',
       description: '協力業者・外注先・パートナーの一覧を確認する。「協力業者一覧教えて」「登録してる外注業者は？」「○○会社って登録されてる？」「有効な協力業者は？」「停止中の業者は？」等。画面を開く依頼ではなく情報を求める場合に使う。',
       parameters: {
@@ -1430,7 +1546,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting', 'console.create_partner', 'console.update_partner', 'console.update_partner_status'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting', 'console.create_partner', 'console.update_partner', 'console.update_partner_status', 'console.create_manual', 'console.update_manual'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],

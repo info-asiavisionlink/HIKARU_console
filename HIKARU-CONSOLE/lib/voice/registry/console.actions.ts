@@ -273,6 +273,14 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '協力業者のステータスを変更する（active/suspended/terminated、Confirmation必須）',
   },
+  'console.create_manual': {
+    level: 4 as const,
+    description: 'マニュアルを新規作成する（title・type必須、type=text/faq/noteのみ音声対応、Confirmation必須）',
+  },
+  'console.update_manual': {
+    level: 4 as const,
+    description: 'マニュアルのタイトル・内容・カテゴリ・typeを編集する（manualId必須、Confirmation必須）',
+  },
 } as const
 
 export type ConsoleActionName = keyof typeof CONSOLE_ACTIONS

@@ -1020,6 +1020,121 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: `従業員のステータスを${STATUS_LABELS[status] ?? status}に変更しました。` })
       }
 
+      // ─── L4: create_manual ───────────────────────────────
+      case 'console.create_manual': {
+        const { title, type: manualType, content, category } = params
+        if (!title?.trim())   return Response.json({ error: 'タイトルは必須です' }, { status: 400 })
+        if (!manualType?.trim()) return Response.json({ error: 'typeは必須です' }, { status: 400 })
+
+        const ALLOWED_TYPES = ['text', 'faq', 'note'] as const
+        if (!ALLOWED_TYPES.includes(manualType as typeof ALLOWED_TYPES[number])) {
+          return Response.json({ error: '音声でのマニュアル作成はtype=text/faq/noteのみ対応しています。pdf/image/videoは管理画面から作成してください。' }, { status: 400 })
+        }
+
+        const createBody: Record<string, string | boolean | null> = {
+          title:    title.trim(),
+          type:     manualType,
+          content:  content?.trim() || null,
+          category: category?.trim() || null,
+          is_template: false,
+        }
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/manuals`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'manual',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'マニュアル作成に失敗しました。' }, { status: res.status })
+
+        const manualId = data?.data?.id
+        if (!manualId) return Response.json({ error: 'マニュアルIDを取得できませんでした。' }, { status: 500 })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/manuals/${manualId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const m = verifyData?.data
+          if (!m?.id || m.title !== title.trim()) {
+            return Response.json({ error: 'マニュアル作成を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `マニュアル「${title.trim()}」を作成しました。` })
+      }
+
+      // ─── L4: update_manual ───────────────────────────────
+      case 'console.update_manual': {
+        const { manualId } = params
+        if (!manualId) return Response.json({ error: 'manualId required' }, { status: 400 })
+
+        const ALLOWED_MANUAL_UPDATE = ['title', 'content', 'category', 'type'] as const
+        const updateBody: Record<string, string | null> = {}
+        for (const field of ALLOWED_MANUAL_UPDATE) {
+          const val = params[field]
+          if (val === undefined) continue
+          if (field === 'type') {
+            const ALLOWED_TYPES = ['text', 'faq', 'note']
+            if (!ALLOWED_TYPES.includes(val)) {
+              return Response.json({ error: '音声でのtype変更はtext/faq/noteのみ対応しています。' }, { status: 400 })
+            }
+            updateBody[field] = val
+          } else {
+            updateBody[field] = val?.trim() || null
+          }
+        }
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/manuals/${manualId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'manual', resourceId: manualId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'マニュアル更新に失敗しました。' }, { status: res.status })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/manuals/${manualId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const m = verifyData?.data
+          if (m) {
+            for (const [key, val] of Object.entries(updateBody)) {
+              if (val !== null && m[key] !== val) {
+                return Response.json({ error: 'マニュアル更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+              }
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        if (updateBody.title)    changedParts.push(`タイトルを「${updateBody.title}」に`)
+        if (updateBody.category) changedParts.push(`カテゴリを「${updateBody.category}」に`)
+        if (updateBody.type)     changedParts.push(`種別を「${updateBody.type}」に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : 'マニュアルを更新しました。',
+        })
+      }
+
       // ─── L4: create_partner ──────────────────────────────
       case 'console.create_partner': {
         const { company_name, contact_person_name, phone, email, address, notes } = params

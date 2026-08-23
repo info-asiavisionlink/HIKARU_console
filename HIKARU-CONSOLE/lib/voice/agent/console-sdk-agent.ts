@@ -636,6 +636,97 @@ const getClientProjectsTool = tool({
   },
 })
 
+// ─── Manual Tools ───────────────────────────────────────────
+
+const getManualsTool = tool({
+  name:        'get_manuals',
+  description: 'マニュアル・手順書・作業資料の一覧を確認・検索する。「マニュアル一覧教えて」「床清掃のマニュアルある？」「FAQマニュアルは？」「カテゴリ○○のマニュアルは？」等。',
+  parameters:  z.object({
+    search:   z.string().optional().describe('タイトル・本文で検索'),
+    type:     z.string().optional().describe('text/faq/note/pdf/image/video'),
+    category: z.string().optional().describe('カテゴリ名で絞り込み（自由テキスト）'),
+  }),
+  execute: async ({ search, type: manualType, category }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams()
+      if (search)     q.set('search', search)
+      if (manualType) q.set('type', manualType)
+      if (category)   q.set('category', category)
+      const res  = await apiGet(`/api/manuals?${q}`, ctx)
+      if (!res.ok) return 'マニュアル情報を取得できませんでした。'
+      const data     = await res.json()
+      const manuals: any[] = data.data ?? []
+      if (manuals.length === 0) return search ? `「${search}」に関するマニュアルは見つかりませんでした。` : 'マニュアルは登録されていません。'
+      const TYPE_LABEL: Record<string, string> = { text: '文章', faq: 'FAQ', note: '注意事項', pdf: 'PDF', image: '画像', video: '動画' }
+      const items = manuals.slice(0, 5).map((m: any, i: number) => {
+        const t   = TYPE_LABEL[m.type] ?? m.type
+        const cat = m.category ? `、${m.category}` : ''
+        return `${i + 1}件目: ${m.title}（${t}${cat}） [id:${m.id}]`
+      }).join(' / ')
+      const suffix = manuals.length > 5 ? `（最初の5件）` : ''
+      return `マニュアル${manuals.length}件${suffix}。${items}`
+    } catch { return 'マニュアル一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getManualDetailTool = tool({
+  name:        'get_manual_detail',
+  description: '指定したマニュアルの詳細情報（タイトル・種別・カテゴリ・本文概要等）を取得する。「1件目詳しく」「このマニュアルの内容教えて」「カテゴリは？」等。一覧でIDを確認後に使う。',
+  parameters:  z.object({ manual_id: z.string().describe('マニュアルのID') }),
+  execute: async ({ manual_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!manual_id) return 'マニュアルIDが必要です。'
+    try {
+      const res  = await apiGet(`/api/manuals/${manual_id}`, ctx)
+      if (!res.ok) return 'マニュアル情報を取得できませんでした。'
+      const data = await res.json()
+      const m    = data?.data
+      if (!m) return 'マニュアルが見つかりませんでした。'
+      const TYPE_LABEL: Record<string, string> = { text: '文章', faq: 'FAQ', note: '注意事項', pdf: 'PDF', image: '画像', video: '動画' }
+      const parts: string[] = [`「${m.title}」、種別: ${TYPE_LABEL[m.type] ?? m.type}`]
+      if (m.category)    parts.push(`カテゴリ: ${m.category}`)
+      if (m.is_template) parts.push('テンプレート')
+      if (m.projects?.name) parts.push(`案件: ${m.projects.name}`)
+      if (m.content) {
+        const preview = m.content.slice(0, 150)
+        parts.push(`内容: ${preview}${m.content.length > 150 ? '…（続きは管理画面で確認してください）' : ''}`)
+      } else if (m.type === 'pdf' || m.type === 'image' || m.type === 'video') {
+        parts.push(`${TYPE_LABEL[m.type]}ファイル（内容は管理画面で確認してください）`)
+      }
+      return `${parts.join('、')} [id:${manual_id}]`
+    } catch { return 'マニュアル詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const resolveManualTool = tool({
+  name:        'resolve_manual',
+  description: 'タイトルや検索語からマニュアルのIDを解決する。Write操作前に必ず使う。「床清掃マニュアルを見つけて」等。',
+  parameters:  z.object({ search: z.string().describe('タイトルや内容で検索するキーワード') }),
+  execute: async ({ search }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!search) return '検索キーワードが必要です。'
+    try {
+      const res  = await apiGet(`/api/manuals?search=${encodeURIComponent(search)}`, ctx)
+      if (!res.ok) return 'マニュアルを検索できませんでした。'
+      const data     = await res.json()
+      const manuals: any[] = data.data ?? []
+      if (manuals.length === 0) return `「${search}」に関するマニュアルは見つかりませんでした。`
+      const TYPE_LABEL: Record<string, string> = { text: '文章', faq: 'FAQ', note: '注意事項', pdf: 'PDF', image: '画像', video: '動画' }
+      if (manuals.length === 1) {
+        const m = manuals[0]
+        return `manual:${m.id}:${m.title}（${TYPE_LABEL[m.type] ?? m.type}）`
+      }
+      const list = manuals.slice(0, 5).map((m: any, i: number) => {
+        const t = TYPE_LABEL[m.type] ?? m.type
+        const cat = m.category ? `、${m.category}` : ''
+        return `${i + 1}件目: ${m.title}（${t}${cat}） [id:${m.id}]`
+      }).join(' / ')
+      return `「${search}」で${manuals.length}件見つかりました。どのマニュアルですか？ ${list}`
+    } catch { return 'マニュアルの解決中にエラーが発生しました。' }
+  },
+})
+
 // ─── Partner Tools ──────────────────────────────────────────
 
 const getPartnersTool = tool({
@@ -1605,7 +1696,7 @@ const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment / console.create_partner / console.update_partner / console.update_partner_status'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment / console.create_partner / console.update_partner / console.update_partner_status / console.create_manual / console.update_manual'),
     params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
@@ -1756,6 +1847,24 @@ shiftIdは必ずget_shiftsのresultから取得する。AI生成ID禁止。
 勤怠直接編集: 不可。「修正申請フローを使ってください」と回答。
 代理打刻: 不可。「本人打刻はHIKARUシステムから」と回答。
 correctionIdは必ずget_pending_attendanceのresultから取得する。AI生成ID禁止。
+
+## マニュアル操作手順
+マニュアル一覧: get_manuals（search/type/category指定可）→ manualId確認
+マニュアル詳細: get_manual_detail（manualIdが必要）
+マニュアル検索: get_manuals(search=キーワード) — title/content全文検索
+マニュアル種別: text=文章 / faq=FAQ / note=注意事項 ← 音声作成/編集可
+  ※pdf/image/video はファイルアップロードが必要なため音声では作成・編集不可
+マニュアル作成: title・type(text/faq/note)確認後 → propose_action(console.create_manual, {title, type, content?, category?})
+  確認文例: 「『床洗浄 基本手順』というタイトルでFAQタイプのマニュアルを作成します。よろしいですか？」
+  ※本文が長い場合、全文読み上げず概要のみ確認する。
+マニュアル編集: get_manual_detailで現在値確認 → propose_action(console.update_manual, {manualId, [変更フィールド]})
+  変更可能: title/content/category/type(text/faq/noteのみ)
+  確認文例: 「タイトルを『○○手順 改訂版』に変更します。よろしいですか？」
+マニュアル削除: 音声実行不可。「管理画面から操作してください。」と答える。
+公開状態: マニュアルに公開/非公開フィールドなし。「公開状態の管理機能はありません。」と答える。
+「床の汚れはどう落とす？」等の知識質問 → Manual AI（ConsoleでのVoice未対応）→「管理画面の質問機能を使ってください。」と答える。
+「マニュアル管理開いて」→ navigate(console.open_manuals)
+manualIdは必ずget_manualsまたはresolve_manualのresultから取得する。AI生成ID禁止。
 
 ## 協力業者操作手順
 協力業者一覧: get_partners（search/status指定可）→ partnerId確認
@@ -1982,6 +2091,8 @@ reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
 - console.create_partner               → params: { company_name, contact_person_name?, phone?, email?, address?, notes? }
 - console.update_partner               → params: { partnerId, [変更フィールド]: 値 } ※変更可: company_name/company_name_kana/contact_person_name/phone/email/address/notes
 - console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }
+- console.create_manual               → params: { title, type: text/faq/note, content?, category? }
+- console.update_manual               → params: { manualId, title?, content?, category?, type? } ※type変更はtext/faq/noteのみ
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -2005,6 +2116,9 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getClientDetailTool,
     getClientStoresTool,
     getClientProjectsTool,
+    getManualsTool,
+    getManualDetailTool,
+    resolveManualTool,
     getPartnersTool,
     getPartnerDetailTool,
     resolvePartnerTool,
