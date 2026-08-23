@@ -281,6 +281,14 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: 'マニュアルのタイトル・内容・カテゴリ・typeを編集する（manualId必須、Confirmation必須）',
   },
+  'console.approve_project_request': {
+    level: 4 as const,
+    description: '顧客からの案件依頼を承認する（requestId必須、Confirmation必須。顧客ポータルへ自動通知）',
+  },
+  'console.reject_project_request': {
+    level: 4 as const,
+    description: '顧客からの案件依頼を却下する（requestId・adminNote必須、Confirmation必須。顧客ポータルへ自動通知）',
+  },
 } as const
 
 export type ConsoleActionName = keyof typeof CONSOLE_ACTIONS

@@ -465,6 +465,43 @@ const getAttendanceRecordsTool = tool({
   },
 })
 
+const getProjectRequestsTool = tool({
+  name:        'get_project_requests',
+  description: '顧客からの案件依頼一覧を取得する。「案件依頼ある？」「顧客から依頼来てる？」「未対応の依頼教えて」「1件目の依頼内容は？」「誰から？」「希望日は？」等。内容詳細も含む。',
+  parameters:  z.object({
+    status: z.string().optional().describe('pending=未対応 / approved=承認済み / rejected=却下済み（省略時=全件）'),
+  }),
+  execute: async ({ status }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams()
+      if (status) q.set('status', status)
+      const res  = await apiGet(`/api/project-requests?${q}`, ctx)
+      if (!res.ok) return '案件依頼情報を取得できませんでした。'
+      const data     = await res.json()
+      const requests: any[] = data.data ?? []
+      const total    = data.count ?? requests.length
+      if (total === 0) {
+        const label = status === 'pending' ? '未対応の' : status === 'approved' ? '承認済みの' : status === 'rejected' ? '却下済みの' : ''
+        return `${label}案件依頼はありません。`
+      }
+      const ST: Record<string, string> = { pending: '未対応', approved: '承認済み', rejected: '却下済み' }
+      const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+      const items = requests.slice(0, 5).map((r: any, i: number) => {
+        const client = r.clients?.name ?? '顧客不明'
+        const st     = ST[r.status] ?? r.status
+        const date   = r.desired_date ? `、希望日: ${r.desired_date}` : ''
+        const loc    = r.location    ? `、場所: ${r.location}` : ''
+        const type   = r.project_type ? `、${PT[r.project_type] ?? r.project_type}` : ''
+        const desc   = r.description  ? `、内容: ${r.description.slice(0, 50)}` : ''
+        return `${i + 1}件目: ${client}、「${r.title}」${type}${date}${loc}${desc}、${st} [id:${r.id}]`
+      }).join(' / ')
+      const suffix = total > 5 ? `（最初の5件）` : ''
+      return `案件依頼${total}件${suffix}。${items}`
+    } catch { return '案件依頼一覧の取得中にエラーが発生しました。' }
+  },
+})
+
 const getPendingRequestsTool = tool({
   name:        'get_pending_requests',
   description: '案件依頼・未対応件数を確認する',
@@ -1696,7 +1733,7 @@ const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment / console.create_partner / console.update_partner / console.update_partner_status / console.create_manual / console.update_manual'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment / console.create_partner / console.update_partner / console.update_partner_status / console.create_manual / console.update_manual / console.approve_project_request / console.reject_project_request'),
     params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
@@ -1847,6 +1884,19 @@ shiftIdは必ずget_shiftsのresultから取得する。AI生成ID禁止。
 勤怠直接編集: 不可。「修正申請フローを使ってください」と回答。
 代理打刻: 不可。「本人打刻はHIKARUシステムから」と回答。
 correctionIdは必ずget_pending_attendanceのresultから取得する。AI生成ID禁止。
+
+## 案件依頼操作手順
+一覧: get_project_requests（status=pending/approved/rejected省略時=全件）→ requestId確認
+依頼内容: 一覧レスポンスに詳細含む（別途詳細APIなし）
+承認: get_project_requestsで内容確認後 → propose_action(console.approve_project_request, {requestId, title?, clientName?, adminNote?})
+  確認文例: 「テスト株式会社からの『マンション共用部清掃』依頼を承認します。よろしいですか？」
+  ※承認すると顧客ポータルへ自動通知。Voiceから追加通知禁止。Project自動作成なし。
+却下: 理由をユーザーから先に聞く → propose_action(console.reject_project_request, {requestId, adminNote, title?, clientName?})
+  ※adminNote（却下理由）必須。顧客通知本文に使用。
+  確認文例: 「この依頼を『人員確保ができないため』という理由で却下します。よろしいですか？」
+すでにapproved/rejected: 「この依頼はすでに○○されています」と答え、Writeしない。
+「この依頼のページ開いて」→ 詳細ページは存在しないため navigate(console.open_project_requests)
+requestIdは必ずget_project_requestsのresultから取得する。AI生成ID禁止。
 
 ## マニュアル操作手順
 マニュアル一覧: get_manuals（search/type/category指定可）→ manualId確認
@@ -2155,6 +2205,7 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getReportDetailTool,
     getInvoicesTool,
     getInvoiceDetailTool,
+    getProjectRequestsTool,
     proposeActionTool,
     navigateTool,
   ],

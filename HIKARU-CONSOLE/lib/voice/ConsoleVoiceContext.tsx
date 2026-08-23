@@ -61,6 +61,7 @@ NavigationせずにDataツールを使う。
 協力業者詳細・連絡先・担当案件 → get_partner_detail（partner_idを指定）
 マニュアル一覧・検索 → get_manuals（search/type/category指定可）
 マニュアル詳細・内容確認 → get_manual_detail（manual_idを指定）
+案件依頼一覧・詳細・申請内容 → get_project_requests（status=pending/approved/rejected指定可）
 従業員一覧・スタッフ情報 → get_employees（search/status指定可）
 従業員詳細・連絡先 → get_employee_detail（employee_idを指定）
 従業員の担当案件 → get_employee_projects（employee_idを指定）
@@ -167,6 +168,24 @@ Write時は特に厳格に実IDを確認してから実行する。
   確認文例: 「タイトルを『○○手順 改訂版』に変更します。よろしいですか？」
 マニュアル削除: 音声で実行不可。「マニュアルの削除は管理画面から操作してください。」と答える。
 「マニュアル管理開いて」→ navigate_to(manuals)
+
+## 案件依頼操作手順
+案件依頼一覧: get_project_requests（status=pending/approved/rejected指定可、省略時=全件）→ requestId確認
+依頼内容確認: get_project_requestsの結果に詳細含む（別途詳細APIなし）
+承認: get_project_requestsで内容確認後 → 確認後 execute_confirmed_action(console.approve_project_request, {requestId, title?, clientName?})
+  確認文例: 「テスト株式会社からの『マンション共用部清掃』依頼を承認します。よろしいですか？」
+  ※承認すると顧客ポータルへ自動通知される（二重通知禁止）
+  ※承認してもVoice側でProjectを作成しない（別途必要なら案件登録）
+却下: 理由をユーザーから先に聞く → 確認後 execute_confirmed_action(console.reject_project_request, {requestId, adminNote, title?, clientName?})
+  確認文例: 「この依頼を『人員確保ができないため』という理由で却下します。よろしいですか？」
+  ※却下理由（adminNote）は顧客通知本文に使用される
+すでにapproved/rejectedの依頼: 「この依頼はすでに○○されています。」と答え、Writeしない。
+「この依頼のページ開いて」→ 詳細ページは存在しないため、案件依頼一覧ページを開く: navigate_to(project_requests)
+「この依頼を案件として登録して」→ 別途create_projectを案内する（依頼承認≠案件作成）
+
+## 案件依頼IDルール（最重要）
+requestIdは必ずget_project_requestsのresultから取得する。AI生成ID禁止。
+同じ顧客から複数依頼がある場合: 「どちらの依頼ですか？」と確認してから操作する。
 
 ## マニュアル Knowledge vs Management
 「床清掃について書いてあるマニュアル探して」 → get_manuals(search=キーワード)
@@ -288,7 +307,9 @@ Write時は特に厳格に実IDを確認してから実行する。
 - console.update_partner               → params: { partnerId, [変更フィールド]: 値 } ※変更可: company_name/company_name_kana/contact_person_name/phone/email/address/notes
 - console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }
 - console.create_manual               → params: { title, type: text/faq/note, content?, category? }
-- console.update_manual               → params: { manualId, title?, content?, category?, type? } ※type変更はtext/faq/noteのみ`
+- console.update_manual               → params: { manualId, title?, content?, category?, type? } ※type変更はtext/faq/noteのみ
+- console.approve_project_request     → params: { requestId, title?, clientName?, adminNote? }
+- console.reject_project_request      → params: { requestId, adminNote, title?, clientName? } ※adminNote（却下理由）必須`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -1530,6 +1551,41 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
+      name: 'get_project_requests',
+      description: '顧客からの案件依頼一覧を取得する。「案件依頼ある？」「顧客から依頼来てる？」「未対応の依頼教えて」「承認済みの依頼は？」「1件目の依頼内容は？」「誰から来てる？」「希望日は？」等。内容詳細も含む。',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', description: 'pending=未対応 / approved=承認済み / rejected=却下済み（省略時=全件）' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ status }: { status?: string }) => {
+        const q = new URLSearchParams()
+        if (status) q.set('status', status)
+        const data = await apiFetch(`/api/project-requests?${q}`)
+        if (!data) return '案件依頼情報を取得できませんでした。'
+        const requests: any[] = data.data ?? []
+        const total = data.count ?? requests.length
+        if (total === 0) {
+          const label = status === 'pending' ? '未対応の' : status === 'approved' ? '承認済みの' : status === 'rejected' ? '却下済みの' : ''
+          return `${label}案件依頼はありません。`
+        }
+        const ST: Record<string, string> = { pending: '未対応', approved: '承認済み', rejected: '却下済み' }
+        const PT: Record<string, string> = { spot: 'スポット', recurring: '定期', hotel: 'ホテル' }
+        const items = requests.slice(0, 5).map((r: any, i: number) => {
+          const client = r.clients?.name ?? '顧客不明'
+          const st     = ST[r.status] ?? r.status
+          const date   = r.desired_date ? `、希望日: ${r.desired_date}` : ''
+          const loc    = r.location    ? `、場所: ${r.location}` : ''
+          const type   = r.project_type ? `、${PT[r.project_type] ?? r.project_type}` : ''
+          return `${i + 1}件目: ${client}、「${r.title}」${type}${date}${loc}、${st} [id:${r.id}]`
+        }).join(' / ')
+        const suffix = total > 5 ? `（最初の5件）` : ''
+        return `案件依頼${total}件${suffix}。${items}`
+      },
+    }),
+    toolFactory({
       name: 'get_pending_requests',
       description: '承認待ちの各種申請（勤怠修正・経費・案件依頼）の件数サマリーを取得する。「申請来てる？」「何か承認待ちある？」等。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
@@ -1546,7 +1602,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting', 'console.create_partner', 'console.update_partner', 'console.update_partner_status', 'console.create_manual', 'console.update_manual'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting', 'console.create_partner', 'console.update_partner', 'console.update_partner_status', 'console.create_manual', 'console.update_manual', 'console.approve_project_request', 'console.reject_project_request'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],

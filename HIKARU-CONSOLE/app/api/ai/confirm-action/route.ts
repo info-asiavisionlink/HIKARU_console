@@ -2103,6 +2103,137 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: `${label}PDFを生成しました。報告書画面からダウンロードできます。` })
       }
 
+      // ─── L4: approve_project_request ─────────────────────
+      case 'console.approve_project_request': {
+        const { requestId, title, clientName, adminNote } = params
+        if (!requestId) return Response.json({ error: 'requestId required' }, { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 事前確認: pending のみ承認可
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/project-requests?status=pending`, {
+          headers: { Cookie: cookie },
+        })
+        if (currentRes.ok) {
+          const currentData = await currentRes.json()
+          const found = (currentData.data ?? []).find((r: any) => r.id === requestId)
+          if (!found) {
+            // pending以外のものがあるか確認
+            const allRes = await fetch(`${req.nextUrl.origin}/api/project-requests`, {
+              headers: { Cookie: cookie },
+            })
+            if (allRes.ok) {
+              const allData  = await allRes.json()
+              const existing = (allData.data ?? []).find((r: any) => r.id === requestId)
+              if (existing?.status === 'approved') {
+                return Response.json({ error: 'この依頼はすでに承認されています。' }, { status: 400 })
+              }
+              if (existing?.status === 'rejected') {
+                return Response.json({ error: 'この依頼はすでに却下されています。' }, { status: 400 })
+              }
+            }
+            return Response.json({ error: '案件依頼が見つかりませんでした。' }, { status: 404 })
+          }
+        }
+
+        const body: Record<string, string> = { status: 'approved' }
+        if (adminNote?.trim()) body.adminNote = adminNote.trim()
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/project-requests/${requestId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(body),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'project_request', resourceId: requestId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '案件依頼の承認に失敗しました。' }, { status: res.status })
+
+        // Read-back: status === approved を確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/project-requests`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const verified   = (verifyData.data ?? []).find((r: any) => r.id === requestId)
+          if (verified && verified.status !== 'approved') {
+            return Response.json({ error: '承認処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const clientLabel = clientName ? `${clientName}様からの` : ''
+        const titleLabel  = title      ? `「${title}」の` : ''
+        return Response.json({ success: true, voiceReply: `${clientLabel}${titleLabel}案件依頼を承認しました。` })
+      }
+
+      // ─── L4: reject_project_request ──────────────────────
+      case 'console.reject_project_request': {
+        const { requestId, adminNote, title, clientName } = params
+        if (!requestId)          return Response.json({ error: 'requestId required' },   { status: 400 })
+        if (!adminNote?.trim())  return Response.json({ error: '却下理由は必須です' },    { status: 400 })
+
+        const cookie = req.headers.get('cookie') ?? ''
+
+        // 事前確認: pending のみ却下可
+        const currentRes = await fetch(`${req.nextUrl.origin}/api/project-requests?status=pending`, {
+          headers: { Cookie: cookie },
+        })
+        if (currentRes.ok) {
+          const currentData = await currentRes.json()
+          const found = (currentData.data ?? []).find((r: any) => r.id === requestId)
+          if (!found) {
+            const allRes = await fetch(`${req.nextUrl.origin}/api/project-requests`, {
+              headers: { Cookie: cookie },
+            })
+            if (allRes.ok) {
+              const allData  = await allRes.json()
+              const existing = (allData.data ?? []).find((r: any) => r.id === requestId)
+              if (existing?.status === 'approved') {
+                return Response.json({ error: 'この依頼はすでに承認されています。' }, { status: 400 })
+              }
+              if (existing?.status === 'rejected') {
+                return Response.json({ error: 'この依頼はすでに却下されています。' }, { status: 400 })
+              }
+            }
+            return Response.json({ error: '案件依頼が見つかりませんでした。' }, { status: 404 })
+          }
+        }
+
+        const res  = await fetch(`${req.nextUrl.origin}/api/project-requests/${requestId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ status: 'rejected', adminNote: adminNote.trim() }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'project_request', resourceId: requestId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '案件依頼の却下に失敗しました。' }, { status: res.status })
+
+        // Read-back: status === rejected を確認
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/project-requests`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const verified   = (verifyData.data ?? []).find((r: any) => r.id === requestId)
+          if (verified && verified.status !== 'rejected') {
+            return Response.json({ error: '却下処理を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const clientLabel = clientName ? `${clientName}様からの` : ''
+        const titleLabel  = title      ? `「${title}」の` : ''
+        return Response.json({ success: true, voiceReply: `${clientLabel}${titleLabel}案件依頼を却下しました。` })
+      }
+
       default:
         return Response.json({ error: 'unsupported action' }, { status: 400 })
     }
