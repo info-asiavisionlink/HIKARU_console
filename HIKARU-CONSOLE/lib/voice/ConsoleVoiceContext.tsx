@@ -110,6 +110,7 @@ NavigationせずにDataツールを使う。
 請求書・見積書一覧・詳細 → get_invoices / get_invoice_detail（invoice_type=quote/invoice）
 報告書一覧・詳細 → get_reports / get_report_detail（report_idを指定）
 在庫一覧・詳細 → get_inventory / get_inventory_detail（inventory_idを指定）
+在庫入出庫履歴 → get_inventory_history（inventory_id必須、直前Tool Result由来のIDを使う）
 契約一覧・詳細 → get_contracts / get_contract_detail（contract_idを指定・expiring_days=30で期限近い）
 品質KPI全体 → get_quality_summary（period=7d/30d/90d/ytd）
 顧客アンケート・満足度 → get_surveys（project_id/rating/date_from/date_to指定可）
@@ -1354,6 +1355,37 @@ function buildConsoleRealtimeTools(
         const parts: string[] = [`品目: ${item.name}（${item.category}）`, `現在庫: ${item.stock_quantity}${item.unit}`, `最低在庫: ${item.min_stock}${item.unit}`, `ステータス: ${SL[item.stock_status]??item.stock_status}`]
         if (item.storage_location) parts.push(`保管場所: ${item.storage_location}`)
         return parts.join('\n')
+      },
+    }),
+    toolFactory({
+      name:        'get_inventory_history',
+      description: '在庫品目の入出庫履歴を取得する。「この在庫品の履歴教えて」「最近の入出庫は？」「最後に出庫したのいつ？」「入庫・出庫・調整の履歴は？」「この洗剤いつ使った？」等。inventory_idはget_inventoryで取得したIDを使う。',
+      parameters:  {
+        type:       'object',
+        properties: {
+          inventory_id: { type: 'string', description: '在庫品目ID（get_inventory / get_inventory_detailのid）' },
+        },
+        required:             ['inventory_id'],
+        additionalProperties: false,
+      },
+      execute: async ({ inventory_id }: { inventory_id: string }) => {
+        if (!inventory_id?.trim()) return 'inventory_idを指定してください。先に在庫一覧で品目を確認してください。'
+        const data = await apiFetch(`/api/inventory/${inventory_id}/transactions?limit=10`)
+        if (!data) return '在庫履歴を取得できませんでした。'
+        const txs: any[] = data.transactions ?? []
+        if (txs.length === 0) return 'まだ入出庫履歴はありません。'
+        const TYPE_LABELS: Record<string, string> = { in: '入庫', out: '出庫', adjustment: '調整', usage: '使用' }
+        const lines = txs.map((tx: any) => {
+          const typeLabel = TYPE_LABELS[tx.transaction_type] ?? tx.transaction_type
+          const qty       = tx.quantity > 0 ? `+${tx.quantity}` : `${tx.quantity}`
+          const who       = tx.performer?.name ?? '不明'
+          const date      = tx.performed_at
+            ? new Date(tx.performed_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : ''
+          const note      = tx.reason ? `（${tx.reason}）` : ''
+          return `${date} ${typeLabel}${qty} ${who}${note}`.trim()
+        })
+        return `直近${txs.length}件の履歴:\n${lines.join('\n')}`
       },
     }),
     // ─── NEW: Contracts ───────────────────────────────────────
