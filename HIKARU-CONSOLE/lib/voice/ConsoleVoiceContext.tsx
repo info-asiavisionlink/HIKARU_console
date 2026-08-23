@@ -257,9 +257,12 @@ requestIdは必ずget_project_requestsのresultから取得する。AI生成ID�
 同じ顧客から複数依頼がある場合: 「どちらの依頼ですか？」と確認してから操作する。
 
 ## マニュアル Knowledge vs Management
-「床清掃について書いてあるマニュアル探して」 → get_manuals(search=キーワード)
-「床の黒ずみはどう落とす？」 → Manual AI/RAG質問（ConsoleではVoice未対応、管理画面の質問機能を案内）
+「床清掃について書いてあるマニュアル探して」「登録されてる手順書は？」 → get_manuals(search=キーワード)
+「床の黒ずみはどう落とす？」「油汚れが落ちない」「ワックス剥離の注意点は？」「連泊部屋の掃除方法」等 → ask_manual（登録Manualだけを根拠に回答。Confirmationなし。即実行）
 「このマニュアル公開されてる？」 → 公開/非公開状態フィールドなし。「マニュアルに公開状態の管理機能はありません。」と答える。
+ユーザーの言葉がManualタイトルやカテゴリと完全一致していなくても、清掃方法・汚れ・素材・洗剤・薬剤・機械・安全注意・ホテル作業等の内容についての質問ならask_manualを使用する。
+ask_manualのTool Resultは登録Manualを根拠とした正式回答。手順・数値・薬剤名・注意事項を変更しない。Tool Resultにない事実を追加しない。一般知識で補完しない。
+evidence_found=falseの場合は回答をそのままユーザーへ返す。「一般的には〜」を追加しない。
 
 ## マニュアルIDルール（最重要）
 manualIdは必ずget_manualsのresultから取得する。AI生成ID禁止。
@@ -1904,6 +1907,51 @@ function buildConsoleRealtimeTools(
           return `${i + 1}件目: ${m.title}（${t}${cat}） [id:${m.id}]`
         }).join(' / ')
         return `「${search}」で${manuals.length}件見つかりました。どのマニュアルですか？ ${list}`
+      },
+    }),
+    toolFactory({
+      name: 'ask_manual',
+      description: 'HIKARUに登録されたマニュアルだけを根拠に、清掃方法・汚れ・素材・洗剤・薬剤・機械の使い方・作業手順・安全注意・ホテル客室清掃・現場作業等の自然言語の質問へ回答する。ユーザーの言い方がManualタイトルや登録文言と完全一致していなくても意味について質問している場合に使用する。例：「床の黒ずみどうする？」「油汚れが落ちない」「連泊の部屋どう掃除する？」「ワックス剥離の注意点は？」「この現場ではどうする？」。マニュアル一覧を知りたいだけの場合はget_manualsを使用する。L0操作。Confirmationなし。即実行。',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: {
+            type: 'string',
+            description: 'ユーザーがマニュアルについて聞いた自然言語の質問。意味を変えずに渡す。',
+          },
+          project_id: {
+            type: 'string',
+            description: '案件固有Manualを参照する場合のみ。必ず直前のTool ResultまたはConversation Target由来のproject_id。AI生成禁止。',
+          },
+        },
+        required: ['question'],
+        additionalProperties: false,
+      },
+      execute: async ({ question, project_id }: { question: string; project_id?: string }) => {
+        if (!question?.trim()) return 'マニュアルへの質問内容が必要です。'
+        try {
+          const body: { question: string; project_id?: string } = { question: question.trim() }
+          if (project_id?.trim()) body.project_id = project_id.trim()
+          const res = await fetch('/api/ai/console-manual-qa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            cache: 'no-store' as RequestCache,
+            body: JSON.stringify(body),
+          })
+          if (!res.ok) return 'マニュアル情報を確認できませんでした。もう一度お試しください。'
+          const data = await res.json()
+          const answer = (data.answer ?? '').trim()
+          if (!answer) return '登録されているマニュアルからは、その内容を確認できませんでした。'
+          const titles = (data.sources ?? [])
+            .map((s: { title: string }) => s.title)
+            .filter(Boolean)
+            .slice(0, 3)
+          const sourceNote = titles.length > 0 ? `\n参照: ${titles.join('・')}` : ''
+          return `${answer}${sourceNote}`
+        } catch {
+          return 'マニュアル情報を確認できませんでした。もう一度お試しください。'
+        }
       },
     }),
     toolFactory({
