@@ -100,6 +100,7 @@ NavigationせずにDataツールを使う。
 通知・連絡 → get_notifications（unread_only=trueで未読のみ）
 ダッシュボード → get_dashboard_summary
 売上・未入金・未請求 → get_revenue_summary（navigationしない。売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。）
+【数値保持ルール】Tool Resultの金額・件数・スコア等の数値は音声で絶対に変えない。33,000円を330,000円として読まない。数値的価値を保持したまま読み上げること。
 協力業者・外注先一覧 → get_partners（search/status指定可）
 協力業者詳細・連絡先・担当案件 → get_partner_detail（partner_idを指定）
 マニュアル一覧・検索 → get_manuals（search/type/category指定可）
@@ -1031,15 +1032,36 @@ function buildConsoleRealtimeTools(
         const rev = data?.revenue
         if (!rev || typeof rev !== 'object') return '現在HIKARUに登録されている情報からは売上を確認できません。'
         // API: revenue.this_month/this_year = 税込合計、unpaid = 請求済未入金、unbilled = 未請求
-        const fmt = (n: number): string => `${Math.round(n).toLocaleString('ja-JP')}円`
-        const parts: string[] = []
-        if (rev.this_month != null) parts.push(`今月の売上: ${fmt(rev.this_month)}`)
-        if (rev.this_year  != null) parts.push(`今年の売上: ${fmt(rev.this_year)}`)
-        if (rev.unpaid     != null) parts.push(`未入金: ${fmt(rev.unpaid)}`)
-        if (rev.unbilled   != null) parts.push(`未請求: ${fmt(rev.unbilled)}`)
-        return parts.length > 0
-          ? `HIKARUのデータ — ${parts.join('、')}`
-          : '売上情報を確認できませんでした。'
+        // 音声で数値を正確に読むため万単位の日本語表記を使用（カンマ数字の誤読防止）
+        const fmtSpeech = (n: number): string => {
+          const v = Math.round(n)
+          if (v === 0) return '0円'
+          if (v < 10000) {
+            const sen = Math.floor(v / 1000)
+            const rem = v % 1000
+            if (sen > 0 && rem === 0) return `${sen}千円`
+            if (sen > 0) return `${sen}千${rem}円`
+            return `${v}円`
+          }
+          const man = Math.floor(v / 10000)
+          const rem = v % 10000
+          if (rem === 0) return `${man}万円`
+          const sen = Math.floor(rem / 1000)
+          const below = rem % 1000
+          if (sen > 0 && below === 0) return `${man}万${sen}千円`
+          if (sen > 0) return `${man}万${sen}千${below}円`
+          return `${man}万${rem}円`
+        }
+        const thisMonth = rev.this_month != null ? fmtSpeech(rev.this_month) : null
+        const thisYear  = rev.this_year  != null ? fmtSpeech(rev.this_year)  : null
+        const unpaid    = rev.unpaid     != null ? fmtSpeech(rev.unpaid)     : null
+        const unbilled  = rev.unbilled   != null ? fmtSpeech(rev.unbilled)   : null
+        if (!thisMonth && !thisYear) return '売上情報を確認できませんでした。'
+        let result = `今月の売上は${thisMonth}です。`
+        if (thisYear && thisYear !== thisMonth) result += `今年の売上は${thisYear}です。`
+        if (unpaid) result += `未入金が${unpaid}あります。`
+        if (unbilled) result += `未請求が${unbilled}あります。`
+        return result
       },
     }),
     toolFactory({
