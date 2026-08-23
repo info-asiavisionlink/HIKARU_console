@@ -1020,6 +1020,151 @@ export async function POST(req: NextRequest) {
         return Response.json({ success: true, voiceReply: `従業員のステータスを${STATUS_LABELS[status] ?? status}に変更しました。` })
       }
 
+      // ─── L4: create_partner ──────────────────────────────
+      case 'console.create_partner': {
+        const { company_name, contact_person_name, phone, email, address, notes } = params
+        if (!company_name?.trim()) return Response.json({ error: '会社名は必須です' }, { status: 400 })
+
+        const ALLOWED_PARTNER_CREATE = ['company_name', 'contact_person_name', 'phone', 'email', 'address', 'notes'] as const
+        const createBody: Record<string, string | null> = {}
+        const rawVals = { company_name, contact_person_name, phone, email, address, notes }
+        for (const field of ALLOWED_PARTNER_CREATE) {
+          const val = rawVals[field]
+          if (val !== undefined) createBody[field] = val?.trim() || null
+        }
+        createBody.company_name = company_name.trim()
+
+        const cookie = req.headers.get('cookie') ?? ''
+        const res    = await fetch(`${req.nextUrl.origin}/api/partners`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(createBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed', resourceType: 'partner',
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '協力業者登録に失敗しました。' }, { status: res.status })
+
+        const partnerId = data?.data?.id
+        if (!partnerId) return Response.json({ error: '協力業者IDを取得できませんでした。' }, { status: 500 })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/partners/${partnerId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const p = verifyData?.data
+          if (!p?.id || p.company_name !== company_name.trim()) {
+            return Response.json({ error: '協力業者登録を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        return Response.json({ success: true, voiceReply: `協力業者「${company_name.trim()}」を登録しました。` })
+      }
+
+      // ─── L4: update_partner ──────────────────────────────
+      case 'console.update_partner': {
+        const { partnerId } = params
+        if (!partnerId) return Response.json({ error: 'partnerId required' }, { status: 400 })
+
+        const ALLOWED_PARTNER_UPDATE = ['company_name', 'company_name_kana', 'contact_person_name', 'phone', 'email', 'address', 'notes'] as const
+        const updateBody: Record<string, string | null> = {}
+        for (const field of ALLOWED_PARTNER_UPDATE) {
+          const val = params[field]
+          if (val !== undefined) updateBody[field] = val?.trim() || null
+        }
+        if (Object.keys(updateBody).length === 0) {
+          return Response.json({ error: '変更するフィールドがありません。' }, { status: 400 })
+        }
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/partners/${partnerId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify(updateBody),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'partner', resourceId: partnerId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? '協力業者情報の更新に失敗しました。' }, { status: res.status })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/partners/${partnerId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          const p = verifyData?.data
+          if (p) {
+            for (const [key, val] of Object.entries(updateBody)) {
+              if (val !== null && p[key] !== val) {
+                return Response.json({ error: '協力業者情報の更新を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+              }
+            }
+          }
+        }
+
+        const changedParts: string[] = []
+        if (updateBody.company_name)        changedParts.push(`会社名を「${updateBody.company_name}」に`)
+        if (updateBody.contact_person_name) changedParts.push(`担当者を「${updateBody.contact_person_name}」に`)
+        if (updateBody.phone)               changedParts.push(`電話番号を「${updateBody.phone}」に`)
+        if (updateBody.email)               changedParts.push(`メールを「${updateBody.email}」に`)
+        if (updateBody.address)             changedParts.push(`住所を「${updateBody.address}」に`)
+
+        return Response.json({
+          success:    true,
+          voiceReply: changedParts.length > 0 ? `${changedParts.join('、')}変更しました。` : '協力業者情報を更新しました。',
+        })
+      }
+
+      // ─── L4: update_partner_status ───────────────────────
+      case 'console.update_partner_status': {
+        const { partnerId, status } = params
+        if (!partnerId) return Response.json({ error: 'partnerId required' }, { status: 400 })
+        if (!status)    return Response.json({ error: 'status required' }, { status: 400 })
+
+        const VALID_STATUSES = ['active', 'suspended', 'terminated'] as const
+        if (!VALID_STATUSES.includes(status as typeof VALID_STATUSES[number])) {
+          return Response.json({ error: 'statusはactive/suspended/terminatedのみ変更可能です' }, { status: 400 })
+        }
+
+        const cookie  = req.headers.get('cookie') ?? ''
+        const res     = await fetch(`${req.nextUrl.origin}/api/partners/${partnerId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body:    JSON.stringify({ status }),
+        })
+        const data = await res.json()
+        logConsoleAudit({
+          source: 'jarvis_console', actor: auth.userId, actorType: 'admin',
+          companyId: auth.companyId, action, safetyLevel: level,
+          confirmed: true, result: res.ok ? 'success' : 'failed',
+          resourceType: 'partner', resourceId: partnerId,
+        })
+        if (!res.ok) return Response.json({ error: data?.error ?? 'ステータス変更に失敗しました。' }, { status: res.status })
+
+        const verifyRes = await fetch(`${req.nextUrl.origin}/api/partners/${partnerId}`, {
+          headers: { Cookie: cookie },
+        })
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json()
+          if (verifyData?.data?.status !== status) {
+            return Response.json({ error: 'ステータス変更を確認できませんでした。管理画面でご確認ください。' }, { status: 500 })
+          }
+        }
+
+        const STATUS_LABELS: Record<string, string> = {
+          active: '契約中', suspended: '一時停止', terminated: '契約終了',
+        }
+        return Response.json({ success: true, voiceReply: `協力業者のステータスを${STATUS_LABELS[status] ?? status}に変更しました。` })
+      }
+
       // ─── L4: create_estimate_from_project ───────────────
       case 'console.create_estimate_from_project': {
         const { projectId, project_name } = params

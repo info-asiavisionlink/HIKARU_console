@@ -261,6 +261,18 @@ export const CONSOLE_ACTIONS = {
     level: 4 as const,
     description: '従業員のステータスを変更する（active/on_leave/resigned/suspended、Confirmation必須）',
   },
+  'console.create_partner': {
+    level: 4 as const,
+    description: '協力業者を新規登録する（会社名必須、Confirmation必須。ログインアカウント設定は管理画面から）',
+  },
+  'console.update_partner': {
+    level: 4 as const,
+    description: '協力業者の基本情報（会社名・担当者・電話・メール・住所・備考等）を編集する（Confirmation必須）',
+  },
+  'console.update_partner_status': {
+    level: 4 as const,
+    description: '協力業者のステータスを変更する（active/suspended/terminated、Confirmation必須）',
+  },
 } as const
 
 export type ConsoleActionName = keyof typeof CONSOLE_ACTIONS

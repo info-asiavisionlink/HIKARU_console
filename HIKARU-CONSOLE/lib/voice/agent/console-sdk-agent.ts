@@ -636,6 +636,100 @@ const getClientProjectsTool = tool({
   },
 })
 
+// ─── Partner Tools ──────────────────────────────────────────
+
+const getPartnersTool = tool({
+  name:        'get_partners',
+  description: '協力業者・外注先・パートナーの一覧を確認する。「協力業者一覧教えて」「登録してる外注業者は？」「○○会社って登録されてる？」「有効な協力業者は？」等。',
+  parameters:  z.object({
+    search: z.string().optional().describe('会社名・担当者名・メールで検索'),
+    status: z.string().optional().describe('active=契約中 / suspended=一時停止 / terminated=契約終了'),
+  }),
+  execute: async ({ search, status }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    try {
+      const q = new URLSearchParams({ pageSize: '10' })
+      if (search) q.set('search', search)
+      if (status) q.set('status', status)
+      const res  = await apiGet(`/api/partners?${q}`, ctx)
+      if (!res.ok) return '協力業者情報を取得できませんでした。'
+      const data     = await res.json()
+      const partners: any[] = data.data ?? []
+      const total    = data.count ?? partners.length
+      if (total === 0) return search ? `「${search}」という協力業者は見つかりませんでした。` : '協力業者は登録されていません。'
+      const ST: Record<string, string> = { active: '契約中', suspended: '一時停止', terminated: '契約終了' }
+      const items = partners.slice(0, 5).map((p: any, i: number) => {
+        const contact = p.contact_person_name ? `、担当: ${p.contact_person_name}` : ''
+        return `${i + 1}件目: ${p.company_name}${contact}、${ST[p.status] ?? p.status} [id:${p.id}]`
+      }).join(' / ')
+      return `協力業者${total}社。${items}`
+    } catch { return '協力業者一覧の取得中にエラーが発生しました。' }
+  },
+})
+
+const getPartnerDetailTool = tool({
+  name:        'get_partner_detail',
+  description: '指定した協力業者の詳細情報（連絡先・担当者・住所・担当案件等）を取得する。「この会社の情報教えて」「電話番号は？」「担当者は？」「この業者の案件ある？」等。一覧でIDを確認後に使う。',
+  parameters:  z.object({ partner_id: z.string().describe('協力業者のID') }),
+  execute: async ({ partner_id }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!partner_id) return '協力業者IDが必要です。'
+    try {
+      const res  = await apiGet(`/api/partners/${partner_id}`, ctx)
+      if (!res.ok) return '協力業者情報を取得できませんでした。'
+      const data = await res.json()
+      const p    = data?.data
+      if (!p) return '協力業者が見つかりませんでした。'
+      const ST: Record<string, string> = { active: '契約中', suspended: '一時停止', terminated: '契約終了' }
+      const parts: string[] = [`${p.company_name}、${ST[p.status] ?? p.status ?? '不明'}`]
+      if (p.contact_person_name) parts.push(`担当: ${p.contact_person_name}`)
+      if (p.phone)               parts.push(`電話: ${p.phone}`)
+      if (p.email)               parts.push(`メール: ${p.email}`)
+      if (p.address)             parts.push(`住所: ${p.address}`)
+      const assignCount = Array.isArray(p.assignments) ? p.assignments.length : 0
+      if (assignCount > 0) {
+        const ST2: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+        const aList = p.assignments.slice(0, 3).map((a: any) => {
+          const proj = a.projects
+          return proj ? `${proj.name}（${ST2[proj.status] ?? proj.status}）` : '不明案件'
+        }).join('、')
+        parts.push(`担当案件${assignCount}件: ${aList}`)
+      }
+      return `${parts.join('、')} [id:${partner_id}]`
+    } catch { return '協力業者詳細の取得中にエラーが発生しました。' }
+  },
+})
+
+const resolvePartnerTool = tool({
+  name:        'resolve_partner',
+  description: '会社名や担当者名から協力業者のIDを解決する。Write操作前に必ず使う。「○○会社のID教えて」「○○建設を見つけて」等。',
+  parameters:  z.object({ name: z.string().describe('検索する会社名または担当者名キーワード') }),
+  execute: async ({ name }, runCtx) => {
+    const ctx = runCtx!.context as ConsoleAgentSDKContext
+    if (!name) return '検索キーワードが必要です。'
+    try {
+      const res  = await apiGet(`/api/partners?search=${encodeURIComponent(name)}&pageSize=10`, ctx)
+      if (!res.ok) return '協力業者を検索できませんでした。'
+      const data     = await res.json()
+      const partners: any[] = data.data ?? []
+      const total    = data.count ?? partners.length
+      if (total === 0) return `「${name}」という協力業者は見つかりませんでした。`
+      const ST: Record<string, string> = { active: '契約中', suspended: '一時停止', terminated: '契約終了' }
+      if (total === 1) {
+        const p = partners[0]
+        const contact = p.contact_person_name ? `、担当: ${p.contact_person_name}` : ''
+        return `partner:${p.id}:${p.company_name}${contact}`
+      }
+      const list = partners.slice(0, 5).map((p: any, i: number) => {
+        const contact = p.contact_person_name ? `（担当: ${p.contact_person_name}）` : ''
+        const st = ST[p.status] ?? p.status ?? '不明'
+        return `${i + 1}件目: ${p.company_name}${contact}、${st} [id:${p.id}]`
+      }).join(' / ')
+      return `「${name}」で${total}件見つかりました。どの業者ですか？ ${list}`
+    } catch { return '協力業者の解決中にエラーが発生しました。' }
+  },
+})
+
 // ─── Employee Tools ─────────────────────────────────────────
 
 const getEmployeesTool = tool({
@@ -1511,7 +1605,7 @@ const proposeActionTool = tool({
   name:        'propose_action',
   description: 'L4 Write操作をユーザーに提案し確認を求める。実行はしない。propose_actionを呼んだ後、finalOutputに確認文を書くこと。',
   parameters:  z.object({
-    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment'),
+    action:              z.string().describe('console.update_project_status / console.create_project / console.update_project / console.add_assignment / console.remove_assignment / console.replace_assignment / console.approve_expense / console.approve_attendance / console.reject_attendance / console.reject_expense / console.create_employee / console.update_employee / console.update_employee_status / console.create_shift / console.update_shift / console.cancel_shift / console.create_estimate_from_project / console.create_invoice_from_project / console.update_invoice_status / console.convert_estimate / console.record_payment / console.create_partner / console.update_partner / console.update_partner_status'),
     params:              z.record(z.string(), z.string()).optional().describe('actionに必要なパラメータ（flat string値のみ）'),
     confirmationMessage: z.string().describe('管理者への確認文（例：「田中さんの3,200円の交通費を承認します。よろしいですか？」）'),
   }),
@@ -1662,6 +1756,24 @@ shiftIdは必ずget_shiftsのresultから取得する。AI生成ID禁止。
 勤怠直接編集: 不可。「修正申請フローを使ってください」と回答。
 代理打刻: 不可。「本人打刻はHIKARUシステムから」と回答。
 correctionIdは必ずget_pending_attendanceのresultから取得する。AI生成ID禁止。
+
+## 協力業者操作手順
+協力業者一覧: get_partners（search/status指定可）→ partnerId確認
+協力業者詳細: get_partner_detail（partnerIdが必要）
+担当案件確認: get_partner_detailのassignmentsに含まれる
+協力業者登録: company_name確認後 → propose_action(console.create_partner, {company_name, contact_person_name?, phone?, email?, address?, notes?})
+  確認文例: 「○○株式会社、担当者田中様で協力業者登録します。よろしいですか？」
+  ※ログイン・パスワード設定は管理画面から。AIでパスワード生成禁止。
+協力業者編集: get_partner_detailで現在値確認 → propose_action(console.update_partner, {partnerId, [変更フィールド]})
+  変更可能: company_name/company_name_kana/contact_person_name/phone/email/address/notes
+  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
+ステータス変更: get_partner_detailで現在status確認 → propose_action(console.update_partner_status, {partnerId, status})
+  status: active=契約中 / suspended=一時停止 / terminated=契約終了 ※deletedは禁止
+  同じstatusへの変更はWriteしない。
+  確認文例: 「○○株式会社を一時停止に変更します。よろしいですか？」
+協力業者削除: 音声実行不可。「管理画面から操作してください。」と答える。
+partnerIdは必ずget_partnersまたはresolve_partnerのresultから取得する。AI生成ID禁止。
+同名業者が複数: 「どちらの業者ですか？」と確認してから操作する。
 
 ## 従業員操作手順
 従業員一覧: get_employees（search/status指定可）→ employeeId確認
@@ -1867,6 +1979,9 @@ reportIdは必ずget_reportsのresultから取得する。AI生成ID禁止。
 - console.adjust_inventory             → params: { inventoryId, target_quantity, reason, item_name?, current_quantity? }
 - console.create_inventory_item        → params: { name, category?, unit?, min_stock?, storage_location?, notes? }
 - console.update_inventory_item        → params: { inventoryId, name?, category?, unit?, min_stock?, storage_location?, supplier_name?, notes? }
+- console.create_partner               → params: { company_name, contact_person_name?, phone?, email?, address?, notes? }
+- console.update_partner               → params: { partnerId, [変更フィールド]: 値 } ※変更可: company_name/company_name_kana/contact_person_name/phone/email/address/notes
+- console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }
 
 ## L5禁止操作（音声実行不可）
 削除・権限変更・全件承認・大量操作は実行不可。
@@ -1890,6 +2005,9 @@ export const consoleJarvisAgent = new Agent<ConsoleAgentSDKContext>({
     getClientDetailTool,
     getClientStoresTool,
     getClientProjectsTool,
+    getPartnersTool,
+    getPartnerDetailTool,
+    resolvePartnerTool,
     getNotificationsTool,
     getPendingExpensesTool,
     getExpenseDetailTool,

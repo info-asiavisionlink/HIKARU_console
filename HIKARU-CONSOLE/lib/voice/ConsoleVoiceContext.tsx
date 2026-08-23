@@ -57,6 +57,8 @@ NavigationせずにDataツールを使う。
 通知・連絡 → get_notifications
 ダッシュボード → get_dashboard_summary
 売上・未入金・未請求 → get_revenue_summary（navigationしない）
+協力業者・外注先一覧 → get_partners（search/status指定可）
+協力業者詳細・連絡先・担当案件 → get_partner_detail（partner_idを指定）
 従業員一覧・スタッフ情報 → get_employees（search/status指定可）
 従業員詳細・連絡先 → get_employee_detail（employee_idを指定）
 従業員の担当案件 → get_employee_projects（employee_idを指定）
@@ -148,6 +150,27 @@ Write時は特に厳格に実IDを確認してから実行する。
   確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
 顧客削除: 音声で実行不可。「管理画面から操作してください。」と答える。
 
+## 協力業者操作手順
+協力業者一覧: get_partners（search/status指定可）→ partnerId確認
+協力業者詳細: get_partner_detail（partnerIdが必要）
+協力業者の担当案件: get_partner_detailのassignmentsから確認（detailレスポンスに含まれる）
+協力業者登録: company_name確認後 → 確認後 execute_confirmed_action(console.create_partner, {company_name, contact_person_name?, phone?, email?, address?, notes?})
+  確認文例: 「○○株式会社、担当者田中様で協力業者登録します。よろしいですか？」
+  ※ログイン・パスワード設定は管理画面から。AIでパスワード生成禁止。
+協力業者編集: get_partner_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_partner, {partnerId, [変更フィールド]: 値})
+  変更可能: company_name/company_name_kana/contact_person_name/phone/email/address/notes
+  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
+ステータス変更: get_partner_detailで現在status確認 → 確認後 execute_confirmed_action(console.update_partner_status, {partnerId, status})
+  status値: active=契約中 / suspended=一時停止 / terminated=契約終了
+  ※deleted（削除）は音声禁止。同じstatusへの変更はWriteしない。
+  確認文例: 「○○株式会社を一時停止に変更します。よろしいですか？」
+協力業者削除: 音声で実行不可。「協力業者の削除は管理画面から操作してください。」と答える。
+
+## 協力業者IDルール（最重要）
+partnerIdは必ずget_partnersまたはresolve_partnerのresultから取得する。AI生成partnerId禁止。
+同名業者が複数いる場合: 「どちらの業者ですか？」と聞いてから操作する。
+Write時は特に厳格に実IDを確認してから実行する。
+
 ## Project Create/Status（重要手順）
 1. 対象案件が不明な場合 → 「どの案件ですか？」と聞く。勝手に選ばない。
 2. ステータス変更: 確認後 execute_confirmed_action(console.update_project_status, {projectId, status}) — status: active/paused/completed/cancelled
@@ -232,7 +255,10 @@ Write時は特に厳格に実IDを確認してから実行する。
 - console.create_contract              → params: { title, counterparty_type, client_id?, partner_id?, project_id?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, notes? }
 - console.update_contract              → params: { contractId, title?, end_date?, start_date?, renewal_date?, auto_renewal?, status?, notes? }
 - console.mark_notification_read       → params: { notificationId, title? }
-- console.update_company_setting        → params: { field, value } ※field: name/address/phone/email/postal_code のみ`
+- console.update_company_setting        → params: { field, value } ※field: name/address/phone/email/postal_code のみ
+- console.create_partner               → params: { company_name, contact_person_name?, phone?, email?, address?, notes? }
+- console.update_partner               → params: { partnerId, [変更フィールド]: 値 } ※変更可: company_name/company_name_kana/contact_person_name/phone/email/address/notes
+- console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -1298,6 +1324,96 @@ function buildConsoleRealtimeTools(
     }),
     // ─── NEW: Pending requests ────────────────────────────────
     toolFactory({
+      name: 'get_partners',
+      description: '協力業者・外注先・パートナーの一覧を確認する。「協力業者一覧教えて」「登録してる外注業者は？」「○○会社って登録されてる？」「有効な協力業者は？」「停止中の業者は？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      parameters: {
+        type: 'object',
+        properties: {
+          search: { type: 'string', description: '会社名・担当者名・メールで検索' },
+          status: { type: 'string', description: 'active=契約中 / suspended=一時停止 / terminated=契約終了' },
+        },
+        required: [], additionalProperties: false,
+      },
+      execute: async ({ search, status }: { search?: string; status?: string }) => {
+        const q = new URLSearchParams({ pageSize: '10' })
+        if (search) q.set('search', search)
+        if (status) q.set('status', status)
+        const data = await apiFetch(`/api/partners?${q}`)
+        if (!data) return '協力業者情報を取得できませんでした。'
+        const partners: any[] = data.data ?? []
+        const total = data.count ?? partners.length
+        if (total === 0) return search ? `「${search}」という協力業者は見つかりませんでした。` : '協力業者は登録されていません。'
+        const ST: Record<string, string> = { active: '契約中', suspended: '一時停止', terminated: '契約終了' }
+        const items = partners.slice(0, 5).map((p: any, i: number) => {
+          const st      = ST[p.status] ?? p.status ?? '不明'
+          const contact = p.contact_person_name ? `、担当: ${p.contact_person_name}` : ''
+          return `${i + 1}件目: ${p.company_name}${contact}、${st} [id:${p.id}]`
+        }).join(' / ')
+        return `協力業者${total}社。${items}`
+      },
+    }),
+    toolFactory({
+      name: 'get_partner_detail',
+      description: '指定した協力業者の詳細情報（連絡先・担当者・住所・担当案件等）を取得する。「この会社の情報教えて」「電話番号は？」「担当者は？」「住所は？」「この業者の案件ある？」等。一覧でIDを確認後に使う。',
+      parameters: {
+        type: 'object',
+        properties: { partner_id: { type: 'string', description: '協力業者のID' } },
+        required: ['partner_id'], additionalProperties: false,
+      },
+      execute: async ({ partner_id }: { partner_id: string }) => {
+        if (!partner_id) return '協力業者IDが必要です。'
+        const data = await apiFetch(`/api/partners/${partner_id}`)
+        if (!data) return '協力業者情報を取得できませんでした。'
+        const p = data?.data
+        if (!p) return '協力業者が見つかりませんでした。'
+        const ST: Record<string, string> = { active: '契約中', suspended: '一時停止', terminated: '契約終了' }
+        const parts: string[] = [`${p.company_name}、${ST[p.status] ?? p.status ?? '不明'}`]
+        if (p.contact_person_name) parts.push(`担当: ${p.contact_person_name}`)
+        if (p.phone)               parts.push(`電話: ${p.phone}`)
+        if (p.email)               parts.push(`メール: ${p.email}`)
+        if (p.address)             parts.push(`住所: ${p.address}`)
+        const assignCount = Array.isArray(p.assignments) ? p.assignments.length : 0
+        if (assignCount > 0) {
+          const ST2: Record<string, string> = { active: '稼働中', paused: '停止中', completed: '完了', cancelled: 'キャンセル' }
+          const aList = p.assignments.slice(0, 3).map((a: any) => {
+            const proj = a.projects
+            return proj ? `${proj.name}（${ST2[proj.status] ?? proj.status}）` : '不明案件'
+          }).join('、')
+          parts.push(`担当案件${assignCount}件: ${aList}`)
+        }
+        return `${parts.join('、')} [id:${partner_id}]`
+      },
+    }),
+    toolFactory({
+      name: 'resolve_partner',
+      description: '会社名や担当者名から協力業者のIDを解決する。Write操作前に必ず使う。「○○会社のID教えて」「○○建設を見つけて」等。',
+      parameters: {
+        type: 'object',
+        properties: { name: { type: 'string', description: '検索する会社名または担当者名キーワード' } },
+        required: ['name'], additionalProperties: false,
+      },
+      execute: async ({ name }: { name: string }) => {
+        if (!name) return '検索キーワードが必要です。'
+        const data = await apiFetch(`/api/partners?search=${encodeURIComponent(name)}&pageSize=10`)
+        if (!data) return '協力業者を検索できませんでした。'
+        const partners: any[] = data.data ?? []
+        const total = data.count ?? partners.length
+        if (total === 0) return `「${name}」という協力業者は見つかりませんでした。`
+        const ST: Record<string, string> = { active: '契約中', suspended: '一時停止', terminated: '契約終了' }
+        if (total === 1) {
+          const p = partners[0]
+          const contact = p.contact_person_name ? `、担当: ${p.contact_person_name}` : ''
+          return `partner:${p.id}:${p.company_name}${contact}`
+        }
+        const list = partners.slice(0, 5).map((p: any, i: number) => {
+          const contact = p.contact_person_name ? `（担当: ${p.contact_person_name}）` : ''
+          const st = ST[p.status] ?? p.status ?? '不明'
+          return `${i + 1}件目: ${p.company_name}${contact}、${st} [id:${p.id}]`
+        }).join(' / ')
+        return `「${name}」で${total}件見つかりました。どの業者ですか？ ${list}`
+      },
+    }),
+    toolFactory({
       name: 'get_pending_requests',
       description: '承認待ちの各種申請（勤怠修正・経費・案件依頼）の件数サマリーを取得する。「申請来てる？」「何か承認待ちある？」等。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
@@ -1314,7 +1430,7 @@ function buildConsoleRealtimeTools(
       parameters: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting'] },
+          action: { type: 'string', enum: ['console.update_project_status', 'console.create_project', 'console.update_project', 'console.add_assignment', 'console.remove_assignment', 'console.replace_assignment', 'console.create_client', 'console.update_client', 'console.approve_expense', 'console.approve_attendance', 'console.reject_attendance', 'console.reject_expense', 'console.create_employee', 'console.update_employee', 'console.update_employee_status', 'console.create_shift', 'console.update_shift', 'console.cancel_shift', 'console.create_estimate_from_project', 'console.create_invoice_from_project', 'console.update_invoice_status', 'console.convert_estimate', 'console.record_payment', 'console.generate_report_pdf', 'console.inventory_stock_in', 'console.inventory_stock_out', 'console.adjust_inventory', 'console.create_inventory_item', 'console.update_inventory_item', 'console.create_contract', 'console.update_contract', 'console.mark_notification_read', 'console.update_company_setting', 'console.create_partner', 'console.update_partner', 'console.update_partner_status'] },
           params: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['action'],
