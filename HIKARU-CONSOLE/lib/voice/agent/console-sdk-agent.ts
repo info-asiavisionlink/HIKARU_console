@@ -278,12 +278,23 @@ const getNotificationsTool = tool({
       const total  = list.length
       if (unread_only === 'true') list = list.filter((n: any) => !n.is_read)
       if (list.length === 0) return unread_only === 'true' ? '未読の通知はありません。' : '通知はありません。'
+      const parseTarget = (url?: string): string => {
+        if (!url) return ''
+        const mExp = url.match(/^\/expenses\/([^/]+)$/)
+        if (mExp) return ` [関連:expense:${mExp[1]}]`
+        const mRep = url.match(/^\/reports\/([^/]+)$/)
+        if (mRep) return ` [関連:report:${mRep[1]}]`
+        if (url.startsWith('/attendance/corrections')) return ` [関連:勤怠修正一覧]`
+        if (url.startsWith('/proposals')) return ` [関連:案件依頼一覧]`
+        return ''
+      }
       const lines = list.slice(0, 10).map((n: any, i: number) => {
         const typeLabel = NOTIF_TYPE_LABELS_SDK[n.type] ?? n.type ?? ''
         const readLabel = n.is_read ? '（既読）' : '【未読】'
         const title     = n.title ?? (n.body ? String(n.body).slice(0, 30) : '通知')
         const date      = n.created_at ? new Date(n.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
-        return `${i + 1}件目 ${readLabel}${typeLabel}「${title}」${date} [id:${n.id}]`
+        const relNav    = parseTarget(n.target_url)
+        return `${i + 1}件目 ${readLabel}${typeLabel}「${title}」${date} [id:${n.id}]${relNav}`
       })
       return `未読:${unread}件 / 全${total}件\n${lines.join('\n')}`
     } catch { return '通知の取得中にエラーが発生しました。' }
@@ -2062,6 +2073,13 @@ AI分析画面を開く: navigate(console.open_analytics)
   ※このToolはREADのみ。呼ぶだけで既読にならない。「読んで」はREAD、「既読にして」はWRITE。
 通知種別: attendance_correction_submitted=勤怠修正申請・expense_submitted=経費申請・
           project_report_submitted=報告書提出・project_proposal_submitted=提案提出
+通知Cross-Navigation: get_notificationsの結果に [関連:expense:{id}] や [関連:report:{id}] が含まれる場合それが関連EntityのID。
+  「その経費開いて」→ navigate_detail(entity="expense", entity_id={id})
+  「その報告書開いて」→ navigate_detail(entity="report", entity_id={id})
+  [関連:勤怠修正一覧] → navigate(console.open_attendance) で一覧へ案内
+  [関連:案件依頼一覧] → navigate(console.open_project_requests) で一覧へ案内
+  [関連:*]がない通知 → 「この通知には直接開ける関連ページ情報がありません。」
+  IDは必ず [関連:entity:{id}] タグ由来のみ。本文から推測禁止。
 通知既読化: get_notificationsで対象idを確認 → propose_action(console.mark_notification_read, {notificationId, title?})
   確認文例: 「経費申請の通知『田中さんの交通費申請』を既読にします。よろしいですか？」
   ※すでに既読の場合は変更不要と回答。

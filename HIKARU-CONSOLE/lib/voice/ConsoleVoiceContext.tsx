@@ -90,7 +90,7 @@ NavigationせずにDataツールを使う。
 勤怠修正詳細 → get_attendance_correction_detail（correction_idを指定）
 今日の出勤状況 → get_attendance_today
 従業員別勤怠記録 → get_attendance_records（employee_idが必要、year/month指定可）
-通知・連絡 → get_notifications
+通知・連絡 → get_notifications（unread_only=trueで未読のみ）
 ダッシュボード → get_dashboard_summary
 売上・未入金・未請求 → get_revenue_summary（navigationしない）
 協力業者・外注先一覧 → get_partners（search/status指定可）
@@ -118,6 +118,15 @@ NavigationせずにDataツールを使う。
 案件別品質トレンド → get_project_quality（project_id必須、直前Tool Result由来のID使用）
 AI分析・ランキング → get_analytics（focus=overview/store/worker等）
 設定・会社情報 → get_settings
+
+## 通知Cross-Navigation
+get_notificationsの結果に [関連:expense:{id}] や [関連:report:{id}] が含まれる場合、それが関連EntityのID。
+「その経費開いて」→ navigate_to_detail(expense, {id})
+「その報告書開いて」→ navigate_to_detail(report, {id})
+[関連:勤怠修正一覧] → navigate_to(attendance) で一覧へ案内
+[関連:案件依頼一覧] → navigate_to(project_requests) で一覧へ案内
+[関連:*] がない通知 → 「この通知には直接開ける関連ページ情報がありません。」
+IDは必ず [関連:entity:{id}] タグ由来のみ。本文から推測禁止。
 
 ## 案件を起点とするCross-READ（案件Contextを維持）
 「この案件の〜は？」「さっきの案件の〜は？」「1件目の〜は？」は直前に確定したproject_idを使う。
@@ -828,13 +837,41 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_notifications', description: '管理者向け通知・未読件数を確認する。「通知ある？」「何か連絡来てる？」「未読メッセージある？」等に使う。',
-      parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
-      execute: async () => {
+      name: 'get_notifications', description: '管理者向け通知一覧を取得する。「通知ある？」「未読ある？」「最近の通知は？」「経費の通知きてる？」等。このToolは通知を読み取るだけで既読にしない。',
+      parameters: { type: 'object', properties: { unread_only: { type: 'string', description: 'trueで未読のみ表示（省略時は全件）' } }, required: [], additionalProperties: false },
+      execute: async ({ unread_only }: { unread_only?: string }) => {
         const data = await apiFetch('/api/console-notifications')
         if (!data) return '通知を取得できませんでした。'
-        const unread = data.unread_count ?? 0
-        return unread === 0 ? '未読の通知はありません。' : `未読の通知が${unread}件あります。`
+        let list: any[] = data.notifications ?? []
+        const unread = data.unread_count ?? list.filter((n: any) => !n.is_read).length
+        const total  = list.length
+        if (unread_only === 'true') list = list.filter((n: any) => !n.is_read)
+        if (list.length === 0) return unread_only === 'true' ? '未読の通知はありません。' : '通知はありません。'
+        const TYPE_LABELS: Record<string, string> = {
+          expense_submitted:                '経費申請',
+          attendance_correction_submitted:  '勤怠修正申請',
+          project_report_submitted:         '報告書提出',
+          project_proposal_submitted:       '案件依頼',
+        }
+        const parseTarget = (url?: string): string => {
+          if (!url) return ''
+          const mExp = url.match(/^\/expenses\/([^/]+)$/)
+          if (mExp) return ` [関連:expense:${mExp[1]}]`
+          const mRep = url.match(/^\/reports\/([^/]+)$/)
+          if (mRep) return ` [関連:report:${mRep[1]}]`
+          if (url.startsWith('/attendance/corrections')) return ` [関連:勤怠修正一覧]`
+          if (url.startsWith('/proposals')) return ` [関連:案件依頼一覧]`
+          return ''
+        }
+        const lines = list.slice(0, 8).map((n: any, i: number) => {
+          const typeLabel = TYPE_LABELS[n.type] ?? n.type ?? ''
+          const readLabel = n.is_read ? '（既読）' : '【未読】'
+          const title     = n.title ?? (n.body ? String(n.body).slice(0, 30) : '通知')
+          const date      = n.created_at ? new Date(n.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+          const relNav    = parseTarget(n.target_url)
+          return `${i + 1}件目 ${readLabel}${typeLabel}「${title}」${date} [id:${n.id}]${relNav}`
+        })
+        return `未読:${unread}件 / 全${total}件\n${lines.join('\n')}`
       },
     }),
     toolFactory({
