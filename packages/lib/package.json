@@ -9,7 +9,8 @@
     "./supabase/client": "./src/supabase/client.ts",
     "./supabase/server": "./src/supabase/server.ts",
     "./openai": "./src/openai/client.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./manual-ai": "./src/manual-ai/index.ts"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.0.0",
