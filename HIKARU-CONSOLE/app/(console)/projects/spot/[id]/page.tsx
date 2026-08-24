@@ -14,6 +14,7 @@ import {
   BILLING_STATUSES, type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Edit2, Save, Trash2, Zap, MapPin, Users, Building2, Plus, DollarSign, Loader2, FileText } from 'lucide-react'
+import { PhotoSpotEditor, type EditablePhotoSpot } from '@/components/console/PhotoSpotEditor'
 import { SPOT_RECURRING_STATUSES, srStatusLabel, srStatusVariant } from '@/lib/project-status'
 import { ConfirmDeleteDialog } from '@/components/console/ConfirmDeleteDialog'
 
@@ -34,7 +35,7 @@ export default function SpotProjectDetailPage() {
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [price,     setPrice]     = React.useState<PriceEntry>(emptyPrice())
   const [billing,   setBilling]   = React.useState<BillingEntry>(emptyBilling())
-  const [spots,     setSpots]     = React.useState<string[]>([''])
+  const [spots,     setSpots]     = React.useState<EditablePhotoSpot[]>([{ name: '', description: '' }])
   const [keys,      setKeys]      = React.useState<{model: string; usage: string}[]>([{model: '', usage: ''}])
   const [clients,   setClients]   = React.useState<{ id: string; name: string }[]>([])
   const [empMap,    setEmpMap]    = React.useState<Record<string, string>>({})
@@ -89,7 +90,7 @@ export default function SpotProjectDetailPage() {
       const spotsRes = await fetch(`/api/projects/${id}/spots`, { credentials: 'include' })
       if (spotsRes.ok) {
         const { data: sd } = await spotsRes.json()
-        setSpots(sd?.length > 0 ? sd.map((s: any) => s.name) : [''])
+        setSpots(sd?.length > 0 ? sd.map((s: any) => ({ name: s.name ?? '', description: s.description ?? '' })) : [{ name: '', description: '' }])
       }
       setAssignees(
         (data.project_assignments ?? []).map((a: any) => ({
@@ -224,12 +225,12 @@ export default function SpotProjectDetailPage() {
       ])
 
       await fetch(`/api/projects/${id}/spots`, { method: 'DELETE', credentials: 'include' })
-      const valid = spots.filter(s => s.trim())
+      const valid = spots.filter(s => s.name.trim())
       if (valid.length > 0) {
         await fetch(`/api/projects/${id}/spots`, {
           method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ spots: valid.map(name => ({ name })) }),
+          body: JSON.stringify({ spots: valid.map(s => ({ name: s.name.trim(), description: s.description.trim() || null })) }),
         })
       }
 
@@ -333,36 +334,13 @@ export default function SpotProjectDetailPage() {
               <CardContent className="pt-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所</h2>
-                  <button type="button" onClick={() => setSpots(p => [...p, ''])}
+                  <button type="button" onClick={() => setSpots(p => [...p, { name: '', description: '' }])}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
                     style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
                     <Plus className="h-3.5 w-3.5" /> 箇所を追加
                   </button>
                 </div>
-                <p className="text-xs text-[var(--color-muted-foreground)]">清掃・点検する箇所を追加してください（例: エアコン清掃、床清掃）。</p>
-                <div className="space-y-2">
-                  {spots.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
-                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
-                        {i + 1}
-                      </div>
-                      <Input value={s} onChange={e => setSpots(p => p.map((x, j) => j === i ? e.target.value : x))}
-                        placeholder={i === 0 ? '例: エアコン清掃' : i === 1 ? '例: 床清掃' : '例: トイレ清掃...'}
-                        className="flex-1" />
-                      <button type="button" onClick={() => setSpots(p => p.length <= 1 ? [''] : p.filter((_, j) => j !== i))}
-                        className="p-1.5 rounded-[var(--radius)] hover:opacity-80 shrink-0"
-                        style={{ color: 'var(--color-error-foreground)' }}>
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setSpots(p => [...p, ''])}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm border-dashed hover:opacity-80"
-                  style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}>
-                  <Plus className="h-4 w-4" /> 箇所を追加する
-                </button>
+                <PhotoSpotEditor spots={spots} onChange={setSpots} />
               </CardContent>
             </Card>
 
@@ -481,17 +459,17 @@ export default function SpotProjectDetailPage() {
             </Card>
 
             {/* 作業箇所プレビュー */}
-            {spots.some(s => s.trim()) && (
+            {spots.some(s => s.name.trim()) && (
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">
-                    作業箇所 ({spots.filter(s => s.trim()).length})
+                    作業箇所 ({spots.filter(s => s.name.trim()).length})
                   </h2>
                   <div className="flex flex-wrap gap-1.5">
-                    {spots.filter(s => s.trim()).map((s, i) => (
+                    {spots.filter(s => s.name.trim()).map((s, i) => (
                       <span key={i} className="text-xs px-2 py-1 rounded-[var(--radius)]"
                         style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
-                        {s}
+                        {s.name}
                       </span>
                     ))}
                   </div>
@@ -554,15 +532,15 @@ export default function SpotProjectDetailPage() {
             </Card>
 
             {/* 作業箇所 */}
-            {spots.filter(s => s).length > 0 && (
+            {spots.filter(s => s.name).length > 0 && (
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所</h2>
                   <div className="flex flex-wrap gap-1.5">
-                    {spots.filter(s => s).map((s, i) => (
+                    {spots.filter(s => s.name).map((s, i) => (
                       <span key={i} className="text-xs px-2 py-1 rounded-[var(--radius)]"
                         style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
-                        {s}
+                        {s.name}
                       </span>
                     ))}
                   </div>

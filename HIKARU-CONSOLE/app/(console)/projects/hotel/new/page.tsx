@@ -14,6 +14,7 @@ import {
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Hotel, Layers, Clock, Wrench, Users, Plus, Trash2, Building2, MapPin } from 'lucide-react'
+import { PhotoSpotEditor, type EditablePhotoSpot } from '@/components/console/PhotoSpotEditor'
 
 interface FloorRow    { floor_name: string; room_count: string }
 interface StaffingRow { time_slot: string;  required_staff: string }
@@ -44,7 +45,7 @@ export default function NewHotelProjectPage() {
   const [price,    setPrice]    = React.useState<PriceEntry>(emptyPrice())
   const [billing,  setBilling]  = React.useState<BillingEntry>(emptyBilling())
   const [clients,  setClients]  = React.useState<{ id: string; name: string }[]>([])
-  const [spots,    setSpots]    = React.useState<string[]>([''])
+  const [spots,    setSpots]    = React.useState<EditablePhotoSpot[]>([{ name: '', description: '' }])
   const [unitHasError, setUnitHasError] = React.useState(false)
 
   const [form, setForm] = React.useState({
@@ -55,10 +56,6 @@ export default function NewHotelProjectPage() {
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
-
-  function addSpot() { setSpots(p => [...p, '']) }
-  function updSpot(i: number, v: string) { setSpots(p => p.map((s, idx) => idx === i ? v : s)) }
-  function rmSpot(i: number) { setSpots(p => p.length <= 1 ? [''] : p.filter((_, idx) => idx !== i)) }
 
   React.useEffect(() => {
     fetch('/api/clients?pageSize=100')
@@ -148,12 +145,12 @@ export default function NewHotelProjectPage() {
     }
 
     // ③ 作業箇所登録
-    const validSpots = spots.filter(s => s.trim())
+    const validSpots = spots.filter(s => s.name.trim())
     if (validSpots.length > 0) {
       await fetch(`/api/projects/${project.id}/spots`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spots: validSpots.map(name => ({ name })) }),
+        body: JSON.stringify({ spots: validSpots.map(s => ({ name: s.name.trim(), description: s.description.trim() || null })) }),
       })
     }
 
@@ -317,36 +314,14 @@ export default function NewHotelProjectPage() {
               <CardContent className="pt-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">作業箇所（撮影箇所）</h2>
-                  <button type="button" onClick={addSpot}
+                  <button type="button" onClick={() => setSpots(p => [...p, { name: '', description: '' }])}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
                     style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
                     <Plus className="h-3.5 w-3.5" /> 箇所を追加
                   </button>
                 </div>
                 <p className="text-xs text-[var(--color-muted-foreground)]">作業者が写真を撮影する箇所を追加してください（例: ロビー、共用部、作業エリア）。</p>
-                <div className="space-y-2">
-                  {spots.map((spot, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
-                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}>
-                        {i + 1}
-                      </div>
-                      <Input value={spot} onChange={e => updSpot(i, e.target.value)}
-                        placeholder={i === 0 ? '例: ロビー清掃' : i === 1 ? '例: 共用部清掃' : '例: エリア清掃...'}
-                        className="flex-1" />
-                      <button type="button" onClick={() => rmSpot(i)}
-                        className="p-1.5 rounded-[var(--radius)] hover:opacity-80 shrink-0"
-                        style={{ color: 'var(--color-error-foreground)' }}>
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={addSpot}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm border-dashed hover:opacity-80"
-                  style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}>
-                  <Plus className="h-4 w-4" /> 箇所を追加する
-                </button>
+                <PhotoSpotEditor spots={spots} onChange={setSpots} />
               </CardContent>
             </Card>
 

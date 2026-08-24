@@ -14,6 +14,7 @@ import {
   type PriceEntry, type BillingEntry,
 } from '@/components/console/PricingCard'
 import { ArrowLeft, Zap, MapPin, Users, Building2, Plus, Trash2 } from 'lucide-react'
+import { PhotoSpotEditor, type EditablePhotoSpot } from '@/components/console/PhotoSpotEditor'
 import { SPOT_RECURRING_STATUSES } from '@/lib/project-status'
 
 export default function NewSpotProjectPage() {
@@ -23,7 +24,7 @@ export default function NewSpotProjectPage() {
   const [price,   setPrice]   = React.useState<PriceEntry>(emptyPrice())
   const [billing, setBilling] = React.useState<BillingEntry>(emptyBilling())
   const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
-  const [spots,   setSpots]   = React.useState<string[]>([''])
+  const [spots,   setSpots]   = React.useState<EditablePhotoSpot[]>([{ name: '', description: '' }])
   const [keys,    setKeys]    = React.useState<{model: string; usage: string}[]>([{model: '', usage: ''}])
 
   const [form, setForm] = React.useState({
@@ -44,9 +45,6 @@ export default function NewSpotProjectPage() {
   })
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
-  function addSpot() { setSpots(p => [...p, '']) }
-  function updSpot(i: number, v: string) { setSpots(p => p.map((s, idx) => idx === i ? v : s)) }
-  function rmSpot(i: number) { setSpots(p => p.length <= 1 ? [''] : p.filter((_, idx) => idx !== i)) }
   function addKey() { setKeys(p => [...p, {model: '', usage: ''}]) }
   function updKey(i: number, f: 'model' | 'usage', v: string) { setKeys(p => p.map((k, idx) => idx === i ? {...k, [f]: v} : k)) }
   function rmKey(i: number) { setKeys(p => p.length <= 1 ? [{model: '', usage: ''}] : p.filter((_, idx) => idx !== i)) }
@@ -122,12 +120,12 @@ export default function NewSpotProjectPage() {
     }
 
     // 作業箇所
-    const validSpots = spots.filter(s => s.trim())
+    const validSpots = spots.filter(s => s.name.trim())
     if (validSpots.length > 0) {
       const r = await fetch(`/api/projects/${project.id}/spots`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spots: validSpots.map(name => ({ name })) }),
+        body: JSON.stringify({ spots: validSpots.map(s => ({ name: s.name.trim(), description: s.description.trim() || null })) }),
       })
       if (!r.ok) { const j = await r.json().catch(() => ({})); errors.push('作業箇所: ' + (j.error ?? r.status)) }
     }
@@ -259,7 +257,7 @@ export default function NewSpotProjectPage() {
                     作業箇所
                   </h2>
                   <button
-                    type="button" onClick={addSpot}
+                    type="button" onClick={() => setSpots(p => [...p, { name: '', description: '' }])}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
                     style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}
                   >
@@ -269,37 +267,7 @@ export default function NewSpotProjectPage() {
                 <p className="text-xs text-[var(--color-muted-foreground)]">
                   清掃・点検する箇所を追加してください（例: エアコン清掃、床清掃）。
                 </p>
-                <div className="space-y-2">
-                  {spots.map((spot, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div
-                        className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
-                        style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}
-                      >
-                        {i + 1}
-                      </div>
-                      <Input
-                        value={spot} onChange={e => updSpot(i, e.target.value)}
-                        placeholder={i === 0 ? '例: エアコン清掃' : i === 1 ? '例: 床清掃' : '例: トイレ清掃...'}
-                        className="flex-1"
-                      />
-                      <button
-                        type="button" onClick={() => rmSpot(i)}
-                        className="p-1.5 rounded-[var(--radius)] hover:opacity-80 shrink-0"
-                        style={{ color: 'var(--color-error-foreground)' }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button" onClick={addSpot}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm border-dashed hover:opacity-80"
-                  style={{ border: '1.5px dashed var(--color-border)', color: 'var(--color-muted-foreground)' }}
-                >
-                  <Plus className="h-4 w-4" /> 箇所を追加する
-                </button>
+                <PhotoSpotEditor spots={spots} onChange={setSpots} />
               </CardContent>
             </Card>
 
@@ -439,20 +407,20 @@ export default function NewSpotProjectPage() {
             </Card>
 
             {/* 作業箇所プレビュー */}
-            {spots.some(s => s.trim()) && (
+            {spots.some(s => s.name.trim()) && (
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">
-                    作業箇所 ({spots.filter(s => s.trim()).length})
+                    作業箇所 ({spots.filter(s => s.name.trim()).length})
                   </h2>
                   <div className="flex flex-wrap gap-1.5">
-                    {spots.filter(s => s.trim()).map((s, i) => (
+                    {spots.filter(s => s.name.trim()).map((s, i) => (
                       <span
                         key={i}
                         className="text-xs px-2 py-1 rounded-[var(--radius)]"
                         style={{ background: 'var(--color-primary-muted)', border: '1px solid var(--color-primary-glow)', color: 'var(--color-primary)' }}
                       >
-                        {s}
+                        {s.name}
                       </span>
                     ))}
                   </div>

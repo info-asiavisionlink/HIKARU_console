@@ -10,7 +10,8 @@ import {
   Breadcrumb,
 } from '@hikaru/ui'
 import { AssigneeSelector, type Assignee } from '@/components/console/AssigneeSelector'
-import { ArrowLeft, Users, Building2, Plus, Trash2, MapPin } from 'lucide-react'
+import { ArrowLeft, Users, Building2, Plus, MapPin } from 'lucide-react'
+import { PhotoSpotEditor, type EditablePhotoSpot } from '@/components/console/PhotoSpotEditor'
 
 const STATUS_OPTIONS = [
   { value: 'active',    label: '稼働中' },
@@ -25,7 +26,7 @@ export default function NewProjectPage() {
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
   // 作業箇所リスト
-  const [spots, setSpots] = React.useState<string[]>([''])
+  const [spots, setSpots] = React.useState<EditablePhotoSpot[]>([{ name: '', description: '' }])
 
   const [form, setForm] = React.useState({
     name: '',
@@ -53,17 +54,6 @@ export default function NewProjectPage() {
 
   function update(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  // 作業箇所操作
-  function addSpot() {
-    setSpots((prev) => [...prev, ''])
-  }
-  function updateSpot(i: number, val: string) {
-    setSpots((prev) => prev.map((s, idx) => idx === i ? val : s))
-  }
-  function removeSpot(i: number) {
-    setSpots((prev) => prev.length <= 1 ? [''] : prev.filter((_, idx) => idx !== i))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -111,14 +101,14 @@ export default function NewProjectPage() {
     }
 
     // 作業箇所登録
-    const validSpots = spots.filter((s) => s.trim())
+    const validSpots = spots.filter((s) => s.name.trim())
     if (validSpots.length > 0 && pid) {
       tasks.push(
         fetch(`/api/projects/${pid}/spots`, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ spots: validSpots.map((name) => ({ name })) }),
+          body: JSON.stringify({ spots: validSpots.map((s) => ({ name: s.name.trim(), description: s.description.trim() || null })) }),
         })
       )
     }
@@ -248,7 +238,7 @@ export default function NewProjectPage() {
                   </h2>
                   <button
                     type="button"
-                    onClick={addSpot}
+                    onClick={() => setSpots((p) => [...p, { name: '', description: '' }])}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-[var(--radius)] transition-all"
                     style={{
                       background: 'var(--color-primary-muted)',
@@ -265,56 +255,7 @@ export default function NewProjectPage() {
                   清掃・点検する箇所を追加してください。作業者の撮影箇所として使用されます。
                 </p>
 
-                <div className="space-y-2">
-                  {spots.map((spot, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div
-                        className="flex h-6 w-6 items-center justify-center rounded-full shrink-0 text-[10px] font-bold"
-                        style={{
-                          background: 'var(--color-primary-muted)',
-                          border: '1px solid var(--color-primary-glow)',
-                          color: 'var(--color-primary)',
-                        }}
-                      >
-                        {i + 1}
-                      </div>
-                      <Input
-                        value={spot}
-                        onChange={(e) => updateSpot(i, e.target.value)}
-                        placeholder={
-                          i === 0 ? '例: エアコン清掃' :
-                          i === 1 ? '例: 床清掃' :
-                          i === 2 ? '例: トイレ清掃' :
-                          '例: 窓清掃、厨房清掃...'
-                        }
-                        className="flex-1"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeSpot(i)}
-                        className="p-1.5 rounded-[var(--radius)] transition-colors hover:opacity-80 shrink-0"
-                        style={{ color: 'var(--color-error-foreground)' }}
-                        title="削除"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 追加ボタン（下にも） */}
-                <button
-                  type="button"
-                  onClick={addSpot}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--radius-lg)] text-sm transition-all hover:opacity-80 border-dashed"
-                  style={{
-                    border: '1.5px dashed var(--color-border)',
-                    color: 'var(--color-muted-foreground)',
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  箇所を追加する
-                </button>
+                <PhotoSpotEditor spots={spots} onChange={setSpots} />
               </CardContent>
             </Card>
 
@@ -385,14 +326,14 @@ export default function NewProjectPage() {
             </Card>
 
             {/* 作業箇所プレビュー */}
-            {spots.some((s) => s.trim()) && (
+            {spots.some((s) => s.name.trim()) && (
               <Card>
                 <CardContent className="pt-6 space-y-3">
                   <h2 className="text-sm font-semibold text-[var(--color-muted-foreground)] uppercase tracking-wider">
-                    作業箇所 ({spots.filter((s) => s.trim()).length})
+                    作業箇所 ({spots.filter((s) => s.name.trim()).length})
                   </h2>
                   <div className="flex flex-wrap gap-1.5">
-                    {spots.filter((s) => s.trim()).map((s, i) => (
+                    {spots.filter((s) => s.name.trim()).map((s, i) => (
                       <span
                         key={i}
                         className="text-xs px-2 py-1 rounded-[var(--radius)]"
@@ -402,7 +343,7 @@ export default function NewProjectPage() {
                           color: 'var(--color-primary)',
                         }}
                       >
-                        {s}
+                        {s.name}
                       </span>
                     ))}
                   </div>
