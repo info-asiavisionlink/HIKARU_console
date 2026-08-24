@@ -16,7 +16,11 @@ export async function POST(req: NextRequest) {
 
   const { type }: { type: PunchType } = await req.json()
   const now   = new Date().toISOString()
-  const today = now.split('T')[0]
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
+  // JST前日（深夜跨ぎシフト対応用）
+  const [_y, _m, _d] = today.split('-').map(Number)
+  const _yd = new Date(Date.UTC(_y, _m - 1, _d - 1))
+  const yesterday = `${_yd.getUTCFullYear()}-${String(_yd.getUTCMonth() + 1).padStart(2, '0')}-${String(_yd.getUTCDate()).padStart(2, '0')}`
 
   const admin = createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,13 +38,24 @@ export async function POST(req: NextRequest) {
   const hourlyRate  = profile?.hourly_rate ?? 0
   const companyId   = profile?.company_id
 
-  // 今日の記録を取得or作成
-  const { data: existing } = await (supabase as any)
+  // 今日の記録を取得（JST当日）
+  let { data: existing } = await (supabase as any)
     .from('attendance_records')
     .select('*')
     .eq('worker_id', user.id)
     .eq('work_date', today)
-    .single()
+    .maybeSingle()
+
+  // clock_in以外で今日のレコードがない場合：前日の未退勤レコードを確認（深夜跨ぎ対応）
+  if (!existing && type !== 'clock_in') {
+    const { data: ydRecord } = await (supabase as any)
+      .from('attendance_records')
+      .select('*')
+      .eq('worker_id', user.id)
+      .eq('work_date', yesterday)
+      .maybeSingle()
+    if (ydRecord?.clock_in && !ydRecord.clock_out) existing = ydRecord
+  }
 
   const patch: Record<string, unknown> = {
     updated_at: now,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { getJstYear, getJstMonth } from '@/lib/billing/date-utils'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AC = any
@@ -9,8 +10,8 @@ export async function GET(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { companyId, adminClient: admin } = auth as { companyId: string; adminClient: AC }
 
-  const year  = req.nextUrl.searchParams.get('year')  ?? new Date().getFullYear().toString()
-  const month = req.nextUrl.searchParams.get('month') ?? (new Date().getMonth() + 1).toString()
+  const year  = req.nextUrl.searchParams.get('year')  ?? getJstYear().toString()
+  const month = req.nextUrl.searchParams.get('month') ?? getJstMonth().toString()
   const workerId = req.nextUrl.searchParams.get('worker_id') ?? null
 
   const from = `${year}-${month.padStart(2, '0')}-01`

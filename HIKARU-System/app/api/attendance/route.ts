@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   }
 
   // today
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
   const { data, error } = await sb
     .from('attendance_records')
     .select('*')
