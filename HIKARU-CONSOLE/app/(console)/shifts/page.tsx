@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PageHeader, Breadcrumb, Button, toast } from '@hikaru/ui'
+import { getJstDateString } from '@/lib/billing/date-utils'
 import {
   Plus, ChevronLeft, ChevronRight, CalendarDays, List,
   Clock, MapPin, User, Zap, RefreshCw, Hotel, Trash2, Check,
@@ -147,7 +148,7 @@ export default function ShiftsPage() {
     return `${baseDate.getFullYear()}年${baseDate.getMonth()+1}月`
   })()
 
-  const today = formatDate(new Date())
+  const today = getJstDateString()
 
   return (
     <div>
@@ -213,8 +214,7 @@ export default function ShiftsPage() {
           {displayDates.map(date => {
             const dayShifts = grouped[date] ?? []
             const isToday   = date === today
-            const d         = new Date(date + 'T00:00:00')
-            const dayLabel  = d.toLocaleDateString('ja-JP', { month:'numeric', day:'numeric', weekday:'short' })
+            const dayLabel  = new Date(`${date}T00:00:00+09:00`).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' })
 
             return (
               <div key={date}

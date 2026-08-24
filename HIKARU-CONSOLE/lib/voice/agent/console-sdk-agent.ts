@@ -1162,7 +1162,7 @@ const getEmployeeShiftsTool = tool({
       const from     = date_from ?? todayJst
       const end7     = new Date(todayJst)
       end7.setDate(end7.getDate() + 7)
-      const toDate   = date_to ?? end7.toISOString().slice(0, 10)
+      const toDate   = date_to ?? end7.toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
       const q    = new URLSearchParams({ employee_id, date_from: from, date_to: toDate })
       const res  = await apiGet(`/api/shifts?${q}`, ctx)
       if (!res.ok) return 'シフト情報を取得できませんでした。'

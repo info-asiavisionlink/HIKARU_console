@@ -9,6 +9,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
 import { ArrowLeft, AlertTriangle, User, Building2 } from 'lucide-react'
+import { getJstDateString } from '@/lib/billing/date-utils'
 
 const GOLD = 'oklch(0.73 0.12 78)'
 const WARN = 'oklch(0.75 0.20 60)'
@@ -33,7 +34,7 @@ function NewShiftForm() {
     project_id:    '',
     assignee_type: 'employee' as 'employee' | 'partner',
     assignee_id:   '',
-    shift_date:    searchParams?.get('date') ?? new Date().toISOString().split('T')[0],
+    shift_date:    searchParams?.get('date') ?? getJstDateString(),
     start_time:    '09:00',
     end_time:      '17:00',
     notes:         '',
