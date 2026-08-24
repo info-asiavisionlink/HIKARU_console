@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import { getJstDateString } from '@/lib/billing/date-utils'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any
@@ -10,8 +11,8 @@ export async function GET() {
   const { companyId, adminClient } = auth
   const admin = adminClient as AnyClient
 
-  // 今日の in_progress ジョブを全件取得
-  const today = new Date().toISOString().split('T')[0]
+  // 今日の in_progress ジョブを全件取得（JST基準）
+  const today = getJstDateString()
 
   const { data: jobs, error } = await admin
     .from('jobs')
