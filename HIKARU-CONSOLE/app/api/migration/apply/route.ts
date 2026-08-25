@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 
 // Supabase Management API 経由でマイグレーションを実行する
-// 事前に SUPABASE_ACCESS_TOKEN を .env.local に設定してください
-// 取得先: https://supabase.com/dashboard/account/tokens
+// 事前に SUPABASE_ACCESS_TOKEN と SUPABASE_PROJECT_REF を .env.local に設定してください
+// アクセストークン取得先: https://supabase.com/dashboard/account/tokens
+// プロジェクト参照ID: Supabase Dashboard > Settings > General > Reference ID
 
-const PROJECT_REF = 'cgdrrowxfraykeyyafxg'
+const PROJECT_REF = process.env.SUPABASE_PROJECT_REF?.trim()
 
 const MIGRATION_SQL = `
 -- ============================================================
@@ -243,6 +244,13 @@ export async function POST(_req: NextRequest) {
   // 認証チェック: Admin のみ実行可能
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  if (!PROJECT_REF) {
+    return NextResponse.json({
+      error: 'SUPABASE_PROJECT_REF が設定されていません。',
+      hint: 'Supabase Dashboard > Settings > General > Reference ID を確認し、SUPABASE_PROJECT_REF=[ref] を .env.local または Vercel 環境変数に追加してください。',
+    }, { status: 503 })
+  }
 
   const accessToken = process.env.SUPABASE_ACCESS_TOKEN
 

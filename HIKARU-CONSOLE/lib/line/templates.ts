@@ -13,7 +13,7 @@ import type {
   ContractExpiryNotificationParams,
 } from './types'
 
-const APP_NAME = 'HIKARU'
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME?.trim() || 'HIKARU'
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
