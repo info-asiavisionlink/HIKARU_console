@@ -9,20 +9,24 @@ const GOLD = 'oklch(0.73 0.12 78)'
 
 function fmt(iso: string | null | undefined) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })
 }
 
 function toInputValue(iso: string | null | undefined): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  }).format(d)
+  return parts.replace(' ', 'T')
 }
 
 function fromInputValue(v: string): string | null {
   if (!v) return null
-  const d = new Date(v)
+  const d = new Date(`${v}+09:00`)
   return isNaN(d.getTime()) ? null : d.toISOString()
 }
 
@@ -71,8 +75,8 @@ function CorrectionForm() {
   }
 
   const dateLabel = workDate
-    ? new Date(workDate + 'T00:00:00').toLocaleDateString('ja-JP', {
-        year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+    ? new Date(`${workDate}T00:00:00+09:00`).toLocaleDateString('ja-JP', {
+        year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo',
       })
     : '日付不明'
 

@@ -9,7 +9,7 @@ const GOLD = 'oklch(0.73 0.12 78)'
 
 function fmt(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })
 }
 function minsToHHMM(mins: number) {
   if (!mins) return '0:00'
@@ -81,8 +81,7 @@ export default function MonthlyAttendancePage() {
           </div>
         ) : (
           data.map((r, i) => {
-            const d = new Date(r.work_date)
-            const dayStr = d.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })
+            const dayStr = new Date(`${r.work_date}T00:00:00+09:00`).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' })
             return (
               <div key={r.id} className={`px-4 py-3 ${i > 0 ? 'border-t' : ''}`}
                 style={{ borderColor: `${GOLD}12`, background: i % 2 === 0 ? 'oklch(0.09 0.005 255 / 0.85)' : 'oklch(0.07 0.004 255 / 0.60)' }}>

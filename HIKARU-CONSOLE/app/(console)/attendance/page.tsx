@@ -19,7 +19,7 @@ function minsToHHMM(mins: number) {
 }
 function fmtTime(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })
 }
 
 export default function AttendanceDashboardPage() {
@@ -143,7 +143,7 @@ export default function AttendanceDashboardPage() {
                     {worker.records.map((r: any) => (
                       <div key={r.id} className="grid grid-cols-7 gap-2 px-4 py-2.5 text-xs bg-[var(--color-bg)] hover:bg-[var(--color-bg-surface)]">
                         <span className="text-[var(--color-muted-foreground)]">
-                          {new Date(r.work_date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                          {new Date(`${r.work_date}T00:00:00+09:00`).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo' })}
                         </span>
                         <span>{fmtTime(r.clock_in)}</span>
                         <span>{fmtTime(r.break_start)}</span>

@@ -23,17 +23,17 @@ const STATUS_VARIANT: Record<Status, 'default' | 'secondary' | 'destructive' | '
 
 function fmtTime(iso: string | null | undefined) {
   if (!iso) return null
-  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })
 }
 function fmtDate(date: string | null | undefined) {
   if (!date) return '—'
-  return new Date(date + 'T00:00:00').toLocaleDateString('ja-JP', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+  return new Date(`${date}T00:00:00+09:00`).toLocaleDateString('ja-JP', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo',
   })
 }
 function fmtDatetime(iso: string | null | undefined) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })
 }
 
 type FieldDef = { key: string; label: string; currentKey: string; reqKey: string }

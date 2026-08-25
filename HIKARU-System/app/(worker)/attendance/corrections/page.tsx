@@ -50,19 +50,19 @@ const STATUS_COLOR: Record<Correction['status'], string> = {
 
 function fmt(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' })
 }
 
 function fmtDate(date: string) {
-  return new Date(date).toLocaleDateString('ja-JP', {
-    month: 'numeric', day: 'numeric', weekday: 'short',
+  return new Date(`${date}T00:00:00+09:00`).toLocaleDateString('ja-JP', {
+    month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Tokyo',
   })
 }
 
 function fmtDatetime(iso: string) {
   return new Date(iso).toLocaleString('ja-JP', {
     month: 'numeric', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo',
   })
 }
 
