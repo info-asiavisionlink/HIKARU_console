@@ -2432,6 +2432,44 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
 
   React.useEffect(() => { setVoiceSettingsSt(loadVoiceSettings()) }, [])
 
+  // ─── Startup speed: Token refresh helper ───────────────────────
+  const refreshToken = React.useCallback(() => {
+    const existing = prefetchedTokenRef.current
+    if (existing && (Date.now() - existing.fetchedAt) < PREFETCH_TTL_MS) return
+    fetch('/api/ai/console-realtime-token', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', body: JSON.stringify({ model: RT_MODEL }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.clientSecret) {
+          prefetchedTokenRef.current = { clientSecret: d.clientSecret, fetchedAt: Date.now() }
+          console.debug('[CONSOLE JARVIS startup] PREFETCH_TOKEN_READY (age=0ms)')
+        }
+      })
+      .catch(() => { /* silent — connectRealtime fallbackで取得 */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ─── Startup speed: Provider mount後にSDKとTokenをバックグラウンドpreload ──
+  React.useEffect(() => {
+    if (!realtimeModulePromiseRef.current) {
+      console.debug('[CONSOLE JARVIS startup] PREFETCH_MODULE_START')
+      realtimeModulePromiseRef.current = import('@openai/agents/realtime')
+        .then(m => { console.debug('[CONSOLE JARVIS startup] PREFETCH_MODULE_READY'); return m })
+        .catch(() => { realtimeModulePromiseRef.current = null; return null })
+    }
+    console.debug('[CONSOLE JARVIS startup] PREFETCH_TOKEN_START')
+    refreshToken()
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      refreshToken()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const setVoiceSettings = React.useCallback((s: VoiceSettings) => {
     setVoiceSettingsSt(s)
     saveVoiceSettings(s)
@@ -2457,6 +2495,15 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
   const lastRtResponseTime  = React.useRef(0)
   const voiceTraceSeqRef        = React.useRef(0)
   const realtimeSessionSeqRef   = React.useRef(0)
+
+  // ─── Startup speed: Preload refs ──────────────────────────────
+  const realtimeModulePromiseRef = React.useRef<Promise<any> | null>(null)
+  // TTL = 480秒（API有効期限600秒の80%。典型的利用2〜5分をカバー）
+  const PREFETCH_TTL_MS = 480_000
+  type PrefetchedToken = { clientSecret: string; fetchedAt: number }
+  const prefetchedTokenRef = React.useRef<PrefetchedToken | null>(null)
+  // getUserMedia並列取得済みstream（permission granted時のみ）。close時は自分でstop。
+  const preObtainedMicStreamRef = React.useRef<MediaStream | null>(null)
 
   // ─── VOICE_TRACE helper（診断用、機密データ禁止）────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2562,6 +2609,10 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     try { realtimeSessionRef.current?.close?.() }      catch {}
     try { realtimeSessionRef.current?.disconnect?.() } catch {}
     realtimeSessionRef.current = null
+    if (preObtainedMicStreamRef.current) {
+      try { preObtainedMicStreamRef.current.getTracks().forEach(t => t.stop()) } catch {}
+      preObtainedMicStreamRef.current = null
+    }
     setVoiceEngineMode('off')
     voiceEngineModeRef.current = 'off'
   }, [clearActivityTimers, setModeSync])
@@ -2580,6 +2631,10 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     try { realtimeSessionRef.current?.close?.() }      catch {}
     try { realtimeSessionRef.current?.disconnect?.() } catch {}
     realtimeSessionRef.current = null
+    if (preObtainedMicStreamRef.current) {
+      try { preObtainedMicStreamRef.current.getTracks().forEach(t => t.stop()) } catch {}
+      preObtainedMicStreamRef.current = null
+    }
     setVoiceEngineMode('off')
     voiceEngineModeRef.current = 'off'
   }, [clearActivityTimers, setModeSync])
@@ -2848,29 +2903,68 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       const startupAt = performance.now()
       console.debug('[CONSOLE JARVIS startup] START', Math.round(startupAt))
 
-      const tokenRes = await fetch('/api/ai/console-realtime-token', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ model: RT_MODEL }),
-      })
-      if (!tokenRes.ok) {
-        const errBody = await tokenRes.text().catch(() => '')
-        throw new Error(`token_failed:${tokenRes.status} ${errBody}`)
+      // ── Prefetched token を検証 ────────────────────────────────
+      const cached = prefetchedTokenRef.current
+      const isValid = !!cached && (Date.now() - cached.fetchedAt) < PREFETCH_TTL_MS
+
+      // ── Token + SDK module + Mic を並列取得 ───────────────────
+      if (!realtimeModulePromiseRef.current) {
+        realtimeModulePromiseRef.current = import('@openai/agents/realtime')
       }
-      const tokenData  = await tokenRes.json()
-      const clientSecret: string | null = tokenData.clientSecret ?? null
+      const modulePromise = realtimeModulePromiseRef.current
+
+      const tokenPromise: Promise<string> = isValid
+        ? Promise.resolve(cached!.clientSecret)
+        : fetch('/api/ai/console-realtime-token', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', body: JSON.stringify({ model: RT_MODEL }),
+          }).then(async r => {
+            if (!r.ok) {
+              const errBody = await r.text().catch(() => '')
+              throw new Error(`token_failed:${r.status} ${errBody}`)
+            }
+            const d = await r.json()
+            const s: string | null = d.clientSecret ?? null
+            if (!s) throw new Error('no_token: clientSecret missing')
+            return s
+          })
+
+      // permission済みなら getUserMedia を並列取得（未許可なら null → SDK default）
+      const getMicIfPermitted = async (): Promise<MediaStream | null> => {
+        try {
+          const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+          if (perm.state !== 'granted') return null
+          const s = await navigator.mediaDevices.getUserMedia({ audio: true })
+          preObtainedMicStreamRef.current = s
+          return s
+        } catch { return null }
+      }
+      const micPromise = getMicIfPermitted()
+      const moduleIsPreloaded = !!(realtimeModulePromiseRef.current)
+
+      const [clientSecret, realtimeModule, preObtainedStream] = await Promise.all([
+        tokenPromise, modulePromise, micPromise,
+      ])
       if (!clientSecret) throw new Error('no_token: clientSecret missing')
-      console.debug('[CONSOLE JARVIS startup] TOKEN_READY', Math.round(performance.now() - startupAt), 'ms')
+
+      if (isValid) prefetchedTokenRef.current = null
+
+      const tokenAndModuleMs = Math.round(performance.now() - startupAt)
+      console.debug('[CONSOLE JARVIS startup] TOKEN_AND_MODULE_READY', tokenAndModuleMs, 'ms',
+        '| TOKEN_SOURCE:', isValid ? 'PREFETCHED' : 'FETCHED',
+        '| MODULE_SOURCE:', moduleIsPreloaded ? 'PRELOADED' : 'COLD',
+        '| MIC_SOURCE:', preObtainedStream ? 'PRE_OBTAINED' : 'SDK_DEFAULT')
 
       // tool: toolFactory でSDK正式FunctionTool生成（plain objectではSDKのtype==='function'フィルタを通らない）
-      const { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC, tool: toolFactory } = await import('@openai/agents/realtime') as any
-      console.debug('[CONSOLE JARVIS startup] MODULE_READY', Math.round(performance.now() - startupAt), 'ms')
+      const { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC: ORTC, tool: toolFactory } = realtimeModule as any
       const tools   = buildConsoleRealtimeTools(router, toolFactory)
       const agent   = new RealtimeAgent({ name: 'JARVIS Console Realtime', instructions: RT_SYSTEM_PROMPT, tools })
       console.debug('[CONSOLE JARVIS startup] AGENT_READY', Math.round(performance.now() - startupAt), 'ms',
         '| tools:', tools.length)
 
-      // OpenAIRealtimeWebRTC を直接インスタンス化 → changePeerConnection でWebRTCライフサイクルを計測
-      const rtcTransport = new OpenAIRealtimeWebRTC({
+      // OpenAIRealtimeWebRTC を直接インスタンス化 → mediaStream injection + changePeerConnection計測
+      const rtcTransport = new ORTC({
+        ...(preObtainedStream ? { mediaStream: preObtainedStream } : {}),
         changePeerConnection: async (pc: any) => {
           console.debug('[CONSOLE JARVIS WebRTC] PC_CREATED', Math.round(performance.now() - startupAt), 'ms')
           pc.addEventListener('icegatheringstatechange', () =>
@@ -3097,6 +3191,10 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       console.error('[console-realtime] failed:', msg)
       realtimeSessionRef.current = null
       if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+      if (preObtainedMicStreamRef.current) {
+        try { preObtainedMicStreamRef.current.getTracks().forEach(t => t.stop()) } catch {}
+        preObtainedMicStreamRef.current = null
+      }
       setVoiceEngineMode('off')
       voiceEngineModeRef.current = 'off'
       // Session状態リセット（UI整合性: 「会話中」+「VOICE ENGINE OFF」矛盾を防ぐ）
