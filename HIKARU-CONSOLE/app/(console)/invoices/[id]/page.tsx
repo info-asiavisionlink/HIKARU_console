@@ -57,6 +57,7 @@ export default function InvoiceDetailPage() {
   // メール送信モーダル
   const [emailOpen,    setEmailOpen]    = React.useState(false)
   const [emailLoading, setEmailLoading] = React.useState(false)
+  const [emailSending, setEmailSending] = React.useState(false)
   const [emailPreview, setEmailPreview] = React.useState<{
     configured:   boolean
     to_email:     string | null
@@ -184,6 +185,34 @@ export default function InvoiceDetailPage() {
       setEmailOpen(false)
     } finally {
       setEmailLoading(false)
+    }
+  }
+
+  async function handleEmailSend() {
+    if (emailSending) return
+    setEmailSending(true)
+    try {
+      const res = await fetch(`/api/invoices/${id}/email`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ subject: emailSubject, body_text: emailBody }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'メール送信に失敗しました')
+        return
+      }
+      toast.success('請求書を送信しました')
+      setEmailOpen(false)
+      setEmailPreview(null)
+      setEmailSubject('')
+      setEmailBody('')
+      load()
+    } catch {
+      toast.error('メール送信に失敗しました')
+    } finally {
+      setEmailSending(false)
     }
   }
 
@@ -669,10 +698,15 @@ export default function InvoiceDetailPage() {
               閉じる
             </Button>
             <Button
-              disabled
-              title="実送信機能は現在準備中です"
+              onClick={handleEmailSend}
+              disabled={
+                emailSending ||
+                !emailPreview?.can_send ||
+                !emailPreview?.pdf_available
+              }
+              loading={emailSending}
             >
-              <Mail className="h-4 w-4" /> 送信（準備中）
+              <Mail className="h-4 w-4" /> {emailSending ? '送信中...' : '送信'}
             </Button>
           </DialogFooter>
         </DialogContent>

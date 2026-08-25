@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { getEmailConfig } from '@/lib/email/config'
 import { buildDocumentEmail } from '@/lib/email/document-template'
+import {
+  hasSentDocument,
+  createPendingLog,
+  markSent,
+  markFailed,
+  isValidEmailAddress,
+  type EmailLog,
+} from '@/lib/email/log'
+import { sendEmail } from '@/lib/email/resend'
 
 // ── 送信可能なstatus ──────────────────────────────────────────────
 // invoice: issued / sent / awaiting_payment / overdue
@@ -214,12 +223,91 @@ export async function POST(
     )
   }
 
-  // ── STEP: ENABLE_ACTUAL_SEND ──────────────────────────────────
-  // 将来フェーズでここに実送信コードを実装する。
-  // resend.emails.send(...) はここでのみ呼ぶ。
-  // ─────────────────────────────────────────────────────────────
-  return NextResponse.json(
-    { error: '実送信機能は現在準備中です。しばらくお待ちください。' },
-    { status: 503 }
-  )
+  // Supabase 型生成が未同期のため as any — 既存 GET handler と同じパターン
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inv = invoice as any
+
+  // ── 5. PDFの存在確認 ──────────────────────────────────────────
+  if (!inv.pdf_path) {
+    return NextResponse.json(
+      { error: '請求書PDFがまだ生成されていません。先にPDFを生成してください。' },
+      { status: 400 }
+    )
+  }
+
+  // ── 6. 重複送信確認（sent済みなら409） ───────────────────────
+  const alreadySent = await hasSentDocument(auth.adminClient, auth.companyId, { invoiceId: id })
+  if (alreadySent) {
+    return NextResponse.json(
+      { error: '既にこの請求書は送信済みです。再送が必要な場合はサポートにお問い合わせください。' },
+      { status: 409 }
+    )
+  }
+
+  // ── 7. メールアドレス形式確認 ─────────────────────────────────
+  if (!isValidEmailAddress(toEmail)) {
+    return NextResponse.json(
+      { error: '送信先メールアドレスの形式が正しくありません。顧客情報を確認してください。' },
+      { status: 400 }
+    )
+  }
+
+  // ── 8. PDFをStorageから取得 ───────────────────────────────────
+  const { data: pdfBlob, error: pdfErr } = await auth.adminClient
+    .storage
+    .from('documents')
+    .download(inv.pdf_path)
+
+  if (pdfErr || !pdfBlob) {
+    return NextResponse.json(
+      { error: 'PDFの取得に失敗しました。先にPDFを生成し直してください。' },
+      { status: 409 }
+    )
+  }
+
+  const pdfBuffer   = Buffer.from(await pdfBlob.arrayBuffer())
+  const pdfFilename = `${inv.invoice_number}.pdf`
+
+  // ── 9. pending log作成（DBレベル Race condition 防止） ─────────
+  let pendingLog: EmailLog
+  try {
+    pendingLog = await createPendingLog(auth.adminClient, auth.companyId, {
+      invoiceId:       id,
+      clientId:        inv.client_id,
+      toEmail,
+      subject,
+      bodyText,
+      attachedPdfPath: inv.pdf_path,
+      sentBy:          auth.userId,
+      isResend:        false,
+    })
+  } catch {
+    // UNIQUE index 違反 → 同時送信 or pending/sent が既に存在する
+    return NextResponse.json(
+      { error: '送信処理中または送信済みです。しばらく待ってから再度お試しください。' },
+      { status: 409 }
+    )
+  }
+
+  // ── 10. Resend送信 ────────────────────────────────────────────
+  try {
+    const { messageId } = await sendEmail({
+      to:      toEmail,
+      subject,
+      text:    bodyText,
+      attachments: [{ filename: pdfFilename, content: pdfBuffer }],
+    })
+    await markSent(auth.adminClient, pendingLog.id, auth.companyId, messageId)
+    return NextResponse.json({ success: true, message: '請求書を送信しました。' })
+  } catch (err) {
+    const raw     = err instanceof Error ? err.message : '不明なエラー'
+    // API Key 等の秘密情報は DB に保存しない
+    const safeMsg = raw === 'EMAIL_PROVIDER_NOT_CONFIGURED'
+      ? 'メール送信設定が完了していません。'
+      : 'メール送信に失敗しました。時間をおいて再度お試しください。'
+    await markFailed(auth.adminClient, pendingLog.id, auth.companyId, safeMsg).catch(() => {
+      // markFailed 自体が失敗しても send 失敗は伝える
+    })
+    return NextResponse.json({ error: safeMsg }, { status: 502 })
+  }
 }
