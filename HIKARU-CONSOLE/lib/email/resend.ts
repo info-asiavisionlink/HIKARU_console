@@ -8,9 +8,10 @@
 import { Resend } from 'resend'
 
 export interface SendEmailParams {
-  to:          string
-  subject:     string
-  text:        string
+  to:           string
+  subject:      string
+  text:         string
+  replyTo?:     string
   attachments?: Array<{
     filename: string
     content:  Buffer
@@ -41,6 +42,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     to:          params.to,
     subject:     params.subject,
     text:        params.text,
+    ...(params.replyTo ? { replyTo: params.replyTo } : {}),
     attachments: params.attachments,
   })
 
