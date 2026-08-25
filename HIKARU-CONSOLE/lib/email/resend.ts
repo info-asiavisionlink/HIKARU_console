@@ -11,6 +11,7 @@ export interface SendEmailParams {
   to:           string
   subject:      string
   text:         string
+  from?:        string    // 省略時は EMAIL_FROM 環境変数を使用
   replyTo?:     string
   attachments?: Array<{
     filename: string
@@ -29,7 +30,7 @@ export interface SendEmailResult {
  */
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim()
-  const from   = process.env.EMAIL_FROM?.trim()
+  const from   = params.from ?? process.env.EMAIL_FROM?.trim()
 
   if (!apiKey || !from) {
     throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED')

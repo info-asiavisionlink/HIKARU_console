@@ -25,6 +25,13 @@ function getSendableStatuses(invoiceType: string): string[] {
 // 書類種別に応じた送信先を決定（サーバー側確定）
 // invoice: clients.invoice_email → clients.email
 // quote:   clients.email のみ（invoice_email は請求書専用）
+// EMAIL_FROM が "Name <email>" 形式の場合にアドレス部分だけ取り出す。
+// 表示名を動的に差し替えるための最小実装。
+function extractEmailAddress(from: string): string {
+  const m = from.match(/<([^>]+)>/)
+  return m ? m[1].trim() : from.trim()
+}
+
 function resolveRecipient(
   client: { email?: string | null; invoice_email?: string | null } | null,
   invoiceType: string
@@ -223,6 +230,39 @@ export async function POST(
     )
   }
 
+  // ── 4b. 会社設定取得（FROM表示名 / Reply-To）─────────────────────
+  const { data: company } = await auth.adminClient
+    .from('companies')
+    .select('name, email, mail_reply_to')
+    .eq('id', auth.companyId)
+    .single()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const co = company as any
+
+  // FROM: "{companies.name} <{EMAIL_FROMのアドレス部分}>"
+  // EMAIL_FROM が "Name <email>" 形式でも二重表示名にならないよう address 部分を抽出する
+  const fromName    = co?.name?.trim()    || 'HIKARU'
+  const fromAddress = extractEmailAddress(emailConfig.from!)
+  const fromFull    = `${fromName} <${fromAddress}>`
+
+  // Reply-To: mail_reply_to → companies.email → undefined
+  const rawReplyTo  = co?.mail_reply_to?.trim() || null
+  const fallbackRTO = co?.email?.trim()          || null
+
+  let replyTo: string | undefined
+  if (rawReplyTo) {
+    if (!isValidEmailAddress(rawReplyTo)) {
+      return NextResponse.json(
+        { error: 'メール設定の返信先アドレスが不正です。設定画面から確認してください。' },
+        { status: 400 }
+      )
+    }
+    replyTo = rawReplyTo
+  } else if (fallbackRTO && isValidEmailAddress(fallbackRTO)) {
+    replyTo = fallbackRTO
+  }
+
   // Supabase 型生成が未同期のため as any — 既存 GET handler と同じパターン
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const inv = invoice as any
@@ -280,6 +320,9 @@ export async function POST(
       attachedPdfPath: inv.pdf_path,
       sentBy:          auth.userId,
       isResend:        false,
+      fromEmail:       fromAddress,
+      fromName,
+      replyTo,
     })
   } catch {
     // UNIQUE index 違反 → 同時送信 or pending/sent が既に存在する
@@ -292,9 +335,11 @@ export async function POST(
   // ── 10. Resend送信 ────────────────────────────────────────────
   try {
     const { messageId } = await sendEmail({
+      from:    fromFull,
       to:      toEmail,
       subject,
       text:    bodyText,
+      replyTo,
       attachments: [{ filename: pdfFilename, content: pdfBuffer }],
     })
     await markSent(auth.adminClient, pendingLog.id, auth.companyId, messageId)

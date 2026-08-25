@@ -25,6 +25,10 @@ export interface CreatePendingLogParams {
   sentBy?:          string
   isResend?:        boolean
   originalLogId?:   string
+  // 送信時スナップショット（Migration 048 で追加）
+  fromEmail?:       string
+  fromName?:        string
+  replyTo?:         string
 }
 
 export interface EmailLog {
@@ -47,6 +51,10 @@ export interface EmailLog {
   is_resend:           boolean
   original_log_id:     string | null
   created_at:          string
+  // 送信時スナップショット（Migration 048 — nullable）
+  from_email:          string | null
+  from_name:           string | null
+  reply_to:            string | null
 }
 
 // ── メールアドレス簡易検証 ────────────────────────────────────────
@@ -113,6 +121,9 @@ export async function createPendingLog(
       status:            'pending',
       is_resend:         params.isResend        ?? false,
       original_log_id:   params.originalLogId   ?? null,
+      from_email:        params.fromEmail        ?? null,
+      from_name:         params.fromName         ?? null,
+      reply_to:          params.replyTo          ?? null,
     })
     .select()
     .single()
