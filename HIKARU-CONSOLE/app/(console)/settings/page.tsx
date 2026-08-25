@@ -5,7 +5,7 @@ import {
   PageHeader, Button, Input, Card, CardContent, CardHeader, CardTitle, toast, Skeleton,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
-import { Save, Building2, Info, CreditCard, Stamp, Upload, Trash2 } from 'lucide-react'
+import { Save, Building2, Info, CreditCard, Stamp, Upload, Trash2, Mail } from 'lucide-react'
 
 export default function SettingsPage() {
   const [loading, setLoading] = React.useState(true)
@@ -23,6 +23,14 @@ export default function SettingsPage() {
     bank_account_number: '', bank_account_holder: '', bank_account_holder_kana: '',
     corporate_number: '',
   })
+
+  // ── メール設定 ────────────────────────────────────────────────
+  const [emailForm, setEmailForm] = React.useState({
+    mail_reply_to:     '',
+    invoice_auto_send: false,
+    report_auto_send:  false,
+  })
+  const [savingEmail, setSavingEmail] = React.useState(false)
 
   React.useEffect(() => {
     fetch('/api/settings', { credentials: 'include', cache: 'no-store' })
@@ -49,6 +57,20 @@ export default function SettingsPage() {
         }
       })
       .finally(() => setLoading(false))
+
+    // メール設定を並行ロード
+    fetch('/api/settings/email', { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          setEmailForm({
+            mail_reply_to:     d.mail_reply_to     ?? '',
+            invoice_auto_send: d.invoice_auto_send ?? false,
+            report_auto_send:  d.report_auto_send  ?? false,
+          })
+        }
+      })
+      .catch(() => {})
   }, [])
 
   function upd(k: string, v: string) { setForm(p => ({ ...p, [k]: v })) }
@@ -143,6 +165,29 @@ export default function SettingsPage() {
     } finally {
       setDeletingSeal(false)
     }
+  }
+
+  async function handleEmailSave() {
+    setSavingEmail(true)
+    const res = await fetch('/api/settings/email', {
+      method:      'PATCH',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ mail_reply_to: emailForm.mail_reply_to || null }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      setEmailForm({
+        mail_reply_to:     d.mail_reply_to     ?? '',
+        invoice_auto_send: d.invoice_auto_send ?? false,
+        report_auto_send:  d.report_auto_send  ?? false,
+      })
+      toast.success('メール設定を保存しました')
+    } else {
+      const { error } = await res.json().catch(() => ({ error: '保存に失敗しました' }))
+      toast.error(error ?? '保存に失敗しました')
+    }
+    setSavingEmail(false)
   }
 
   return (
@@ -365,6 +410,63 @@ export default function SettingsPage() {
 
         </form>
       )}
+
+      {/* ── メール設定（メインフォームと独立）────────────────────── */}
+      {!loading && (
+        <div className="max-w-2xl mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Mail className="h-4 w-4" /> メール設定
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+
+              {/* 返信先 */}
+              <div>
+                <Input
+                  label="返信先メールアドレス（Reply-To）"
+                  type="email"
+                  value={emailForm.mail_reply_to}
+                  onChange={e => setEmailForm(p => ({ ...p, mail_reply_to: e.target.value }))}
+                  placeholder="info@your-company.co.jp"
+                />
+                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                  顧客がメールに返信した際の送り先です。空欄の場合は会社情報のメールアドレスを使用します。
+                </p>
+              </div>
+
+              {/* 自動送信（設定のみ・エンジン未実装） */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-[var(--color-foreground)]">自動送信設定</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  自動送信機能は現在準備中です。設定値は保存されますが、まだ送信は行われません。
+                </p>
+                <div className="rounded-lg border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm">請求書自動送信</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                      {emailForm.invoice_auto_send ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm">報告書自動送信</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                      {emailForm.report_auto_send ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Button type="button" onClick={handleEmailSave} disabled={savingEmail}>
+                <Save className="h-4 w-4" /> {savingEmail ? '保存中...' : 'メール設定を保存'}
+              </Button>
+
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
     </div>
   )
 }
