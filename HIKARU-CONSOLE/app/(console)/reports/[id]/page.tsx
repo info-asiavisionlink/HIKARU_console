@@ -364,6 +364,7 @@ export default function ReportDetailPage() {
   // メール送信モーダル
   const [emailOpen,    setEmailOpen]    = React.useState(false)
   const [emailLoading, setEmailLoading] = React.useState(false)
+  const [emailSending, setEmailSending] = React.useState(false)
   const [emailPreview, setEmailPreview] = React.useState<{
     configured:   boolean
     to_email:     string | null
@@ -425,6 +426,30 @@ export default function ReportDetailPage() {
     setEmailPreview(null)
     setEmailSubject('')
     setEmailBody('')
+  }
+
+  async function handleEmailSend() {
+    if (emailSending) return
+    setEmailSending(true)
+    try {
+      const res  = await fetch(`/api/reports/${id}/email`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ subject: emailSubject, body_text: emailBody }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        alert(json.error ?? 'メール送信に失敗しました')
+        return
+      }
+      alert('報告書を送信しました')
+      handleEmailClose()
+    } catch {
+      alert('メール送信に失敗しました')
+    } finally {
+      setEmailSending(false)
+    }
   }
 
   if (loading) {
@@ -659,11 +684,20 @@ export default function ReportDetailPage() {
                 閉じる
               </button>
               <button
-                disabled
-                title="実送信機能は現在準備中です"
-                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] text-white opacity-40 cursor-not-allowed"
+                onClick={handleEmailSend}
+                disabled={
+                  emailSending ||
+                  !emailPreview?.can_send ||
+                  !emailPreview?.pdf_available
+                }
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] text-white transition-opacity ${
+                  emailSending || !emailPreview?.can_send || !emailPreview?.pdf_available
+                    ? 'opacity-40 cursor-not-allowed'
+                    : 'hover:opacity-90'
+                }`}
               >
-                <Mail className="h-4 w-4" /> 送信（準備中）
+                <Mail className="h-4 w-4" />
+                {emailSending ? '送信中...' : '送信'}
               </button>
             </div>
           </div>
