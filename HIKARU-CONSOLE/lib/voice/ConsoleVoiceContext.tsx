@@ -2845,6 +2845,9 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
     voiceTrace('connect_start', { sessionSeq: realtimeSessionSeqRef.current })
 
     try {
+      const startupAt = performance.now()
+      console.debug('[CONSOLE JARVIS startup] START', Math.round(startupAt))
+
       const tokenRes = await fetch('/api/ai/console-realtime-token', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         credentials: 'include', body: JSON.stringify({ model: RT_MODEL }),
@@ -2856,17 +2859,42 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
       const tokenData  = await tokenRes.json()
       const clientSecret: string | null = tokenData.clientSecret ?? null
       if (!clientSecret) throw new Error('no_token: clientSecret missing')
+      console.debug('[CONSOLE JARVIS startup] TOKEN_READY', Math.round(performance.now() - startupAt), 'ms')
 
       // tool: toolFactory でSDK正式FunctionTool生成（plain objectではSDKのtype==='function'フィルタを通らない）
-      const { RealtimeAgent, RealtimeSession, tool: toolFactory } = await import('@openai/agents/realtime') as any
+      const { RealtimeAgent, RealtimeSession, OpenAIRealtimeWebRTC, tool: toolFactory } = await import('@openai/agents/realtime') as any
+      console.debug('[CONSOLE JARVIS startup] MODULE_READY', Math.round(performance.now() - startupAt), 'ms')
       const tools   = buildConsoleRealtimeTools(router, toolFactory)
       const agent   = new RealtimeAgent({ name: 'JARVIS Console Realtime', instructions: RT_SYSTEM_PROMPT, tools })
+      console.debug('[CONSOLE JARVIS startup] AGENT_READY', Math.round(performance.now() - startupAt), 'ms',
+        '| tools:', tools.length)
+
+      // OpenAIRealtimeWebRTC を直接インスタンス化 → changePeerConnection でWebRTCライフサイクルを計測
+      const rtcTransport = new OpenAIRealtimeWebRTC({
+        changePeerConnection: async (pc: any) => {
+          console.debug('[CONSOLE JARVIS WebRTC] PC_CREATED', Math.round(performance.now() - startupAt), 'ms')
+          pc.addEventListener('icegatheringstatechange', () =>
+            console.debug('[CONSOLE JARVIS WebRTC] ICE_GATHER:', pc.iceGatheringState,
+              '+' + Math.round(performance.now() - startupAt) + 'ms'))
+          pc.addEventListener('iceconnectionstatechange', () =>
+            console.debug('[CONSOLE JARVIS WebRTC] ICE_STATE:', pc.iceConnectionState,
+              '+' + Math.round(performance.now() - startupAt) + 'ms'))
+          pc.addEventListener('connectionstatechange', () =>
+            console.debug('[CONSOLE JARVIS WebRTC] PC_STATE:', pc.connectionState,
+              '+' + Math.round(performance.now() - startupAt) + 'ms'))
+          pc.addEventListener('signalingstatechange', () =>
+            console.debug('[CONSOLE JARVIS WebRTC] SIGNALING:', pc.signalingState,
+              '+' + Math.round(performance.now() - startupAt) + 'ms'))
+          return pc
+        },
+      } as any)
+
       // transport: 'webrtc' を明示。
       // interruptResponse: false = VADが音を検知しても進行中responseをcancelしない。
       // JARVIS発話中の周囲音・雑音によるBarge-inをサーバー側で根本防止。
       // Listening中はcurrent responseが存在しないためVAD turn detectionは通常通り動作する。
       const session = new RealtimeSession(agent, {
-        transport: 'webrtc',
+        transport: rtcTransport,
         model:     RT_MODEL,
         config:    {
           // createResponse:false = Server VADはspeech detectionのみ担当。
@@ -2875,6 +2903,20 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
           audio: { input: { turnDetection: { type: 'semantic_vad', eagerness: 'high', interruptResponse: false, createResponse: false } } },
         },
       } as any)
+
+      // ── WebRTC深層タイミング計測（デバッグ専用） ────────────────
+      // SESSION_CREATED  = DataChannel開通直後のサーバー初回応答
+      // SESSION_UPDATED  = session.update ACK（5秒タイムアウト監視）
+      // SESSION_UPDATEDが出ない → SDK 5000ms timeoutが主因候補
+      session.on?.('transport_event', (evt: any) => {
+        if (evt?.type === 'session.created') {
+          console.debug('[CONSOLE JARVIS WebRTC] SESSION_CREATED (DataChannel+server ack)',
+            Math.round(performance.now() - startupAt), 'ms')
+        } else if (evt?.type === 'session.updated') {
+          console.debug('[CONSOLE JARVIS WebRTC] SESSION_UPDATED (config ACK — 5s timeout NOT fired)',
+            Math.round(performance.now() - startupAt), 'ms')
+        }
+      })
 
       // ── v0.17 正式イベント ──────────────────────────────────────
       // v0.15以前の connected/agent_start_speech 等はv0.17に存在しない。
@@ -3035,11 +3077,19 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
 
       // connect()解決 = WebRTC確立。イベント待ちせず即座にrealtime状態をセット（Worker方式）。
       voiceTrace('session_connecting')
+      const connectStartMs = Math.round(performance.now() - startupAt)
+      console.debug('[CONSOLE JARVIS startup] CONNECT_START', connectStartMs, 'ms')
+      const connectAt = performance.now()
       await session.connect({ apiKey: clientSecret } as any)
+      const sessionConnectMs = Math.round(performance.now() - connectAt)
       realtimeSessionRef.current = session
       setVoiceEngineMode('realtime')
       voiceEngineModeRef.current = 'realtime'
       setModeSync('listening')
+      const totalMs = Math.round(performance.now() - startupAt)
+      console.debug('[CONSOLE JARVIS startup] LISTENING', totalMs, 'ms total',
+        '| SESSION_CONNECT_MS:', sessionConnectMs,
+        '| PRE_CONNECT_MS:', connectStartMs)
       voiceTrace('session_connected')
 
     } catch (err) {
