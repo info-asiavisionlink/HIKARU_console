@@ -2991,6 +2991,7 @@ export function ConsoleVoiceProvider({ children }: { children: React.ReactNode }
         transport: rtcTransport,
         model:     RT_MODEL,
         config:    {
+          outputModalities: ['text'],
           // createResponse:false = Server VADはspeech detectionのみ担当。
           // response.createはSDK ResponseCreateSequencer経由でHIKARUが明示管理。
           // これによりServer VAD auto-responseとSDK Sequencerの二重Ownerを解消する。
