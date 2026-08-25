@@ -173,7 +173,11 @@ export default function SettingsPage() {
       method:      'PATCH',
       credentials: 'include',
       headers:     { 'Content-Type': 'application/json' },
-      body:        JSON.stringify({ mail_reply_to: emailForm.mail_reply_to || null }),
+      body:        JSON.stringify({
+        mail_reply_to:     emailForm.mail_reply_to || null,
+        invoice_auto_send: emailForm.invoice_auto_send,
+        report_auto_send:  emailForm.report_auto_send,
+      }),
     })
     if (res.ok) {
       const d = await res.json()
@@ -436,24 +440,50 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              {/* 自動送信（設定のみ・エンジン未実装） */}
+              {/* 自動送信設定 */}
               <div className="space-y-3">
                 <p className="text-sm font-medium text-[var(--color-foreground)]">自動送信設定</p>
                 <p className="text-xs text-[var(--color-muted-foreground)]">
-                  自動送信機能は現在準備中です。設定値は保存されますが、まだ送信は行われません。
+                  ONにすると、発行・PDF生成完了時に登録済みメールアドレスへ自動的に送信されます。送信設定（返信先・Resend）が完了している必要があります。
                 </p>
                 <div className="rounded-lg border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
                   <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm">請求書自動送信</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
-                      {emailForm.invoice_auto_send ? 'ON' : 'OFF'}
-                    </span>
+                    <div>
+                      <p className="text-sm">請求書自動送信</p>
+                      {emailForm.invoice_auto_send && (
+                        <p className="text-xs text-orange-500 mt-0.5">発行時に顧客へ自動送信されます</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEmailForm(p => ({ ...p, invoice_auto_send: !p.invoice_auto_send }))}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        emailForm.invoice_auto_send ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-muted)]'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        emailForm.invoice_auto_send ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </button>
                   </div>
                   <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm">報告書自動送信</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
-                      {emailForm.report_auto_send ? 'ON' : 'OFF'}
-                    </span>
+                    <div>
+                      <p className="text-sm">報告書自動送信</p>
+                      {emailForm.report_auto_send && (
+                        <p className="text-xs text-orange-500 mt-0.5">PDF生成完了時に顧客へ自動送信されます</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEmailForm(p => ({ ...p, report_auto_send: !p.report_auto_send }))}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        emailForm.report_auto_send ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-muted)]'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        emailForm.report_auto_send ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </button>
                   </div>
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { renderToBuffer } from '@react-pdf/renderer'
 import React from 'react'
 import { ReportPDF, type ReportPDFData } from '@/lib/billing/report-pdf-template'
 import type { ReportContent } from '@/services/reports.service'
+import { attemptReportAutoSend } from '@/lib/email/delivery'
 
 // POST /api/reports/[id]/pdf
 // 作業完了報告書の PDF を生成して Supabase Storage へ保存する。
@@ -70,6 +71,10 @@ export async function POST(
     .update({ pdf_url: pdfPath })
     .eq('id', id)
     .eq('company_id', auth.companyId)
+
+  // PDF保存後: companies.report_auto_send = true の場合のみ自動メール送信を試みる。
+  // 失敗しても PDF 生成成功を維持する（内部で全例外をキャッチ）。
+  await attemptReportAutoSend(auth.adminClient, auth.companyId, id, auth.userId)
 
   // ── 6. Signed URL（1時間有効） ────────────────────────────────
   const { data: signedUrlData } = await auth.adminClient.storage

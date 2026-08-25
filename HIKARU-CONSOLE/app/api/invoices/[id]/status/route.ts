@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { getJstDateString } from '@/lib/billing/date-utils'
+import { attemptInvoiceAutoSend } from '@/lib/email/delivery'
 
 // 有効なステータス遷移
 const VALID_TRANSITIONS: Record<string, Record<string, string[]>> = {
@@ -50,7 +51,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (newStatus === 'issued') {
     update.issued_by = auth.userId
     update.issued_at = new Date().toISOString()
-    // 将来: LINE通知 invoice_issued / quote_issued イベントをここでキック
   }
   if (newStatus === 'cancelled') {
     update.cancelled_by = auth.userId
@@ -104,6 +104,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         newStatus === 'paid' ? getJstDateString() : undefined
       )
     }
+  }
+
+  // Invoice 発行後: companies.invoice_auto_send = true の場合のみ自動メール送信を試みる。
+  // 失敗しても Invoice 発行成功を維持する（内部で全例外をキャッチ）。
+  if (newStatus === 'issued') {
+    await attemptInvoiceAutoSend(auth.adminClient, auth.companyId, id, auth.userId)
   }
 
   return NextResponse.json({ invoice: data })
