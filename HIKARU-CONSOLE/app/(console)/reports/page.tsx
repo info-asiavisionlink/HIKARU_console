@@ -12,8 +12,6 @@ import {
 import { EmptyState } from '@/components/console/EmptyState'
 import {
   FileText, Eye, CalendarDays, BarChart3,
-  Radio, Clock, Camera, User, Building2,
-  CheckCircle2, ImageOff,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -71,175 +69,7 @@ function StatCard({ icon: Icon, label, value }: {
   )
 }
 
-function elapsed(startedAt: string): string {
-  const diff = Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000)
-  if (diff < 60) return `${diff}分`
-  const h = Math.floor(diff / 60), m = diff % 60
-  return m === 0 ? `${h}時間` : `${h}時間${m}分`
-}
-
-type Tab = 'live' | 'reports'
-
-// ─── Live Job Card ────────────────────────────────────────
-
-function LiveJobCard({ job }: { job: any }) {
-  const beforePhotos = (job.photos as any[]).filter((p) => p.photo_type === 'before')
-  const afterPhotos  = (job.photos as any[]).filter((p) => p.photo_type === 'after')
-
-  return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] overflow-hidden">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="flex h-2 w-2 rounded-full bg-[var(--color-success)] animate-pulse shrink-0" />
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">{(job.projects as any)?.name ?? '—'}</p>
-            <p className="text-xs text-[var(--color-muted-foreground)] flex items-center gap-1 mt-0.5">
-              <User className="h-3 w-3" />
-              {(job.profiles as any)?.name ?? '—'}
-            </p>
-          </div>
-        </div>
-        <div className="text-right shrink-0 ml-3">
-          <div className="flex items-center gap-1 text-xs text-[var(--color-muted-foreground)] justify-end">
-            <Clock className="h-3 w-3" />
-            {elapsed(job.started_at)}経過
-          </div>
-          <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">
-            <Camera className="h-3 w-3 inline mr-0.5" />{job.photo_count}枚
-          </p>
-        </div>
-      </div>
-
-      {/* 写真グリッド */}
-      <div className="p-3">
-        {job.photos.length === 0 ? (
-          <div className="flex items-center justify-center h-24 text-[var(--color-muted-foreground)]">
-            <div className="text-center">
-              <ImageOff className="h-6 w-6 mx-auto mb-1 opacity-40" />
-              <p className="text-xs">撮影待ち</p>
-            </div>
-          </div>
-        ) : (
-          <div>
-            {/* Before */}
-            {beforePhotos.length > 0 && (
-              <div className="mb-2">
-                <p className="text-[10px] font-semibold text-[var(--color-muted-foreground)] uppercase mb-1.5">
-                  Before（{beforePhotos.length}枚）
-                </p>
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
-                  {beforePhotos.map((p: any) => (
-                    <div key={p.id} className="relative shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.url}
-                        alt={p.photo_spots?.name ?? 'before'}
-                        className="h-20 w-20 object-cover rounded-lg border border-[var(--color-border)]"
-                      />
-                      {p.photo_spots?.name && (
-                        <p className="absolute bottom-0 left-0 right-0 text-[9px] text-white text-center bg-black/50 rounded-b-lg px-0.5 truncate">
-                          {p.photo_spots.name}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* After */}
-            {afterPhotos.length > 0 && (
-              <div>
-                <p className="text-[10px] font-semibold text-[var(--color-success-foreground)] uppercase mb-1.5">
-                  After（{afterPhotos.length}枚）
-                </p>
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
-                  {afterPhotos.map((p: any) => (
-                    <div key={p.id} className="relative shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.url}
-                        alt={p.photo_spots?.name ?? 'after'}
-                        className="h-20 w-20 object-cover rounded-lg border border-[var(--color-success)]/40"
-                      />
-                      {p.photo_spots?.name && (
-                        <p className="absolute bottom-0 left-0 right-0 text-[9px] text-white text-center bg-black/50 rounded-b-lg px-0.5 truncate">
-                          {p.photo_spots.name}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Live Tab ─────────────────────────────────────────────
-
-function LiveTab() {
-  const [jobs, setJobs]       = React.useState<any[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null)
-
-  const fetch10s = React.useCallback(async () => {
-    const res  = await fetch('/api/jobs/live')
-    const json = await res.json()
-    setJobs(json.data ?? [])
-    setLastUpdated(new Date())
-    setLoading(false)
-  }, [])
-
-  React.useEffect(() => {
-    fetch10s()
-    const interval = setInterval(fetch10s, 10_000)
-    return () => clearInterval(interval)
-  }, [fetch10s])
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />)}
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-[var(--color-success)] animate-pulse" />
-          <span className="text-sm font-medium">
-            {jobs.length > 0 ? `${jobs.length}件が作業中` : '現在作業中の案件はありません'}
-          </span>
-        </div>
-        {lastUpdated && (
-          <p className="text-xs text-[var(--color-muted-foreground)]">
-            最終更新: {lastUpdated.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            　（10秒ごと自動更新）
-          </p>
-        )}
-      </div>
-
-      {jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-[var(--color-muted-foreground)]">
-          <CheckCircle2 className="h-12 w-12 mb-3 opacity-30" />
-          <p className="text-sm">本日は全案件が完了しています</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {jobs.map((job) => <LiveJobCard key={job.id} job={job} />)}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Reports Tab ──────────────────────────────────────────
+// ─── Reports ──────────────────────────────────────────────
 
 function ReportsTab() {
   const [items, setItems]   = React.useState<ReportListItem[]>([])
@@ -384,45 +214,13 @@ function ReportsTab() {
 // ─── Main Page ────────────────────────────────────────────
 
 export default function ReportsPage() {
-  const [tab, setTab] = React.useState<Tab>('live')
-
   return (
     <div>
       <PageHeader
         title="報告書管理"
-        description="作業のリアルタイム監視と完了済み報告書の管理"
+        description="完了済み作業の報告書一覧"
       />
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[var(--color-border)]">
-        <TabButton active={tab === 'live'} onClick={() => setTab('live')}>
-          <Radio className="h-4 w-4" />
-          ライブモニタリング
-        </TabButton>
-        <TabButton active={tab === 'reports'} onClick={() => setTab('reports')}>
-          <FileText className="h-4 w-4" />
-          完了報告書
-        </TabButton>
-      </div>
-
-      {tab === 'live' ? <LiveTab /> : <ReportsTab />}
+      <ReportsTab />
     </div>
-  )
-}
-
-function TabButton({ active, onClick, children }: {
-  active: boolean; onClick: () => void; children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-        active
-          ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-          : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-      }`}
-    >
-      {children}
-    </button>
   )
 }
