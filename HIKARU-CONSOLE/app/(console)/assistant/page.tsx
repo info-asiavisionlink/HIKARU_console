@@ -154,6 +154,154 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
+// ─── Circuit Background ───────────────────────────────────────
+function CircuitBackground({ mode }: { mode: string }) {
+  const bright = (mode === 'listening' || mode === 'speaking') ? 1.35
+               : (mode === 'processing' || mode === 'working')  ? 1.18 : 1.0
+  const f = (b: number) => (b * bright).toFixed(3)
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{ position:'absolute', inset:0, zIndex:-1, pointerEvents:'none', overflow:'hidden' }}
+    >
+      <style>{`
+        @keyframes cbg-f1{to{stroke-dashoffset:-500}}
+        @keyframes cbg-f2{to{stroke-dashoffset:360}}
+        @keyframes cbg-nd{0%,100%{opacity:.26}50%{opacity:.84}}
+        @keyframes cbg-sc{0%{opacity:0;left:-12%}18%{opacity:1}82%{opacity:.5}100%{opacity:0;left:115%}}
+        @keyframes cbg-gl{0%,100%{opacity:.60}50%{opacity:1}}
+        @media(prefers-reduced-motion:reduce){.cbg-a{animation:none!important}}
+      `}</style>
+
+      {/* Base: near-black gradient */}
+      <div style={{ position:'absolute', inset:0,
+        background:'radial-gradient(ellipse 58% 68% at 43% 50%,#050604 0%,#030504 42%,#020302 100%)' }}/>
+
+      {/* Central ambient gold glow */}
+      <div className="cbg-a" style={{
+        position:'absolute', left:'22%', top:'8%', width:'46%', height:'84%',
+        background:`radial-gradient(ellipse at 40% 50%,rgba(212,175,55,${f(0.05)}) 0%,rgba(185,148,18,${f(0.018)}) 42%,transparent 70%)`,
+        animation:'cbg-gl 7s ease-in-out infinite',
+      }}/>
+
+      {/* SVG circuit network */}
+      <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
+        style={{ position:'absolute', inset:0, width:'100%', height:'100%',
+          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 84%,transparent 100%)',
+          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 84%,transparent 100%)',
+        }}>
+
+        {/* BACK LAYER: structural skeleton */}
+        <g stroke={`rgba(212,175,55,${f(0.030)})`} fill="none" strokeWidth=".5" strokeLinecap="square">
+          <path d="M0,185 L260,185 L260,240"/><path d="M0,375 L105,375"/>
+          <path d="M0,565 L165,565 L165,515"/><path d="M155,0 L155,265"/>
+          <path d="M430,0 L430,175"/><path d="M155,490 L155,750"/><path d="M430,595 L430,750"/>
+        </g>
+
+        {/* MID LAYER: main circuit arms */}
+        <g fill="none" strokeLinecap="square">
+          {/* ARM 1 top-left */}
+          <path d="M430,332 L430,268 L368,268 L368,208 L298,208 L218,208 L218,152 L138,152"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          <path d="M368,268 L328,268 L328,322" stroke={`rgba(212,175,55,${f(0.028)})`} strokeWidth=".6"/>
+          <path d="M298,208 L248,208 L248,258" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
+          {/* ARM 2 top-right */}
+          <path d="M458,332 L458,252 L528,252 L568,192 L682,192 L764,152"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          <path d="M528,252 L528,308 L588,308" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
+          {/* ARM 3 right */}
+          <path d="M480,375 L562,375 L602,332 L728,332 L836,332"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          <path d="M728,332 L728,282 L798,282" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
+          <path d="M602,332 L602,282 L648,282" stroke={`rgba(212,175,55,${f(0.020)})`} strokeWidth=".6"/>
+          {/* ARM 4 bottom-right */}
+          <path d="M458,418 L458,502 L542,502 L582,562 L708,562 L812,602"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          <path d="M582,562 L582,502 L648,502" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
+          {/* ARM 5 bottom */}
+          <path d="M430,418 L430,532 L368,532 L368,638 L278,638 L198,698"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          <path d="M368,532 L318,532 L318,592" stroke={`rgba(212,175,55,${f(0.020)})`} strokeWidth=".6"/>
+          {/* ARM 6 bottom-left */}
+          <path d="M398,418 L338,418 L278,478 L178,478 L98,522"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          {/* ARM 7 left */}
+          <path d="M378,375 L288,375 L248,412 L138,412 L52,412"
+            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
+          <path d="M288,375 L288,322 L222,322 L118,322" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
+          {/* Teal accents */}
+          <path d="M378,375 L278,375 L238,332 L132,332 L52,332"
+            stroke={`rgba(0,210,210,${f(0.028)})`} strokeWidth=".6"/>
+          <path d="M430,418 L430,552 L462,584 L462,668 L536,668"
+            stroke={`rgba(0,200,218,${f(0.022)})`} strokeWidth=".6"/>
+        </g>
+
+        {/* DATA FLOW: animated dash */}
+        <g fill="none" strokeLinecap="round">
+          <path d="M430,332 L430,268 L368,268 L368,208 L298,208 L218,208 L218,152"
+            stroke={`rgba(255,210,60,${f(0.080)})`} strokeWidth="1.4" strokeDasharray="16 110"
+            className="cbg-a" style={{animation:'cbg-f1 9s linear infinite'}}/>
+          <path d="M836,332 L728,332 L602,332 L562,375 L480,375"
+            stroke={`rgba(255,210,60,${f(0.072)})`} strokeWidth="1.2" strokeDasharray="13 95"
+            className="cbg-a" style={{animation:'cbg-f2 11s linear infinite'}}/>
+          <path d="M52,412 L138,412 L248,412 L288,375 L378,375"
+            stroke={`rgba(255,210,60,${f(0.062)})`} strokeWidth="1.0" strokeDasharray="11 85"
+            className="cbg-a" style={{animation:'cbg-f1 13s linear infinite 4s'}}/>
+          <path d="M536,668 L462,668 L462,584 L430,552 L430,418"
+            stroke={`rgba(0,215,210,${f(0.036)})`} strokeWidth="1.0" strokeDasharray="10 72"
+            className="cbg-a" style={{animation:'cbg-f2 15s linear infinite 6.5s'}}/>
+        </g>
+
+        {/* NODES */}
+        {([
+          [430,268,2.0],[368,208,1.8],[298,208,1.5],
+          [528,252,1.8],[728,332,1.6],[602,332,1.5],
+          [458,502,1.5],[582,562,1.8],[368,532,1.5],
+          [288,375,1.6],[248,412,1.4],[328,268,1.2],[248,258,1.0],[528,308,1.0],
+        ] as [number,number,number][]).map(([x,y,r],i)=>(
+          <circle key={i} cx={x} cy={y} r={r}
+            fill={`rgba(255,210,60,${f(0.10)})`} className="cbg-a"
+            style={{animation:`cbg-nd ${(3.2+(i%4)*.7).toFixed(1)}s ease-in-out ${((i*.35)%2.8).toFixed(1)}s infinite`}}/>
+        ))}
+        {([
+          [462,584,1.2],[430,552,1.0],[238,332,1.0],
+        ] as [number,number,number][]).map(([x,y,r],i)=>(
+          <circle key={i} cx={x} cy={y} r={r}
+            fill={`rgba(0,215,210,${f(0.052)})`} className="cbg-a"
+            style={{animation:`cbg-nd ${(4+i*.8).toFixed(1)}s ease-in-out ${(i*1.2).toFixed(1)}s infinite`}}/>
+        ))}
+
+        {/* HUD ARCS */}
+        <g fill="none">
+          <path d="M 188,375 A 242,242 0 0 1 672,375"
+            stroke={`rgba(212,175,55,${f(0.020)})`} strokeWidth=".55"/>
+          <path d="M 295,278 A 146,146 0 0 1 565,278"
+            stroke={`rgba(212,175,55,${f(0.016)})`} strokeWidth=".45"/>
+          <path d="M 278,448 A 162,162 0 0 0 582,448"
+            stroke={`rgba(212,175,55,${f(0.013)})`} strokeWidth=".40"/>
+          {Array.from({length:7},(_,i)=>{
+            const deg=-152+i*50, r=242, acx=430, acy=375
+            const a=deg*Math.PI/180
+            return <line key={i}
+              x1={acx+(r-9)*Math.cos(a)} y1={acy+(r-9)*Math.sin(a)}
+              x2={acx+r*Math.cos(a)}     y2={acy+r*Math.sin(a)}
+              stroke={`rgba(212,175,55,${f(0.024)})`}
+              strokeWidth={i%3===0?.9:.4}/>
+          })}
+        </g>
+      </svg>
+
+      {/* Slow scan line */}
+      <div className="cbg-a" style={{
+        position:'absolute', top:0, bottom:0, left:0, width:'180px',
+        background:'linear-gradient(to right,transparent 0%,rgba(212,175,55,0.046) 50%,transparent 100%)',
+        animation:'cbg-sc 20s ease-in-out infinite',
+      }}/>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────
 export default function ConsoleAssistantPage() {
   const router = useRouter()
@@ -187,7 +335,8 @@ export default function ConsoleAssistantPage() {
   void isSpeechSupported
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - var(--header-height, 64px))',background:BG,position:'relative',overflow:'hidden'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - var(--header-height, 64px))',background:BG,position:'relative',overflow:'hidden',isolation:'isolate'}}>
+      <CircuitBackground mode={mode}/>
       <style>{`
         .jp-right{
           display:flex;flex-direction:column;
