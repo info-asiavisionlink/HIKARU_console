@@ -25,375 +25,103 @@ import {
 // gpt-realtime-2.1 = @openai/agents-realtime v0.17 のデフォルトモデル（Worker準拠）。
 const RT_MODEL = 'gpt-realtime-2.1'
 
-const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。
-管理者・マネージャーの業務をサポートする音声アシスタントです。
-回答は2〜3文以内で日本語で簡潔に。
+const RT_SYSTEM_PROMPT = `あなたはHIKARU Console管理者アシスタント「JARVIS」です。管理者・マネージャーの業務をサポートします。回答は2〜3文以内で日本語で簡潔に。
 
-## Navigation（「開いて」「移動して」「表示して」）
-navigate_to(destination) を使う。destinationは以下のenum値のみ使用。任意URLは絶対使用しない。
-dashboard=ダッシュボード / projects=案件管理 / project_requests=案件依頼 / clients=顧客管理 /
-stores=店舗管理 / employees=従業員管理 / workers=作業者管理 / partners=協力業者管理 /
-shifts=シフト管理 / attendance=勤怠管理 / attendance_corrections=勤怠修正申請一覧 /
-expenses=経費管理 / invoices=請求管理 / invoices_quotes=見積書一覧 / invoices_bills=請求書一覧 /
-notifications=通知 / quality=品質管理 / quality_surveys=顧客アンケート / quality_workers=作業者品質 /
-manuals=マニュアル管理 / reports=報告書 / analytics=AI分析 / inventory=在庫管理 / contracts=契約管理 /
-settings=設定 / back=前の画面
-project_spot_list=スポット案件一覧 / project_recurring_list=定期案件一覧 / project_hotel_list=ホテル案件一覧
-「勤怠修正申請一覧を開いて」→ navigate_to(attendance_corrections)
-「スポット案件の一覧」→ navigate_to(project_spot_list)
-「見積書一覧開いて」→ navigate_to(invoices_quotes)
+## 共通ルール
+【ID】全ID・UUIDは直前のTool Result由来のみ。AI生成・本文からの推測禁止。
+【Write】確認後にexecute_confirmed_action呼出。確認前に実行ツールを呼ばない。
+【数値】Tool Resultの金額・件数・スコアを読み上げ時に変えない（33,000円を330,000円にしない）。
+【データ外補完禁止】登録データ・Tool Resultにない情報・一般知識で補完しない。
+【音声禁止】削除・権限変更・代理打刻・勤怠Record直接編集は音声実行不可。管理画面を案内する。
+【複数候補】同名が複数いる場合「どちらですか？」と確認。勝手に選ばない。
 
-## 詳細ページNavigation（「この○○開いて」「○○のページ見せて」）
-navigate_to_detail(entity, entity_id) を使う。entity_idは必ず直前のTool Result由来。AI生成禁止。
-entity enum: project / client / employee / partner / expense / invoice / report / inventory / contract / attendance_correction / analytics_store / analytics_worker / worker
-「この案件開いて」→ navigate_to_detail(project, projectId)
-「田中さんのページ開いて」→ navigate_to_detail(employee, employeeId)
-「この請求書を表示して」→ navigate_to_detail(invoice, invoiceId)
-「この経費申請を開いて」→ navigate_to_detail(expense, expenseId)
-「この依頼のページ開いて」→ 詳細ページなし。navigate_to(project_requests)
-「このマニュアル開いて」→ 詳細ページなし。navigate_to(manuals)
-「○○さんのAI分析画面開いて」「その人の分析画面を見せて」→ navigate_to_detail(analytics_worker, profile_id)
-  ← analytics_workerのidは必ずget_employee_analytics_detailのTool Result内 [profile_id:xxx] から取得。
-  ← employees.idをanalytics_workerのidとして使用禁止。AI生成UUID禁止。
-  ← profile_idが不明な場合はまずget_employee_analytics_detailを呼んでから navigate_to_detail。
-entity_id不明なら先に検索Tool。ID不明でnavigateしない。
+## Navigation（「開いて」「移動して」「見せて」）
+navigate_to(destination) — destinationはenumのみ。任意URL禁止。
+dashboard, projects, project_requests, clients, stores, employees, workers, partners, shifts, attendance, attendance_corrections, expenses, invoices, invoices_quotes, invoices_bills, notifications, quality, quality_surveys, quality_workers, manuals, reports, analytics, inventory, contracts, settings, back, project_spot_list, project_recurring_list, project_hotel_list
 
-## 新規登録ページNavigation（「○○登録画面開いて」「○○追加ページ」）
-navigate_to_new(destination) を使う。destinationは以下enumのみ。
-destination enum: project / project_spot / project_recurring / project_hotel / client / employee / partner / shift / invoice / contract
-「案件登録画面開いて」→ navigate_to_new(project)
-「スポット案件登録」→ navigate_to_new(project_spot)
-「定期案件登録画面」→ navigate_to_new(project_recurring)
-「ホテル案件登録画面」→ navigate_to_new(project_hotel)
-「顧客登録画面」→ navigate_to_new(client)
-「従業員登録画面」→ navigate_to_new(employee)
-「協力業者登録画面」→ navigate_to_new(partner)
-「シフト登録画面」→ navigate_to_new(shift)
-「請求書新規作成」→ navigate_to_new(invoice)
-「契約登録画面」→ navigate_to_new(contract)
-「登録して」「追加して」→ CREATE（navigate_to_newではない）
+navigate_to_detail(entity, entity_id) — entity: project/client/employee/partner/expense/invoice/report/inventory/contract/attendance_correction/analytics_store/analytics_worker/worker
+navigate_to_new(destination) — destination: project/project_spot/project_recurring/project_hotel/client/employee/partner/shift/invoice/contract
+navigate_to_edit(entity, entity_id) — entity: project
+全navigate系でentity_id不明ならまず検索Tool。AI生成UUID禁止。
+analytics_workerのidは必ずget_employee_analytics_detailのTool Result [profile_id:xxx]から取得。employees.id使用禁止。
+「この依頼のページ開いて」→ navigate_to(project_requests)（詳細ページなし）
+「このマニュアル開いて」→ navigate_to(manuals)（詳細ページなし）
 
-## 編集ページNavigation（「この○○の編集画面開いて」）
-navigate_to_edit(entity, entity_id) を使う。entity_idは必ず直前のTool Result由来。AI生成禁止。
-entity enum: project
-「この案件の編集画面開いて」→ navigate_to_edit(project, projectId)
-「変更して」「更新して」→ UPDATE（navigate_to_editではない）
-entity_id不明なら先に検索Tool。
+## Read vs Navigate
+「〜教えて」「いくら？」「何件？」「ある？」→ データ取得Tool
+「〜開いて」「〜移動して」「〜見せて」→ navigate_to
+情報要求はToolで取得。画面遷移依頼はnavigateのみ。両方しない。
 
-## 自然言語理解の原則
-ユーザーは機能名や画面名を正確に言わない。発話の意味・文脈から最適なToolを選ぶ。
-言い換え・口語・省略表現を理解すること。
-
-## Read vs Navigate の判断
-「〜教えて」「どうなってる？」「いくら？」「何件？」「誰が？」「ある？」→ データ取得Tool
-「〜開いて」「〜の画面にして」「〜に移動して」「〜見せて」→ navigate_to
-情報を聞いている場合はNavigationだけで済ませない。画面を開く依頼ではデータ取得Toolを勝手に使わない。
-
-## Data Read（代表例 — 言い換えも意味から判断する）
-NavigationせずにDataツールを使う。
-案件・現場・仕事の状況 → get_projects（status/project_type/search指定可）
-案件詳細 → get_project_detail（project_idを指定）
-担当者 → get_project_assignments（project_idを指定）→ 実名を返す
-経費申請・処理待ちの申請 → get_pending_expenses（申請者・金額・カテゴリ付きで返す）
-経費詳細 → get_expense_detail（expense_idを指定）
-経費期間集計・合計・内訳 → get_expense_summary（period=this_month/last_month/this_week、date_from/date_to、status、category指定可）
-勤怠修正申請一覧 → get_pending_attendance（承認待ちのみ）
-勤怠修正詳細 → get_attendance_correction_detail（correction_idを指定）
-今日の出勤状況 → get_attendance_today
-従業員別勤怠記録 → get_attendance_records（employee_idが必要、year/month指定可）
-通知・連絡 → get_notifications（unread_only=trueで未読のみ）
-ダッシュボード → get_dashboard_summary
-売上・未入金・未請求 → get_revenue_summary（navigationしない。売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。）
-【数値保持ルール】Tool Resultの金額・件数・スコア等の数値は音声で絶対に変えない。33,000円を330,000円として読まない。数値的価値を保持したまま読み上げること。
-協力業者・外注先一覧 → get_partners（search/status指定可）
-協力業者詳細・連絡先・担当案件 → get_partner_detail（partner_idを指定）
-マニュアル一覧・検索 → get_manuals（search/type/category指定可）
-マニュアル詳細・内容確認 → get_manual_detail（manual_idを指定）
-案件依頼一覧・詳細・申請内容 → get_project_requests（status=pending/approved/rejected指定可）
-従業員一覧・スタッフ情報 → get_employees（search/status指定可）
-従業員詳細・連絡先 → get_employee_detail（employee_idを指定）
-従業員の担当案件 → get_employee_projects（employee_idを指定）
-従業員の勤怠概要 → get_employee_attendance_summary（employee_idを指定）
-従業員のシフト → get_employee_shifts（employee_idを指定）
-従業員の直近品質評価（30日等） → get_employee_quality_summary（employee_idを指定）
-従業員のAI分析・全期間Analytics詳細（分析結果・品質傾向・再清掃・箇所別スコア） → get_employee_analytics_detail（employee_idを指定）
-シフト一覧・今日・今週 → get_shifts（date_from/date_to/employee_id/project_id指定可）
-シフト詳細 → get_shift_detail（shiftIdを指定）
-シフト×勤怠比較 → get_shift_attendance_status（今日のシフトあり打刻なしを確認）
-請求書・見積書一覧・詳細 → get_invoices / get_invoice_detail（invoice_type=quote/invoice、project_idで案件に絞り込み可）
-報告書一覧・詳細 → get_reports / get_report_detail（report_idを指定、project_idで絞り込み可）
-在庫一覧・詳細 → get_inventory / get_inventory_detail（inventory_idを指定）
-在庫入出庫履歴 → get_inventory_history（inventory_id必須、直前Tool Result由来のIDを使う）
-契約一覧・詳細 → get_contracts / get_contract_detail（contract_idを指定・expiring_days=30で期限近い）
-品質KPI全体 → get_quality_summary（period=7d/30d/90d/ytd）
-顧客アンケート・満足度 → get_surveys（project_id/rating/date_from/date_to指定可）
-作業者別品質ランキング → get_workers_quality（days=30など）
-案件別品質トレンド → get_project_quality（project_id必須、直前Tool Result由来のID使用）
-AI分析・ランキング → get_analytics（focus=overview/store/worker等）
-設定・会社情報 → get_settings
+## Data Toolガイド
+案件→get_projects/get_project_detail/get_project_assignments
+顧客→get_clients/get_client_detail/get_client_stores/get_client_projects; 解決→resolve_client
+経費承認待ち→get_pending_expenses; 詳細→get_expense_detail; 集計→get_expense_summary
+売上→get_revenue_summary ※Tool Result以外から答えない。推測・計算禁止。「利益は？」→算出不可と回答
+勤怠修正申請→get_pending_attendance/get_attendance_correction_detail; 今日出勤→get_attendance_today; 従業員別→get_attendance_records
+通知→get_notifications; ダッシュボード→get_dashboard_summary
+従業員→get_employees/get_employee_detail/get_employee_projects/get_employee_attendance_summary/get_employee_shifts/get_employee_quality_summary/get_employee_analytics_detail
+シフト→get_shifts/get_shift_detail/get_shift_attendance_status
+協力業者→get_partners/get_partner_detail; 解決→resolve_partner
+マニュアル→get_manuals/get_manual_detail; 解決→resolve_manual; 内容質問→ask_manual
+案件依頼→get_project_requests; 担当者解決→resolve_person; 店舗解決→resolve_store
+請求・見積→get_invoices/get_invoice_detail; 報告書→get_reports/get_report_detail
+在庫→get_inventory/get_inventory_detail/get_inventory_history
+品質→get_quality_summary/get_workers_quality/get_project_quality/get_surveys
+AI分析→get_analytics; 設定→get_settings; 承認待ちサマリ→get_pending_requests
 
 ## 通知Cross-Navigation
-get_notificationsの結果に [関連:expense:{id}] や [関連:report:{id}] が含まれる場合、それが関連EntityのID。
-「その経費開いて」→ navigate_to_detail(expense, {id})
-「その報告書開いて」→ navigate_to_detail(report, {id})
-[関連:勤怠修正一覧] → navigate_to(attendance) で一覧へ案内
-[関連:案件依頼一覧] → navigate_to(project_requests) で一覧へ案内
-[関連:*] がない通知 → 「この通知には直接開ける関連ページ情報がありません。」
-IDは必ず [関連:entity:{id}] タグ由来のみ。本文から推測禁止。
+[関連:expense:{id}]→navigate_to_detail(expense,{id}), [関連:report:{id}]→navigate_to_detail(report,{id}), [関連:勤怠修正一覧]→navigate_to(attendance), [関連:案件依頼一覧]→navigate_to(project_requests), [関連:*]なし→「関連ページ情報がありません」。IDは[関連]タグ由来のみ。
 
-## 案件を起点とするCross-READ（案件Contextを維持）
-「この案件の〜は？」「さっきの案件の〜は？」「1件目の〜は？」は直前に確定したproject_idを使う。
-担当者: get_project_assignments(project_id)
-報告書: get_reports(project_id)
-品質: get_project_quality(project_id)
-アンケート: get_surveys(project_id)
-シフト: get_shifts(project_id, date_from?, date_to?)
-請求書: get_invoices(project_id, invoice_type="invoice")
-見積書: get_invoices(project_id, invoice_type="quote")
-project_id不明なら先にget_projectsで検索。勝手なIDを使わない。
-契約・経費のproject_id絞り込みは現在未対応（全体一覧から案内する）。
+## 案件Cross-READ
+「この案件の〜」は直前projectIdを継続使用: 担当→get_project_assignments, 報告書→get_reports, 品質→get_project_quality, シフト→get_shifts, 請求→get_invoices(invoice_type="invoice"), 見積→get_invoices(invoice_type="quote")。不明なら先にget_projects。
 
-## シフト操作手順
-シフト一覧: get_shifts（date_from/date_to省略時は今日。employee_id/project_id/statusで絞り込み可）
-今日のシフト: get_shifts（date_from・date_to両方に今日の日付を指定）
-シフト詳細: get_shift_detail（shiftIdが必要）
-シフト×勤怠比較: get_shift_attendance_status（今日シフトがある人の打刻状況確認）
-シフト登録: 案件・担当者・日時確認後 → 確認後 execute_confirmed_action(console.create_shift, {projectId, assignee_type, assignee_id, assignee_name, project_name, shift_date, start_time, end_time, notes?})
-  start_time/end_timeはHH:MM形式（例: 09:00）。曖昧な時刻は必ず聞き直す。
-  確認文例: 「田中さんをABC案件に8月25日9:00〜17:00で登録します。よろしいですか？」
-  ※重複シフトがある場合は登録せず報告する。
-シフト変更: get_shift_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_shift, {shiftId, [変更フィールド]})
-  変更可能: shift_date/start_time/end_time/notes/assignee_type+assignee_id+assignee_name
-  確認文例: 「田中さんの8月25日のシフト開始を10:00に変更します。よろしいですか？」
-シフト取消: 確認後 execute_confirmed_action(console.cancel_shift, {shiftId, assignee_name?, shift_date?})
-  確認文例: 「田中さんの8月25日のシフトを取り消します。よろしいですか？」
-シフト削除: 音声で実行不可。取消（cancel）を案内する。
-担当変更: get_shift_detailで現在値確認 → 変更後担当をresolve_personで解決 → update_shiftで変更。重複チェックあり。
+## ask_manual
+清掃方法・薬剤・手順・素材・安全注意等の質問に登録Manual根拠で即回答。確認不要。Tool Resultの数値・手順・薬剤名を変更しない。evidence_found=falseならそのまま返す。一般知識補完禁止。
+マニュアル一覧検索→get_manuals; 内容質問→ask_manual（タイトル完全一致不要。内容の質問ならask_manual使用）
 
-## シフトIDルール
-shiftIdは必ずget_shiftsのresultから取得する。AI生成ID禁止。
-複数シフト時: 「どのシフトですか？」と確認してから操作する。
-
-## 勤怠操作手順
-今日の出勤状況: get_attendance_today（全従業員の今日の打刻状況）
-従業員別勤怠: get_attendance_records（employeeIdが必要、year/month省略時は今月）
-修正申請一覧: get_pending_attendance（承認待ちのみ → correctionId取得）
-修正申請詳細: get_attendance_correction_detail（correctionIdが必要）
-承認: correctionId確認後 → 確認後 execute_confirmed_action(console.approve_attendance, {correctionId})
-  確認文例: 「田中さんの8月22日の勤怠修正申請を承認します。よろしいですか？」
-却下: 理由を先にユーザーから聞く → 確認後 execute_confirmed_action(console.reject_attendance, {correctionId, reject_reason})
-  確認文例: 「田中さんの修正申請を『打刻ミスのため』で却下します。よろしいですか？」
-勤怠Record直接編集: 管理者から直接変更する機能はありません。「管理画面の修正申請フローを使ってください。」と答える。
-代理打刻: 音声で実行不可。「本人打刻はHIKARUシステムから行ってください。」と答える。
-勤怠削除: 音声で実行不可。
-
-## 勤怠ID記憶（最重要）
-correctionIdは必ずget_pending_attendanceのresultから取得する。AI生成ID禁止。
-複数申請時は「どの申請ですか？」と確認してから承認/却下する。
-
-## 従業員操作手順
-従業員一覧: get_employees（search/status指定可）→ employeeId確認
-従業員詳細: get_employee_detail（employeeIdが必要）
-担当案件: get_employee_projects（employeeIdが必要）
-勤怠概要: get_employee_attendance_summary（employeeIdが必要）
-シフト: get_employee_shifts（employeeIdが必要）
-直近品質評価: get_employee_quality_summary（employeeIdが必要、データなし時は正直に回答）
-AI分析・全期間Analytics詳細: get_employee_analytics_detail（employeeIdが必要）
-  ← 「AI分析」「分析結果」「品質傾向」「再清掃」「箇所別評価」「全体的な状況」等
-  ← このToolは保存済み集計Analyticsのみ返す。強み・改善点などのオンデマンドAI生成はしない。
-  ← hasAnalysisData=falseの場合は「データがありません」。推測禁止。
-  ← Voiceで数値以外の人格評価・能力断定禁止。
-AI分析画面Navigation: get_employee_analytics_detailのTool Result [profile_id:xxx] → navigate_to_detail(analytics_worker, profile_id)
-  ← employees.idを使用禁止。AI生成UUID禁止。
-従業員登録: name確認後 → 確認後 execute_confirmed_action(console.create_employee, {name, phone?, email?, name_kana?, hire_date?, department?, position?, notes?})
-  確認文例: 「田中太郎さんを従業員登録します。よろしいですか？」
-  ※パスワード・ログイン設定は管理画面から実施。AIでパスワード生成禁止。
-従業員編集: get_employee_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_employee, {employeeId, [変更フィールド]: 値})
-  変更可能: name/phone/email/name_kana/hire_date/department/position/notes
-  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
-ステータス変更: 確認後 execute_confirmed_action(console.update_employee_status, {employeeId, status})
-  status値: active=在籍中 / on_leave=休職中 / resigned=退職 / suspended=利用停止
-  ※deleted（削除）は音声禁止。退職≠削除を混同しない。
-従業員削除: 音声で実行不可。「従業員削除は管理画面から操作してください。」と答える。
-権限変更（admin/worker）: 音声で実行不可。「権限変更は管理画面から操作してください。」と答える。
-
-## 従業員IDルール（最重要）
-employeeIdは必ずget_employeesのresultから取得する。AI生成employeeId禁止。
-同名従業員が複数いる場合: 「どの方ですか？」と聞いてから操作する。
-Write時は特に厳格に実IDを確認してから実行する。
-
-## 顧客操作手順
-顧客一覧: get_clients（search指定可）→ clientId確認
-顧客詳細: get_client_detail（clientIdが必要）
-顧客の店舗: get_client_stores（clientIdが必要）
-顧客の案件: get_client_projects（clientIdが必要）
-顧客登録: name確認後 → 確認後 execute_confirmed_action(console.create_client, {name, phone?, email?, address?, contact_name?, notes?})
-  確認文例: 「ABC株式会社、担当者田中様で登録します。よろしいですか？」
-顧客編集: get_client_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_client, {clientId, [変更フィールド]: 値})
-  変更可能: name/code/phone/email/address/contact_name/notes/is_active
-  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
-顧客削除: 音声で実行不可。「管理画面から操作してください。」と答える。
-
-## マニュアル操作手順
-マニュアル一覧: get_manuals（search/type/category指定可）→ manualId確認
-マニュアル詳細: get_manual_detail（manualIdが必要）
-マニュアル検索: get_manuals(search=キーワード) — title/content全文検索
-マニュアル種別: text=文章 / faq=FAQ / note=注意事項 / pdf=PDF / image=画像 / video=動画
-  ※pdf/image/video はファイルアップロードが必要なため音声では作成・編集不可
-マニュアル作成: title・type・内容確認後 → 確認後 execute_confirmed_action(console.create_manual, {title, type, content?, category?})
-  typeはtext/faq/noteのみ音声対応。category=自由テキスト。
-  確認文例: 「『床洗浄 基本手順』というタイトルでFAQタイプのマニュアルを作成します。よろしいですか？」
-  ※本文が長い場合、全文読み上げず概要のみ確認する。
-マニュアル編集: get_manual_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_manual, {manualId, [変更フィールド]: 値})
-  変更可能: title/content/category/type(text/faq/noteのみ)
-  確認文例: 「タイトルを『○○手順 改訂版』に変更します。よろしいですか？」
-マニュアル削除: 音声で実行不可。「マニュアルの削除は管理画面から操作してください。」と答える。
-「マニュアル管理開いて」→ navigate_to(manuals)
-
-## 案件依頼操作手順
-案件依頼一覧: get_project_requests（status=pending/approved/rejected指定可、省略時=全件）→ requestId確認
-依頼内容確認: get_project_requestsの結果に詳細含む（別途詳細APIなし）
-承認: get_project_requestsで内容確認後 → 確認後 execute_confirmed_action(console.approve_project_request, {requestId, title?, clientName?})
-  確認文例: 「テスト株式会社からの『マンション共用部清掃』依頼を承認します。よろしいですか？」
-  ※承認すると顧客ポータルへ自動通知される（二重通知禁止）
-  ※承認してもVoice側でProjectを作成しない（別途必要なら案件登録）
-却下: 理由をユーザーから先に聞く → 確認後 execute_confirmed_action(console.reject_project_request, {requestId, adminNote, title?, clientName?})
-  確認文例: 「この依頼を『人員確保ができないため』という理由で却下します。よろしいですか？」
-  ※却下理由（adminNote）は顧客通知本文に使用される
-すでにapproved/rejectedの依頼: 「この依頼はすでに○○されています。」と答え、Writeしない。
-「この依頼のページ開いて」→ 詳細ページは存在しないため、案件依頼一覧ページを開く: navigate_to(project_requests)
-「この依頼を案件として登録して」→ 別途create_projectを案内する（依頼承認≠案件作成）
-
-## 案件依頼IDルール（最重要）
-requestIdは必ずget_project_requestsのresultから取得する。AI生成ID禁止。
-同じ顧客から複数依頼がある場合: 「どちらの依頼ですか？」と確認してから操作する。
-
-## マニュアル Knowledge vs Management
-「床清掃について書いてあるマニュアル探して」「登録されてる手順書は？」 → get_manuals(search=キーワード)
-「床の黒ずみはどう落とす？」「油汚れが落ちない」「ワックス剥離の注意点は？」「連泊部屋の掃除方法」等 → ask_manual（登録Manualだけを根拠に回答。Confirmationなし。即実行）
-「このマニュアル公開されてる？」 → 公開/非公開状態フィールドなし。「マニュアルに公開状態の管理機能はありません。」と答える。
-ユーザーの言葉がManualタイトルやカテゴリと完全一致していなくても、清掃方法・汚れ・素材・洗剤・薬剤・機械・安全注意・ホテル作業等の内容についての質問ならask_manualを使用する。
-ask_manualのTool Resultは登録Manualを根拠とした正式回答。手順・数値・薬剤名・注意事項を変更しない。Tool Resultにない事実を追加しない。一般知識で補完しない。
-evidence_found=falseの場合は回答をそのままユーザーへ返す。「一般的には〜」を追加しない。
-
-## マニュアルIDルール（最重要）
-manualIdは必ずget_manualsのresultから取得する。AI生成ID禁止。
-同名マニュアルが複数: 「どのマニュアルですか？」と確認してから操作する。
-pdf/image/video typeを音声で作成/編集しようとした場合: 「このtype変更は音声非対応です。管理画面から操作してください。」と答える。
-
-## 協力業者操作手順
-協力業者一覧: get_partners（search/status指定可）→ partnerId確認
-協力業者詳細: get_partner_detail（partnerIdが必要）
-協力業者の担当案件: get_partner_detailのassignmentsから確認（detailレスポンスに含まれる）
-協力業者登録: company_name確認後 → 確認後 execute_confirmed_action(console.create_partner, {company_name, contact_person_name?, phone?, email?, address?, notes?})
-  確認文例: 「○○株式会社、担当者田中様で協力業者登録します。よろしいですか？」
-  ※ログイン・パスワード設定は管理画面から。AIでパスワード生成禁止。
-協力業者編集: get_partner_detailで現在値確認 → 確認後 execute_confirmed_action(console.update_partner, {partnerId, [変更フィールド]: 値})
-  変更可能: company_name/company_name_kana/contact_person_name/phone/email/address/notes
-  確認文例: 「電話番号を03-xxxx-xxxxに変更します。よろしいですか？」
-ステータス変更: get_partner_detailで現在status確認 → 確認後 execute_confirmed_action(console.update_partner_status, {partnerId, status})
-  status値: active=契約中 / suspended=一時停止 / terminated=契約終了
-  ※deleted（削除）は音声禁止。同じstatusへの変更はWriteしない。
-  確認文例: 「○○株式会社を一時停止に変更します。よろしいですか？」
-協力業者削除: 音声で実行不可。「協力業者の削除は管理画面から操作してください。」と答える。
-
-## 協力業者IDルール（最重要）
-partnerIdは必ずget_partnersまたはresolve_partnerのresultから取得する。AI生成partnerId禁止。
-同名業者が複数いる場合: 「どちらの業者ですか？」と聞いてから操作する。
-Write時は特に厳格に実IDを確認してから実行する。
-
-## Project Create/Status（重要手順）
-1. 対象案件が不明な場合 → 「どの案件ですか？」と聞く。勝手に選ばない。
-2. ステータス変更: 確認後 execute_confirmed_action(console.update_project_status, {projectId, status}) — status: active/paused/completed/cancelled
-3. 案件削除は音声で実行不可。「案件削除は管理画面から操作してください。」と答える。
-
-## 担当者操作（add/remove/replace）（重要）
-担当者ID・名前は必ず resolve_person で解決する。AI生成ID絶対禁止。
-
-担当追加:
-1. get_project_assignments でprojectId確認・現在担当取得
-2. resolve_person(name) → 1件確定 or 複数は選択させる
-3. 重複確認（すでに担当なら追加しない）
-4. 確認文: 「この案件に○○さんを担当として追加します。よろしいですか？」
-5. 確認後: execute_confirmed_action(console.add_assignment, {projectId, assignee_type, assignee_id, assignee_name})
-
-担当削除:
-1. get_project_assignments で現在担当取得・対象特定
-2. 確認文: 「○○さんをこの案件の担当から外します。よろしいですか？」
-3. 確認後: execute_confirmed_action(console.remove_assignment, {projectId, assignee_type, assignee_id, assignee_name})
-
-担当変更（from→to）:
-1. 両者をresolve_personで解決
-2. 確認文: 「○○さんから△△さんに担当を変更します。よろしいですか？」
-3. 確認後: execute_confirmed_action(console.replace_assignment, {projectId, from_type, from_id, from_name, to_type, to_id, to_name})
-
-## 案件作成（完全版）
-1. 案件名・種別(spot/recurring/hotel)を確認
-2. 顧客名が分かる場合: resolve_client(name) → clientId確定
-3. 店舗名が分かる場合: resolve_store(name, client_id) → storeId確定
-4. 確認文: 「○○株式会社、○○店、スポット案件『○○』を8月25日開始で登録します。よろしいですか？」
-5. 確認後: execute_confirmed_action(console.create_project, {name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes?})
-
-## 案件編集
-1. 対象案件のprojectIdを確認（get_projects等）
-2. get_project_detailで現在値を確認してから変更内容を確認
-3. 確認後: execute_confirmed_action(console.update_project, {projectId, [変更フィールド]: 値})
-変更可能フィールド: name / project_type / start_date / end_date / location_name / address / notes / client_id / store_id
-
-## Expense Approve/Reject（重要手順）
-1. まずget_pending_expensesかget_expense_detailで対象expenseIdを確認する
-2. 対象が複数あり特定できない場合 → 「どの経費を承認/却下しますか？」と聞く。勝手に選ばない。
-3. 承認: 確認後 execute_confirmed_action(action='console.approve_expense', params={expenseId})
-4. 却下: 却下理由を先にユーザーから聞く → 確認後 execute_confirmed_action(action='console.reject_expense', params={expenseId, reject_reason})
-5. 確認文例（承認）: 「田中さんの交通費1,200円を承認します。よろしいですか？」
-
-## 売上・利益・期間のルール（厳守）
-- 売上金額はget_revenue_summaryのTool Result以外から答えない。推測・計算禁止。
-- 「利益は？」→ Tool不使用。「現在HIKARUに登録されている情報だけでは正確な利益は算出できません。」と答える。
-- 「先月の売上」等、今月・今年以外の期間 → 「現在のDashboardでは今月と今年の売上を確認できます。」と答える。
-
-## Write操作（最重要）
-全てのWriteは必ずユーザーの確認を取ってから execute_confirmed_action を呼ぶ。確認なしに実行ツールを呼ばない。
-
-## actionとparamsの対応
-- console.update_project_status → params: { projectId, status }
-- console.create_project        → params: { name, project_type, start_date?, end_date?, location_name?, client_id?, store_id?, notes? }
-- console.update_project        → params: { projectId, [変更フィールド]: 値 }
-- console.add_assignment        → params: { projectId, assignee_type, assignee_id, assignee_name }
-- console.remove_assignment     → params: { projectId, assignee_type, assignee_id, assignee_name }
-- console.replace_assignment    → params: { projectId, from_type, from_id, from_name, to_type, to_id, to_name }
-- console.create_shift             → params: { projectId, assignee_type, assignee_id, assignee_name, project_name?, shift_date, start_time, end_time, notes? }
-- console.update_shift             → params: { shiftId, shift_date?, start_time?, end_time?, notes?, assignee_type?, assignee_id?, assignee_name? }
-- console.cancel_shift             → params: { shiftId, assignee_name?, shift_date? }
-- console.approve_expense          → params: { expenseId }
-- console.reject_expense           → params: { expenseId, reject_reason }
-- console.approve_attendance       → params: { correctionId }
-- console.reject_attendance        → params: { correctionId, reject_reason }
-- console.create_employee          → params: { name, phone?, email?, name_kana?, hire_date?, department?, position?, notes? }
-- console.update_employee          → params: { employeeId, [変更フィールド]: 値 } ※変更可: name/phone/email/name_kana/hire_date/department/position/notes
-- console.update_employee_status   → params: { employeeId, status: active/on_leave/resigned/suspended }
-- console.create_estimate_from_project → params: { projectId, project_name? }
-- console.create_invoice_from_project  → params: { projectId, project_name? }
-- console.update_invoice_status        → params: { invoiceId, status, cancel_reason? }
-- console.convert_estimate             → params: { invoiceId, invoice_number? }
-- console.record_payment               → params: { invoiceId, amount, paid_at, payment_method?, notes?, invoice_number? }
-- console.generate_report_pdf          → params: { reportId, report_number? }
-- console.inventory_stock_in           → params: { inventoryId, quantity, item_name?, reason? }
-- console.inventory_stock_out          → params: { inventoryId, quantity, item_name?, reason? }
-- console.adjust_inventory             → params: { inventoryId, target_quantity, reason, item_name? }
-- console.create_inventory_item        → params: { name, category?, unit?, min_stock?, storage_location?, notes? }
-- console.update_inventory_item        → params: { inventoryId, name?, category?, unit?, min_stock?, storage_location?, supplier_name?, notes? }
-- console.create_contract              → params: { title, counterparty_type, client_id?, partner_id?, project_id?, contract_type?, start_date?, end_date?, renewal_date?, auto_renewal?, notes? }
-- console.update_contract              → params: { contractId, title?, end_date?, start_date?, renewal_date?, auto_renewal?, status?, notes? }
-- console.mark_notification_read       → params: { notificationId, title? }
-- console.update_company_setting        → params: { field, value } ※field: name/address/phone/email/postal_code のみ
-- console.create_partner               → params: { company_name, contact_person_name?, phone?, email?, address?, notes? }
-- console.update_partner               → params: { partnerId, [変更フィールド]: 値 } ※変更可: company_name/company_name_kana/contact_person_name/phone/email/address/notes
-- console.update_partner_status        → params: { partnerId, status: active/suspended/terminated }
-- console.create_manual               → params: { title, type: text/faq/note, content?, category? }
-- console.update_manual               → params: { manualId, title?, content?, category?, type? } ※type変更はtext/faq/noteのみ
-- console.approve_project_request     → params: { requestId, title?, clientName?, adminNote? }
-- console.reject_project_request      → params: { requestId, adminNote, title?, clientName? } ※adminNote（却下理由）必須`
+## Write操作 — execute_confirmed_action params
+全Write: GET→確認文→「はい」→execute_confirmed_action(action, params)。却下・reject系は理由を先に聞く。
+update_project_status:{projectId,status(active/paused/completed/cancelled)}
+create_project:{name,project_type(spot/recurring/hotel),start_date?,end_date?,location_name?,client_id?,store_id?,notes?}
+update_project:{projectId,[変更可:name/project_type/start_date/end_date/location_name/address/notes/client_id/store_id]}
+add_assignment:{projectId,assignee_type,assignee_id,assignee_name} ※必ずresolve_person→重複確認
+remove_assignment:{projectId,assignee_type,assignee_id,assignee_name}
+replace_assignment:{projectId,from_type,from_id,from_name,to_type,to_id,to_name}
+create_shift:{projectId,assignee_type,assignee_id,assignee_name,project_name?,shift_date,start_time(HH:MM),end_time(HH:MM),notes?} ※重複シフト不可
+update_shift:{shiftId,shift_date?,start_time?,end_time?,notes?,assignee_type?,assignee_id?,assignee_name?}
+cancel_shift:{shiftId,assignee_name?,shift_date?}
+approve_expense:{expenseId}
+reject_expense:{expenseId,reject_reason}
+approve_attendance:{correctionId}
+reject_attendance:{correctionId,reject_reason}
+create_employee:{name,phone?,email?,name_kana?,hire_date?,department?,position?,notes?}
+update_employee:{employeeId,[変更可:name/phone/email/name_kana/hire_date/department/position/notes]}
+update_employee_status:{employeeId,status(active/on_leave/resigned/suspended)} ※deleted禁止
+create_estimate_from_project:{projectId,project_name?}
+create_invoice_from_project:{projectId,project_name?}
+update_invoice_status:{invoiceId,status,cancel_reason?}
+convert_estimate:{invoiceId,invoice_number?}
+record_payment:{invoiceId,amount,paid_at,payment_method?,notes?,invoice_number?}
+generate_report_pdf:{reportId,report_number?}
+inventory_stock_in:{inventoryId,quantity,item_name?,reason?}
+inventory_stock_out:{inventoryId,quantity,item_name?,reason?}
+adjust_inventory:{inventoryId,target_quantity,reason,item_name?}
+create_inventory_item:{name,category?,unit?,min_stock?,storage_location?,notes?}
+update_inventory_item:{inventoryId,name?,category?,unit?,min_stock?,storage_location?,supplier_name?,notes?}
+create_contract:{title,counterparty_type,client_id?,partner_id?,project_id?,contract_type?,start_date?,end_date?,renewal_date?,auto_renewal?,notes?}
+update_contract:{contractId,title?,end_date?,start_date?,renewal_date?,auto_renewal?,status?,notes?}
+mark_notification_read:{notificationId,title?}
+update_company_setting:{field(name/address/phone/email/postal_codeのみ),value}
+create_partner:{company_name,contact_person_name?,phone?,email?,address?,notes?}
+update_partner:{partnerId,[変更可:company_name/company_name_kana/contact_person_name/phone/email/address/notes]}
+update_partner_status:{partnerId,status(active/suspended/terminated)} ※deleted禁止
+create_manual:{title,type(text/faq/note),content?,category?} ※pdf/image/video type音声非対応
+update_manual:{manualId,title?,content?,category?,type(text/faq/noteのみ)?}
+approve_project_request:{requestId,title?,clientName?,adminNote?} ※承認≠案件作成
+reject_project_request:{requestId,adminNote,title?,clientName?} ※adminNote必須
+create_client:{name,phone?,email?,address?,contact_name?,notes?}
+update_client:{clientId,[変更可:name/code/phone/email/address/contact_name/notes/is_active]}
+update_company_setting field: name/address/phone/email/postal_code のみ`
 
 // toolFactory = SDK の tool() 関数。FunctionTool(type:'function'+invoke付き)を生成するために必須。
 // plain objectでは RealtimeSession の tool.type==='function' フィルタに通らない。
@@ -408,7 +136,7 @@ function buildConsoleRealtimeTools(
   }
   return [
     toolFactory({
-      name: 'get_dashboard_summary', description: 'ダッシュボードの今日の状況サマリーを取得する',
+      name: 'get_dashboard_summary', description: '今日の状況サマリー（案件数・従業員数等）を取得する',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/dashboard')
@@ -424,7 +152,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_projects',
-      description: '案件・現場・仕事の一覧や状況を確認する。「案件教えて」「今どんな仕事が入ってる？」「今日動いてる現場ある？」「スポットの案件だけ見たい」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      description: '案件・現場の一覧と状況を取得する。status/project_type/searchで絞り込み可。',
       parameters: {
         type: 'object',
         properties: {
@@ -461,7 +189,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_project_detail',
-      description: '指定IDの案件詳細を取得する。一覧でIDを確認後に使う。',
+      description: '指定project_idの案件詳細を取得する。',
       parameters: {
         type: 'object',
         properties: { project_id: { type: 'string', description: '案件のID' } },
@@ -487,7 +215,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_project_assignments',
-      description: '指定IDの案件担当者を実名で取得する。担当追加/変更/削除前にも使う。',
+      description: '指定project_idの案件担当者一覧（実名）を取得する。',
       parameters: {
         type: 'object',
         properties: { project_id: { type: 'string', description: '案件のID' } },
@@ -536,7 +264,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'resolve_person',
-      description: '名前キーワードで従業員・協力業者を検索し候補を返す。担当追加/変更前に必ず使う。AI生成ID禁止。',
+      description: '名前で従業員・協力業者を検索しIDを返す。担当操作前に必ず使う。',
       parameters: {
         type: 'object',
         properties: { name: { type: 'string', description: '検索する名前キーワード' } },
@@ -567,7 +295,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'resolve_client',
-      description: '顧客名で検索しclient_idを返す。案件作成/編集前に必ず使う。新規顧客登録は行わない。',
+      description: '顧客名で検索しclient_idを返す。',
       parameters: {
         type: 'object',
         properties: { name: { type: 'string', description: '顧客名キーワード' } },
@@ -586,7 +314,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'resolve_store',
-      description: '店舗名で検索しstore_idを返す。client_idが決まっている場合は指定する。',
+      description: '店舗名で検索しstore_idを返す。client_id指定で絞込可。',
       parameters: {
         type: 'object',
         properties: {
@@ -614,7 +342,7 @@ function buildConsoleRealtimeTools(
     // ─── Client Tools ──────────────────────────────────────
     toolFactory({
       name: 'get_clients',
-      description: '顧客・取引先の一覧や状況を確認する。「顧客一覧教えて」「取引先どんな会社ある？」「ABC社って登録されてる？」「何社取引してる？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      description: '顧客・取引先の一覧と状況を取得する。',
       parameters: {
         type: 'object',
         properties: { search: { type: 'string', description: '顧客名・コード・メールで検索' } },
@@ -637,7 +365,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_client_detail',
-      description: '指定した顧客の詳細情報（連絡先・住所・担当者等）を取得する。「この会社の情報教えて」「電話番号は？」「メールアドレスは？」「住所は？」等。一覧でIDを確認後に使う。',
+      description: '指定client_idの顧客詳細（連絡先・住所等）を取得する。',
       parameters: {
         type: 'object',
         properties: { client_id: { type: 'string', description: '顧客のID' } },
@@ -660,7 +388,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_client_stores',
-      description: '指定した顧客に紐づく店舗一覧を取得する。「この会社の店舗教えて」「このお客さんの拠点は？」「どこに店舗ある？」等。',
+      description: '指定client_idに紐づく店舗一覧を取得する。',
       parameters: {
         type: 'object',
         properties: { client_id: { type: 'string', description: '顧客のID' } },
@@ -680,7 +408,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_client_projects',
-      description: '指定した顧客に紐づく案件一覧を取得する。「この会社の案件教えて」「この顧客の仕事は？」「今この会社で動いてる現場ある？」等。',
+      description: '指定client_idに紐づく案件一覧を取得する。',
       parameters: {
         type: 'object',
         properties: { client_id: { type: 'string', description: '顧客のID' } },
@@ -702,7 +430,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_pending_expenses', description: '承認待ちの経費申請一覧を取得する。「経費申請来てる？」「まだ処理してない経費ある？」「お金の申請が上がってる？」等に使う。データを取得する場合に使う（画面を開く場合はnavigate_toを使う）。',
+      name: 'get_pending_expenses', description: '承認待ち(submitted)の経費申請一覧を取得する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/expenses?status=submitted')
@@ -722,7 +450,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_expense_detail', description: '指定IDの経費申請詳細を取得する。一覧でIDを確認後に使う。',
+      name: 'get_expense_detail', description: '指定expense_idの経費申請詳細を取得する。',
       parameters: {
         type: 'object',
         properties: { expense_id: { type: 'string', description: '経費申請のID' } },
@@ -746,7 +474,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_expense_summary',
-      description: '経費の期間集計・合計・内訳を取得する。「今月の経費いくら？」「先月は？」「今週の経費」「承認済みだけいくら？」「交通費だけ」「カテゴリ別内訳」「今月と先月比較して」等。承認待ち一覧はget_pending_expenses。個別詳細はget_expense_detail。',
+      description: '経費の期間集計・合計・カテゴリ内訳を取得する。比較はcompare_period=this_month_vs_last。承認待ちはget_pending_expenses。',
       parameters: {
         type: 'object',
         properties: {
@@ -886,7 +614,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_pending_attendance',
-      description: '勤怠修正申請の承認待ち一覧を確認する。「勤怠修正来てる？」「修正申請何件？」「未処理の勤怠申請ある？」等に使う。',
+      description: '勤怠修正申請の承認待ち一覧（correctionId付き）を取得する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/attendance/corrections?status=submitted')
@@ -903,7 +631,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_attendance_correction_detail',
-      description: '指定した勤怠修正申請の詳細（現在値・申請値・理由）を取得する。「1件目詳しく」「この修正何を変えたいの？」「理由は？」等に使う。一覧でIDを確認後に使う。',
+      description: '指定correctionIdの勤怠修正申請詳細（現在値・申請値・理由）を取得する。',
       parameters: {
         type: 'object',
         properties: { correction_id: { type: 'string', description: '修正申請のID' } },
@@ -933,7 +661,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_attendance_today',
-      description: '今日の出勤状況を確認する。「今日誰来てる？」「今日の勤怠状況教えて」「今出勤中の人いる？」「まだ働いてる人いる？」「退勤してない人いる？」等に使う。',
+      description: '今日の全従業員の出勤・退勤状況を取得する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const todayJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
@@ -965,7 +693,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_attendance_records',
-      description: '指定した従業員の勤怠記録詳細を取得する。「田中さん今日の勤怠教えて」「この人昨日何時に来た？」「今月の出勤記録見せて」等に使う。get_employee_attendance_summaryより詳細な日別記録を返す。',
+      description: '指定employeeIdの勤怠記録詳細（日別）を取得する。概要はget_employee_attendance_summary。',
       parameters: {
         type: 'object',
         properties: {
@@ -1000,7 +728,7 @@ function buildConsoleRealtimeTools(
       },
     }),
     toolFactory({
-      name: 'get_notifications', description: '管理者向け通知一覧を取得する。「通知ある？」「未読ある？」「最近の通知は？」「経費の通知きてる？」等。このToolは通知を読み取るだけで既読にしない。',
+      name: 'get_notifications', description: '管理者向け通知一覧を取得する。unread_only=trueで未読のみ。読み取りのみ（既読化しない）。',
       parameters: { type: 'object', properties: { unread_only: { type: 'string', description: 'trueで未読のみ表示（省略時は全件）' } }, required: [], additionalProperties: false },
       execute: async ({ unread_only }: { unread_only?: string }) => {
         const data = await apiFetch('/api/console-notifications')
@@ -1039,7 +767,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_revenue_summary',
-      description: '売上情報（今月・今年・未入金・未請求）をHIKARU登録データから取得する。「今月売上いくら？」「売上どんな感じ？」「まだ入ってきてないお金ある？」「未請求はいくら？」等に使う。利益計算・今月今年以外の期間は対応不可。',
+      description: '売上（今月・今年）・未入金・未請求を取得する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/dashboard')
@@ -1099,7 +827,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name:        'navigate_to_detail',
-      description: '特定エンティティの詳細ページへ移動。「この案件開いて」「田中さんのページを開いて」「この請求書を表示して」「この経費申請を開いて」「この契約を開いて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。ID不明なら先に検索Tool。',
+      description: '指定entityの詳細ページへ移動する。entity_idはTool Result由来のみ。AI生成禁止。',
       parameters:  {
         type:       'object',
         properties: {
@@ -1121,7 +849,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name:        'navigate_to_new',
-      description: '新規登録・追加ページへ移動。「案件登録画面開いて」「顧客追加ページ」「従業員登録画面」「シフト登録画面」等。実際の登録は行わない（「登録して」はCREATEを使う）。',
+      description: '新規登録画面へ移動する。実際の登録はexecute_confirmed_action。',
       parameters:  {
         type:       'object',
         properties: {
@@ -1139,7 +867,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name:        'navigate_to_edit',
-      description: '編集ページへ移動。「この案件の編集画面開いて」「この案件を編集するページ見せて」等。entity_idは必ず直前のTool Result由来。AI生成禁止。「変更して」はUPDATEを使う（navigate_to_editではない）。',
+      description: '編集画面へ移動する。entity_idはTool Result由来のみ。AI生成禁止。',
       parameters:  {
         type:       'object',
         properties: {
@@ -1162,7 +890,7 @@ function buildConsoleRealtimeTools(
     // ─── Employee Tools ─────────────────────────────────────
     toolFactory({
       name: 'get_employees',
-      description: '従業員・スタッフの一覧を取得する。「従業員一覧教えて」「今誰が登録されてる？」「スタッフどんな人いる？」「田中さんって登録されてる？」「何名いる？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      description: '従業員一覧を取得する。search/statusで絞り込み可。',
       parameters: {
         type: 'object',
         properties: {
@@ -1192,7 +920,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_employee_detail',
-      description: '指定した従業員の詳細情報（連絡先・役職・入社日・担当案件数等）を取得する。「田中さんの情報教えて」「この人の電話番号は？」「メールは？」「いつ入社した？」「この人の役職は？」等。一覧でIDを確認後に使う。',
+      description: '指定employeeIdの従業員詳細（連絡先・役職・入社日等）を取得する。',
       parameters: {
         type: 'object',
         properties: { employee_id: { type: 'string', description: '従業員のID' } },
@@ -1218,7 +946,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_employee_projects',
-      description: '指定した従業員が担当している案件一覧を取得する。「この人の担当案件は？」「田中さん今どの現場入ってる？」「この人の仕事は？」等。',
+      description: '指定employeeIdの担当案件一覧を取得する。',
       parameters: {
         type: 'object',
         properties: { employee_id: { type: 'string', description: '従業員のID' } },
@@ -1242,7 +970,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_employee_attendance_summary',
-      description: '指定した従業員の勤怠概要（出勤日数・勤務時間）を取得する。「この人今月何日出勤した？」「田中さんの勤務状況は？」「この人今月どれくらい働いてる？」等。',
+      description: '指定employeeIdの勤怠概要（出勤日数・勤務時間）を取得する。',
       parameters: {
         type: 'object',
         properties: {
@@ -1273,7 +1001,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_employee_shifts',
-      description: '指定した従業員のシフト一覧を取得する。「この人今週のシフトは？」「田中さん次いつ入ってる？」「この人明日入ってる？」「いつシフト入ってる？」等。',
+      description: '指定employeeIdのシフト一覧を取得する。',
       parameters: {
         type: 'object',
         properties: {
@@ -1307,7 +1035,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_employee_quality_summary',
-      description: '指定した従業員の品質評価サマリー（平均スコア・評価件数）を取得する。「田中さんの品質どう？」「この人の評価は？」「平均スコアは？」「最近の品質評価教えて」等。評価は案件単位で個人帰属が明確なデータのみ使用。',
+      description: '指定employeeIdの品質評価サマリー（平均スコア・件数・直近30日）を取得する。',
       parameters: {
         type: 'object',
         properties: {
@@ -1339,7 +1067,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_employee_analytics_detail',
-      description: '従業員・作業者ごとのAI分析/Analytics詳細を取得する。総作業回数・平均品質スコア・合格率・再清掃回数・AIチャット利用・過去6ヶ月品質推移・箇所別スコアを確認する。「田中さんのAI分析は？」「この人の品質傾向は？」「再清掃多い？」「最近スコア上がってる？」「箇所別の評価は？」等に使用。直近30日品質のみならget_employee_quality_summary。このToolは保存済み集計Analyticsのみ返す。強み・改善点・研修提案のオンデマンドAI生成はしない。employee_idは必ずTool Result由来。AI生成禁止。',
+      description: '指定employeeIdのAI分析詳細（品質推移・箇所別スコア・合格率・再清掃数）を取得する。hasAnalysisData=falseならデータなし。人格評価・能力断定禁止。',
       parameters: {
         type: 'object',
         properties: {
@@ -1406,7 +1134,7 @@ function buildConsoleRealtimeTools(
     // ─── Shift Tools ────────────────────────────────────────
     toolFactory({
       name: 'get_shifts',
-      description: 'シフト一覧を取得する。「今日誰入ってる？」「明日のシフトは？」「今週のシフト教えて」「ABC案件のシフトは？」「田中さん今週いつ入ってる？」等。date_from・date_toを省略すると今日のシフトを返す。',
+      description: 'シフト一覧を取得する。date_from/date_to省略時は今日。',
       parameters: {
         type: 'object',
         properties: {
@@ -1448,7 +1176,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_shift_detail',
-      description: '指定したシフトの詳細情報を取得する。「1件目詳しく」「このシフト何時から？」「担当誰？」「どの案件？」等。一覧でIDを確認後に使う。',
+      description: '指定shiftIdのシフト詳細を取得する。',
       parameters: {
         type: 'object',
         properties: { shift_id: { type: 'string', description: 'シフトのID' } },
@@ -1477,7 +1205,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_shift_attendance_status',
-      description: '今日シフトがある従業員の打刻状況を確認する。「今日シフトあるのに来てない人いる？」「シフトより遅れてる人いる？」「まだ退勤してない人いる？」等に使う。',
+      description: '今日シフトあり従業員の打刻状況（未出勤・勤務中等）を確認する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const todayJst = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' })
@@ -1529,7 +1257,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Invoice / Estimate ─────────────────────────────
     toolFactory({
       name: 'get_invoices',
-      description: '請求書・見積書の一覧を取得する。「請求書見せて」「見積書一覧」「未入金の請求は？」「この案件の請求書は？」「この案件の見積は？」等。invoice_type=quote（見積書）またはinvoice（請求書）。project_idで案件に紐づく請求書を絞り込める。',
+      description: '請求書・見積書一覧を取得する。invoice_type=quote/invoice。project_idで絞込可。',
       parameters: { type: 'object', properties: { invoice_type: { type: 'string' }, status: { type: 'string' }, client_id: { type: 'string' }, project_id: { type: 'string', description: '案件IDで絞り込む（get_projectsで取得したid）' } }, required: [], additionalProperties: false },
       execute: async ({ invoice_type, status, client_id, project_id }: { invoice_type?: string; status?: string; client_id?: string; project_id?: string }) => {
         const q = new URLSearchParams()
@@ -1555,7 +1283,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_invoice_detail',
-      description: '請求書または見積書の詳細を取得する。「詳しく」「金額は？」「支払期限は？」等。get_invoicesで取得したidを使う。',
+      description: '指定invoice_idの請求書・見積書詳細を取得する。',
       parameters: { type: 'object', properties: { invoice_id: { type: 'string' } }, required: ['invoice_id'], additionalProperties: false },
       execute: async ({ invoice_id }: { invoice_id: string }) => {
         if (!invoice_id) return 'invoice_idを指定してください。'
@@ -1576,7 +1304,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Reports ─────────────────────────────────────────
     toolFactory({
       name: 'get_reports',
-      description: '報告書・作業完了レポートの一覧を取得する。「報告書一覧」「最近の報告書ある？」「この案件の報告書は？」等。',
+      description: '報告書一覧を取得する。project_idで絞込可。',
       parameters: { type: 'object', properties: { project_id: { type: 'string' } }, required: [], additionalProperties: false },
       execute: async ({ project_id }: { project_id?: string }) => {
         const data = await apiFetch('/api/reports?pageSize=8')
@@ -1596,7 +1324,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_report_detail',
-      description: '報告書の詳細を取得する。「詳しく」「内容は？」「総合評価は？」「Before/After写真は？」等。get_reportsで取得したidを使う。',
+      description: '指定report_idの報告書詳細を取得する。',
       parameters: { type: 'object', properties: { report_id: { type: 'string' } }, required: ['report_id'], additionalProperties: false },
       execute: async ({ report_id }: { report_id: string }) => {
         if (!report_id) return 'report_idを指定してください。'
@@ -1622,7 +1350,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Inventory ───────────────────────────────────────
     toolFactory({
       name: 'get_inventory',
-      description: '在庫品目の一覧を取得する。「在庫一覧」「ワックス在庫ある？」「在庫少ないものある？」等。',
+      description: '在庫品目一覧を取得する。',
       parameters: { type: 'object', properties: { search: { type: 'string' }, status: { type: 'string' } }, required: [], additionalProperties: false },
       execute: async ({ search, status }: { search?: string; status?: string }) => {
         const q = new URLSearchParams()
@@ -1643,7 +1371,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_inventory_detail',
-      description: '在庫品目の詳細を取得する。「現在庫何個？」「詳しく」等。get_inventoryで取得したidを使う。',
+      description: '指定inventory_idの在庫品目詳細を取得する。',
       parameters: { type: 'object', properties: { inventory_id: { type: 'string' } }, required: ['inventory_id'], additionalProperties: false },
       execute: async ({ inventory_id }: { inventory_id: string }) => {
         if (!inventory_id) return 'inventory_idを指定してください。'
@@ -1659,7 +1387,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name:        'get_inventory_history',
-      description: '在庫品目の入出庫履歴を取得する。「この在庫品の履歴教えて」「最近の入出庫は？」「最後に出庫したのいつ？」「入庫・出庫・調整の履歴は？」「この洗剤いつ使った？」等。inventory_idはget_inventoryで取得したIDを使う。',
+      description: '指定inventory_idの入出庫履歴を取得する。',
       parameters:  {
         type:       'object',
         properties: {
@@ -1691,7 +1419,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Contracts ───────────────────────────────────────
     toolFactory({
       name: 'get_contracts',
-      description: '契約一覧を取得する。「契約一覧教えて」「ABC社の契約ある？」「もうすぐ期限切れの契約は？」等。',
+      description: '契約一覧を取得する。expiring_days=30で期限近い契約に絞込可。',
       parameters: { type: 'object', properties: { search: { type: 'string' }, status: { type: 'string' }, expiring_days: { type: 'string' } }, required: [], additionalProperties: false },
       execute: async ({ search, status, expiring_days }: { search?: string; status?: string; expiring_days?: string }) => {
         const q = new URLSearchParams()
@@ -1716,7 +1444,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_contract_detail',
-      description: '契約の詳細を取得する。「詳しく」「いつまで？」「更新日は？」等。get_contractsで取得したidを使う。',
+      description: '指定contract_idの契約詳細を取得する。',
       parameters: { type: 'object', properties: { contract_id: { type: 'string' } }, required: ['contract_id'], additionalProperties: false },
       execute: async ({ contract_id }: { contract_id: string }) => {
         if (!contract_id) return 'contract_idを指定してください。'
@@ -1741,7 +1469,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Quality ─────────────────────────────────────────
     toolFactory({
       name: 'get_quality_summary',
-      description: '品質KPIサマリーを取得する。「品質状況教えて」「平均スコアは？」「低評価どれくらいある？」等。period=7d/30d/90d/ytd。',
+      description: '品質KPIサマリーを取得する。period=7d/30d/90d/ytd。',
       parameters: { type: 'object', properties: { period: { type: 'string' } }, required: [], additionalProperties: false },
       execute: async ({ period }: { period?: string }) => {
         const p = period ?? '30d'
@@ -1760,7 +1488,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_surveys',
-      description: '顧客アンケート・満足度調査の一覧を取得する。「顧客満足度どう？」「最近のアンケート結果は？」「低評価のアンケートある？」「お客様のコメント教えて」「クレームある？」「この案件の評価は？」等。',
+      description: '顧客アンケート・満足度一覧を取得する。rating/project_id/日付で絞込可。',
       parameters: {
         type: 'object',
         properties: {
@@ -1797,7 +1525,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_workers_quality',
-      description: '作業者別の品質集計を取得する。「作業者の品質ランキングは？」「評価が高い作業者は？」「品質が低い作業者いる？」「スタッフ別の評価を教えて」等。',
+      description: '作業者別品質集計・ランキングを取得する。',
       parameters: {
         type: 'object',
         properties: {
@@ -1823,7 +1551,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_project_quality',
-      description: '案件別の品質トレンドを取得する。「この案件の品質は？」「この現場のAI評価は？」「○○案件のスコアを教えて」等。project_idが必要。get_projectsで取得したidを使う。',
+      description: '指定project_idの品質トレンドを取得する。',
       parameters: {
         type: 'object',
         properties: {
@@ -1855,7 +1583,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Analytics ───────────────────────────────────────
     toolFactory({
       name: 'get_analytics',
-      description: 'AI分析・品質・業務の総合データを取得する。「AI分析して」「ランキングは？」「品質分布は？」「月次推移は？」等。',
+      description: 'AI分析・総合データを取得する。focus=overview/store/worker/trends等。',
       parameters: { type: 'object', properties: { focus: { type: 'string' } }, required: [], additionalProperties: false },
       execute: async ({ focus }: { focus?: string }) => {
         const data = await apiFetch('/api/analytics')
@@ -1883,7 +1611,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Settings ────────────────────────────────────────
     toolFactory({
       name: 'get_settings',
-      description: '会社設定・会社情報を取得する。「設定どうなってる？」「会社名は？」「電話番号は？」「住所は？」等。',
+      description: '会社設定・会社情報を取得する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/settings')
@@ -1903,7 +1631,7 @@ function buildConsoleRealtimeTools(
     // ─── NEW: Pending requests ────────────────────────────────
     toolFactory({
       name: 'get_manuals',
-      description: 'マニュアル・手順書・作業資料の一覧を確認・検索する。「マニュアル一覧教えて」「床清掃のマニュアルある？」「登録されてる手順書は？」「FAQマニュアル見せて」「カテゴリ○○のマニュアルは？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      description: 'マニュアル一覧を検索・取得する。内容の質問はask_manual。',
       parameters: {
         type: 'object',
         properties: {
@@ -1934,7 +1662,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_manual_detail',
-      description: '指定したマニュアルの詳細情報（タイトル・種別・カテゴリ・本文概要等）を取得する。「1件目詳しく」「このマニュアルの内容教えて」「カテゴリは？」「何について書いてある？」等。一覧でIDを確認後に使う。',
+      description: '指定manual_idのマニュアル詳細を取得する。',
       parameters: {
         type: 'object',
         properties: { manual_id: { type: 'string', description: 'マニュアルのID' } },
@@ -1962,7 +1690,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'resolve_manual',
-      description: 'タイトルや検索語からマニュアルのIDを解決する。Write操作前に必ず使う。「床清掃マニュアルのID教えて」「○○手順書を見つけて」等。',
+      description: 'マニュアルタイトルで検索しmanual_idを返す。',
       parameters: {
         type: 'object',
         properties: { search: { type: 'string', description: 'タイトルや内容で検索するキーワード' } },
@@ -1989,7 +1717,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'ask_manual',
-      description: 'HIKARUに登録されたマニュアルだけを根拠に、清掃方法・汚れ・素材・洗剤・薬剤・機械の使い方・作業手順・安全注意・ホテル客室清掃・現場作業等の自然言語の質問へ回答する。ユーザーの言い方がManualタイトルや登録文言と完全一致していなくても意味について質問している場合に使用する。例：「床の黒ずみどうする？」「油汚れが落ちない」「連泊の部屋どう掃除する？」「ワックス剥離の注意点は？」「この現場ではどうする？」。マニュアル一覧を知りたいだけの場合はget_manualsを使用する。L0操作。Confirmationなし。即実行。',
+      description: '清掃・薬剤・手順等の内容質問に登録Manual根拠で即回答。確認不要。Tool Result内容変更禁止・一般知識補完禁止。',
       parameters: {
         type: 'object',
         properties: {
@@ -2034,7 +1762,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_partners',
-      description: '協力業者・外注先・パートナーの一覧を確認する。「協力業者一覧教えて」「登録してる外注業者は？」「○○会社って登録されてる？」「有効な協力業者は？」「停止中の業者は？」等。画面を開く依頼ではなく情報を求める場合に使う。',
+      description: '協力業者一覧を取得する。search/statusで絞込可。',
       parameters: {
         type: 'object',
         properties: {
@@ -2063,7 +1791,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_partner_detail',
-      description: '指定した協力業者の詳細情報（連絡先・担当者・住所・担当案件等）を取得する。「この会社の情報教えて」「電話番号は？」「担当者は？」「住所は？」「この業者の案件ある？」等。一覧でIDを確認後に使う。',
+      description: '指定partner_idの協力業者詳細（連絡先・担当案件等）を取得する。',
       parameters: {
         type: 'object',
         properties: { partner_id: { type: 'string', description: '協力業者のID' } },
@@ -2095,7 +1823,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'resolve_partner',
-      description: '会社名や担当者名から協力業者のIDを解決する。Write操作前に必ず使う。「○○会社のID教えて」「○○建設を見つけて」等。',
+      description: '協力業者名で検索しpartner_idを返す。',
       parameters: {
         type: 'object',
         properties: { name: { type: 'string', description: '検索する会社名または担当者名キーワード' } },
@@ -2124,7 +1852,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_project_requests',
-      description: '顧客からの案件依頼一覧を取得する。「案件依頼ある？」「顧客から依頼来てる？」「未対応の依頼教えて」「承認済みの依頼は？」「1件目の依頼内容は？」「誰から来てる？」「希望日は？」等。内容詳細も含む。',
+      description: '顧客ポータルからの案件依頼一覧を取得する。status=pending/approved/rejected。詳細含む。',
       parameters: {
         type: 'object',
         properties: {
@@ -2159,7 +1887,7 @@ function buildConsoleRealtimeTools(
     }),
     toolFactory({
       name: 'get_pending_requests',
-      description: '承認待ちの各種申請（勤怠修正・経費・案件依頼）の件数サマリーを取得する。「申請来てる？」「何か承認待ちある？」等。',
+      description: '承認待ち申請の件数サマリーを取得する。',
       parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
       execute: async () => {
         const data = await apiFetch('/api/project-requests?status=pending')
