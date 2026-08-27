@@ -152,51 +152,75 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
-// ─── Holographic AI Background Data ──────────────────────────
-// Pre-computed fluid wave paths (computed once at module load)
-const _WDATA: {d:string;dur:number;rev:boolean;op:number;cyan:boolean;sw:number;da:string}[] = (()=>{
-  const defs:[number,number,number,number,number,boolean,number,boolean,string][] = [
-    [290,30,0.0078,0.00, 18,false,0.28,false,'2.5 7.5'],
-    [316,22,0.0092,1.20, 22,true, 0.34,false,'2 6.5'],
-    [340,26,0.0085,0.60, 16,false,0.40,false,'3 8'],
-    [358,18,0.0105,1.80, 20,true, 0.30,true, '2 6'],
-    [373,12,0.0118,2.40, 25,false,0.28,true, '1.5 5'],
-    [390,18,0.0105,3.00, 21,true, 0.30,true, '2 6'],
-    [408,26,0.0085,2.20, 17,false,0.40,false,'3 8'],
-    [432,22,0.0092,1.60, 23,true, 0.34,false,'2 6.5'],
-    [458,30,0.0078,0.80, 19,false,0.28,false,'2.5 7.5'],
+// ─── JARVIS Iron Man HUD Background ──────────────────────────
+
+const _JCX=430, _JCY=375  // SVG center, matches ConsoleHikaruCore position
+
+// Ring tick marks: [x1,y1, x2,y2, isCyan, isMajor]
+const _JTICKS:[number,number,number,number,boolean,boolean][] = (()=>{
+  const out:[number,number,number,number,boolean,boolean][] = []
+  const rings:[number,number,boolean][] = [
+    [365,15,false],[422,12,true],[480,18,false],[535,10,true]
   ]
-  return defs.map(([y,amp,freq,phase,dur,rev,op,cyan,da])=>{
-    const pts=[`M0,${y}`]
-    for(let x=30;x<=1000;x+=30)
-      pts.push(`L${x},${(y+amp*Math.sin(x*freq+phase)).toFixed(1)}`)
-    return {d:pts.join(' '),dur,rev,op,cyan,sw:cyan?1.3:1.6,da}
+  for(const [r,step,cyan] of rings){
+    for(let d=0;d<360;d+=step){
+      const a=d*Math.PI/180, major=d%(step*4)===0
+      const len=major?10:5
+      out.push([
+        _JCX+r*Math.cos(a), _JCY+r*Math.sin(a),
+        _JCX+(r+len)*Math.cos(a), _JCY+(r+len)*Math.sin(a),
+        cyan, major,
+      ])
+    }
+  }
+  return out
+})()
+
+// Radial arms: line segments from inner ring edge to outer boundary
+const _JARMS:{x1:number;y1:number;x2:number;y2:number;op:number;cyan:boolean;dash:boolean}[] = (()=>{
+  const degs=[0,22.5,45,67.5,90,112.5,135,157.5,180,202.5,225,247.5,270,292.5,315,337.5]
+  return degs.map((deg,i)=>{
+    const a=deg*Math.PI/180, r1=365, r2=i%4===0?575:i%2===0?538:508
+    return {
+      x1:_JCX+r1*Math.cos(a), y1:_JCY+r1*Math.sin(a),
+      x2:_JCX+r2*Math.cos(a), y2:_JCY+r2*Math.sin(a),
+      op:i%4===0?.22:i%2===0?.13:.08,
+      cyan:i%4===1||i%4===3,
+      dash:i%4!==0,
+    }
   })
 })()
 
-// Bright particle nodes: [cx, cy, r, isCyan, pulseDelay]
-const _PNODES:[number,number,number,boolean,number][] = [
-  [80,148,3.0,false,0],[192,62,2.8,false,1.5],[352,42,3.2,false,3.0],
-  [628,38,3.0,false,0.8],[790,88,2.8,true,2.2],[915,178,3.2,false,4.1],
-  [925,342,2.8,true,1.2],[918,435,3.0,false,5.5],[825,558,2.8,false,0.5],
-  [698,658,3.2,false,3.5],[452,708,2.5,true,2.0],[275,718,3.0,false,6.0],
-  [130,638,2.8,false,1.0],[48,508,3.2,false,4.6],[38,355,2.5,true,2.8],
-  [50,228,3.0,false,0.3],[142,105,2.8,false,5.0],[260,158,3.2,false,1.8],
-  [395,68,2.5,false,3.2],[518,105,3.0,true,7.0],
-]
+// Bright HUD nodes: on rings + scattered outer
+const _JNODES:[number,number,number,boolean,number][] = (()=>{
+  const out:[number,number,number,boolean,number][] = []
+  const ringDefs:[number,number,boolean][] = [[365,45,false],[422,60,true],[480,40,false]]
+  for(const [r,step,cyan] of ringDefs){
+    for(let d=0;d<360;d+=step){
+      const a=d*Math.PI/180
+      out.push([_JCX+r*Math.cos(a),_JCY+r*Math.sin(a),d%(step*3)===0?2.8:1.8,cyan,d*0.025])
+    }
+  }
+  const outer:[number,number,number,boolean,number][] = [
+    [80,148,2.5,false,0],[192,62,2.2,false,1.5],[350,44,2.8,false,3.0],
+    [626,40,2.5,false,0.8],[788,90,2.2,true,2.2],[912,180,2.8,false,4.1],
+    [924,344,2.2,true,1.2],[916,434,2.5,false,5.5],[824,558,2.2,false,0.5],
+    [696,656,2.5,false,3.5],[450,706,2.0,true,2.0],[273,718,2.5,false,6.0],
+  ]
+  out.push(...outer)
+  return out
+})()
 
-// Background drift particles: [cx, cy, r, anim, delay]
-const _PRT:[number,number,number,string,number][] = [
-  [82,145,1.5,'ha-da',0],[195,65,1.8,'ha-db',1.5],[348,42,1.3,'ha-dc',3.0],
-  [622,38,1.8,'ha-da',0.8],[785,88,1.5,'ha-dd',2.2],[908,175,1.8,'ha-de',4.1],
-  [922,342,1.3,'ha-da',1.2],[915,438,1.5,'ha-db',5.5],[822,558,1.8,'ha-dc',0.5],
-  [695,658,1.5,'ha-dd',3.5],[448,705,1.3,'ha-de',2.0],[272,715,1.8,'ha-da',6.0],
-  [125,638,1.5,'ha-db',1.0],[45,505,1.8,'ha-dc',4.6],[35,352,1.3,'ha-dd',2.8],
-  [48,225,1.5,'ha-de',0.3],[138,102,1.8,'ha-da',5.0],[255,155,1.3,'ha-db',1.8],
-  [388,68,1.5,'ha-dc',3.2],[512,102,1.8,'ha-dd',7.0],[648,155,1.3,'ha-de',0.7],
-  [812,278,1.5,'ha-da',2.3],[858,415,1.8,'ha-db',4.9],[765,538,1.3,'ha-dc',1.5],
-  [598,592,1.5,'ha-dd',3.8],[415,608,1.8,'ha-de',5.3],[262,572,1.3,'ha-da',0.9],
-  [135,488,1.5,'ha-db',2.7],[88,382,1.8,'ha-dc',4.3],[115,278,1.3,'ha-dd',1.3],
+// Drift particles: [cx, cy, r, anim, delay]
+const _JPRT:[number,number,number,string,number][] = [
+  [82,145,1.2,'jv-da',0],[195,65,1.4,'jv-db',1.5],[348,42,1.0,'jv-dc',3.0],
+  [622,38,1.4,'jv-da',0.8],[785,88,1.2,'jv-dd',2.2],[908,175,1.4,'jv-de',4.1],
+  [922,342,1.0,'jv-da',1.2],[915,438,1.2,'jv-db',5.5],[822,558,1.4,'jv-dc',0.5],
+  [695,658,1.2,'jv-dd',3.5],[448,705,1.0,'jv-de',2.0],[272,715,1.4,'jv-da',6.0],
+  [125,638,1.2,'jv-db',1.0],[45,505,1.4,'jv-dc',4.6],[35,352,1.0,'jv-dd',2.8],
+  [48,225,1.2,'jv-de',0.3],[138,102,1.4,'jv-da',5.0],[255,155,1.0,'jv-db',1.8],
+  [388,68,1.2,'jv-dc',3.2],[512,102,1.4,'jv-dd',7.0],[648,155,1.0,'jv-de',0.7],
+  [812,278,1.2,'jv-da',2.3],[858,415,1.4,'jv-db',4.9],[765,538,1.0,'jv-dc',1.5],
 ]
 
 // PERMANENT — no Voice state dependency, all CSS animations
@@ -205,163 +229,193 @@ function CircuitBackground({ mode: _mode }: { mode: string }) {
     <div aria-hidden="true"
       style={{position:'absolute',inset:0,zIndex:-1,pointerEvents:'none',overflow:'hidden'}}>
       <style>{`
-        @keyframes ha-grid  {from{transform:perspective(620px) rotateX(62deg) translateY(0)}to{transform:perspective(620px) rotateX(62deg) translateY(60px)}}
-        @keyframes ha-glow  {0%,100%{opacity:.58}50%{opacity:1}}
-        @keyframes ha-vbeam {0%,100%{opacity:.60}50%{opacity:1}}
-        @keyframes ha-cw    {to{transform:rotate(360deg)}}
-        @keyframes ha-ccw   {to{transform:rotate(-360deg)}}
-        @keyframes ha-pulse {0%,100%{opacity:.28}50%{opacity:.92}}
-        @keyframes ha-pbr   {0%,100%{opacity:.42}50%{opacity:1}}
-        @keyframes ha-wf    {to{stroke-dashoffset:-400}}
-        @keyframes ha-wr    {to{stroke-dashoffset:400}}
-        @keyframes ha-da    {0%,100%{transform:translate(0,0)}50%{transform:translate(6px,-8px)}}
-        @keyframes ha-db    {0%,100%{transform:translate(0,0)}50%{transform:translate(-7px,5px)}}
-        @keyframes ha-dc    {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,9px)}}
-        @keyframes ha-dd    {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-7px)}}
-        @keyframes ha-de    {0%,100%{transform:translate(0,0)}50%{transform:translate(8px,3px)}}
-        @media(prefers-reduced-motion:reduce){.ha{animation:none!important}}
+        @keyframes jv-cw    {to{transform:rotate(360deg)}}
+        @keyframes jv-ccw   {to{transform:rotate(-360deg)}}
+        @keyframes jv-sweep {to{transform:rotate(360deg)}}
+        @keyframes jv-pulse {0%,100%{opacity:.15}50%{opacity:.82}}
+        @keyframes jv-pbr   {0%,100%{opacity:.35}50%{opacity:1}}
+        @keyframes jv-glow  {0%,100%{opacity:.52}50%{opacity:1}}
+        @keyframes jv-scan  {0%{transform:translateY(0)}100%{transform:translateY(100vh)}}
+        @keyframes jv-da    {0%,100%{transform:translate(0,0)}50%{transform:translate(5px,-7px)}}
+        @keyframes jv-db    {0%,100%{transform:translate(0,0)}50%{transform:translate(-6px,5px)}}
+        @keyframes jv-dc    {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,8px)}}
+        @keyframes jv-dd    {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-6px)}}
+        @keyframes jv-de    {0%,100%{transform:translate(0,0)}50%{transform:translate(7px,3px)}}
+        @keyframes jv-wf    {to{stroke-dashoffset:-400}}
+        @keyframes jv-wr    {to{stroke-dashoffset:400}}
+        @media(prefers-reduced-motion:reduce){.jv{animation:none!important}}
       `}</style>
 
-      {/* 1. Dark teal-black base */}
+      {/* 1. Deep navy-black base */}
       <div style={{position:'absolute',inset:0,
-        background:'radial-gradient(ellipse 65% 78% at 43% 50%,#060d12 0%,#030809 40%,#020405 70%,#010202 100%)'}}/>
+        background:'radial-gradient(ellipse 70% 80% at 43% 50%,#060f1c 0%,#030a14 42%,#010609 72%,#010202 100%)'}}/>
 
-      {/* 2. Strong central gold glow */}
-      <div className="ha" style={{
-        position:'absolute',left:'10%',top:'0',width:'65%',height:'100%',
-        background:'radial-gradient(ellipse at 42% 50%,rgba(255,200,40,.30) 0%,rgba(255,178,0,.13) 25%,rgba(255,148,0,.04) 52%,transparent 72%)',
-        animation:'ha-glow 10s ease-in-out infinite',
+      {/* 2. Cyan arc-reactor core glow */}
+      <div className="jv" style={{
+        position:'absolute',left:'10%',top:'0',width:'60%',height:'100%',
+        background:'radial-gradient(ellipse at 43% 50%,rgba(0,175,255,.20) 0%,rgba(0,120,210,.08) 32%,rgba(0,65,155,.02) 58%,transparent 78%)',
+        animation:'jv-glow 9s ease-in-out infinite',
       }}/>
 
-      {/* 3. Vertical energy beam */}
-      <div className="ha" style={{
-        position:'absolute',top:0,bottom:0,left:'calc(43% - 1px)',width:'2px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(255,215,60,.04) 8%,rgba(255,215,60,.38) 42%,rgba(255,218,65,.55) 50%,rgba(255,215,60,.38) 58%,rgba(255,215,60,.04) 92%,transparent 100%)',
-        animation:'ha-vbeam 8s ease-in-out infinite',
+      {/* 3. Gold warm core accent */}
+      <div className="jv" style={{
+        position:'absolute',left:'18%',top:'8%',width:'50%',height:'84%',
+        background:'radial-gradient(ellipse at 43% 50%,rgba(255,190,30,.11) 0%,rgba(255,145,0,.03) 35%,transparent 60%)',
+        animation:'jv-glow 13s ease-in-out infinite 4s',
       }}/>
 
-      {/* 4. Bottom perspective grid (holographic floor) */}
+      {/* 4. Tech grid (subtle) */}
       <div style={{
-        position:'absolute',bottom:0,left:'-12%',right:'-12%',height:'42%',
-        overflow:'hidden',
-        maskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.75) 38%,transparent 100%)',
-        WebkitMaskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.75) 38%,transparent 100%)',
-      }}>
-        <div className="ha" style={{
-          position:'absolute',inset:0,
-          backgroundImage:'linear-gradient(rgba(255,210,55,.090) 1px,transparent 1px),linear-gradient(90deg,rgba(255,210,55,.070) 1px,transparent 1px)',
-          backgroundSize:'60px 60px',
-          transformOrigin:'50% 0%',
-          animation:'ha-grid 30s linear infinite',
-        }}/>
-      </div>
+        position:'absolute',inset:0,
+        backgroundImage:'linear-gradient(rgba(0,165,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(0,165,255,.022) 1px,transparent 1px)',
+        backgroundSize:'60px 60px',
+        maskImage:'radial-gradient(ellipse 70% 80% at 43% 50%,rgba(0,0,0,.45) 0%,rgba(0,0,0,.80) 50%,black 100%)',
+        WebkitMaskImage:'radial-gradient(ellipse 70% 80% at 43% 50%,rgba(0,0,0,.45) 0%,rgba(0,0,0,.80) 50%,black 100%)',
+      }}/>
 
-      {/* SVG: outer rings + fluid waves + nodes + particles */}
+      {/* 5. Radar sweep — conic gradient rotating from JARVIS center */}
+      <div className="jv" style={{
+        position:'absolute',
+        left:'calc(43% - 540px)',top:'calc(50% - 540px)',
+        width:'1080px',height:'1080px',
+        background:'conic-gradient(from 0deg,transparent 0deg,transparent 320deg,rgba(0,190,255,.06) 345deg,rgba(0,210,255,.20) 356deg,rgba(0,195,255,.08) 360deg)',
+        borderRadius:'50%',
+        animation:'jv-sweep 8s linear infinite',
+        mixBlendMode:'screen',
+      }}/>
+
+      {/* 6. Horizontal scan line */}
+      <div className="jv" style={{
+        position:'absolute',left:0,right:0,top:0,height:'1px',
+        background:'linear-gradient(to right,transparent 0%,rgba(0,195,255,.04) 18%,rgba(0,210,255,.22) 43%,rgba(0,195,255,.04) 70%,transparent 100%)',
+        animation:'jv-scan 13s linear infinite',
+      }}/>
+
+      {/* SVG: rings + ticks + arms + HUD panels + signals + nodes + particles */}
       <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
-        style={{position:'absolute',inset:0,width:'100%',height:'100%',
-          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
-          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
-        }}>
+        style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
 
-        {/* ── Outer background rings (beyond ConsoleHikaruCore radius ~330px) ── */}
-        <circle cx="430" cy="375" r="362" fill="none"
-          stroke="rgba(255,210,52,.082)" strokeWidth="1.2"/>
-        <circle cx="430" cy="375" r="408" fill="none"
-          stroke="rgba(255,210,52,.062)" strokeWidth="1.0"
-          strokeDasharray="12 28" className="ha"
-          style={{transformOrigin:'430px 375px',animation:'ha-cw 75s linear infinite'}}/>
-        <circle cx="430" cy="375" r="455" fill="none"
-          stroke="rgba(255,205,48,.050)" strokeWidth="0.9" className="ha"
-          style={{transformOrigin:'430px 375px',animation:'ha-ccw 92s linear infinite'}}/>
-        <circle cx="430" cy="375" r="508" fill="none"
-          stroke="rgba(0,210,200,.040)" strokeWidth="0.8"
-          strokeDasharray="18 45" className="ha"
-          style={{transformOrigin:'430px 375px',animation:'ha-cw 65s linear infinite 10s'}}/>
-        <circle cx="430" cy="375" r="562" fill="none"
-          stroke="rgba(255,200,45,.032)" strokeWidth="0.7" className="ha"
-          style={{transformOrigin:'430px 375px',animation:'ha-ccw 88s linear infinite 5s'}}/>
+        {/* ── Outer ghost rings ── */}
+        <circle cx={_JCX} cy={_JCY} r="562" fill="none"
+          stroke="rgba(0,175,255,.050)" strokeWidth="0.8"
+          strokeDasharray="15 38" className="jv"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jv-cw 95s linear infinite'}}/>
+        <circle cx={_JCX} cy={_JCY} r="618" fill="none"
+          stroke="rgba(255,208,45,.032)" strokeWidth="0.6" className="jv"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jv-ccw 118s linear infinite'}}/>
 
-        {/* Corner arcs for spatial depth */}
-        <circle cx="50" cy="50" r="382" fill="none"
-          stroke="rgba(255,208,50,.068)" strokeWidth="1.1"
-          strokeDasharray="478 1912" className="ha"
-          style={{transformOrigin:'50px 50px',animation:'ha-cw 72s linear infinite'}}/>
-        <circle cx="920" cy="-80" r="452" fill="none"
-          stroke="rgba(255,205,48,.055)" strokeWidth="1.0"
-          strokeDasharray="562 2268" className="ha"
-          style={{transformOrigin:'920px -80px',animation:'ha-ccw 92s linear infinite'}}/>
-        <circle cx="-60" cy="830" r="522" fill="none"
-          stroke="rgba(255,202,45,.045)" strokeWidth="0.9" className="ha"
-          style={{transformOrigin:'-60px 830px',animation:'ha-cw 65s linear infinite 15s'}}/>
+        {/* ── Technical rings with varied dash ── */}
+        <circle cx={_JCX} cy={_JCY} r="535" fill="none"
+          stroke="rgba(0,168,255,.062)" strokeWidth="0.9"
+          strokeDasharray="22 58" className="jv"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jv-cw 72s linear infinite 5s'}}/>
+        <circle cx={_JCX} cy={_JCY} r="480" fill="none"
+          stroke="rgba(255,208,48,.068)" strokeWidth="1.0"
+          strokeDasharray="8 20" className="jv"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jv-ccw 58s linear infinite'}}/>
+        <circle cx={_JCX} cy={_JCY} r="422" fill="none"
+          stroke="rgba(0,182,255,.082)" strokeWidth="1.1"
+          strokeDasharray="5 14" className="jv"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jv-cw 48s linear infinite 2s'}}/>
+        <circle cx={_JCX} cy={_JCY} r="365" fill="none"
+          stroke="rgba(255,208,48,.075)" strokeWidth="1.0"/>
 
-        {/* ── FLUID WAVE FIELD (most important visual element) ── */}
-        <g fill="none" strokeLinecap="round">
-          {_WDATA.map(({d,dur,rev,op,cyan,sw,da},i)=>(
-            <path key={i} d={d}
-              stroke={`rgba(${cyan?'0,215,205':'255,215,58'},${op})`}
-              strokeWidth={sw} strokeDasharray={da}
-              className="ha"
-              style={{animation:`${rev?'ha-wr':'ha-wf'} ${dur}s linear infinite`}}/>
-          ))}
+        {/* ── Corner HUD brackets ── */}
+        <path d="M18,18 L18,58 M18,18 L58,18" fill="none" stroke="rgba(0,190,255,.50)" strokeWidth="1.5"/>
+        <path d="M982,18 L982,58 M982,18 L942,18" fill="none" stroke="rgba(0,190,255,.50)" strokeWidth="1.5"/>
+        <path d="M18,732 L18,692 M18,732 L58,732" fill="none" stroke="rgba(0,190,255,.50)" strokeWidth="1.5"/>
+        <path d="M982,732 L982,692 M982,732 L942,732" fill="none" stroke="rgba(0,190,255,.50)" strokeWidth="1.5"/>
+        <path d="M32,32 L32,48 M32,32 L48,32" fill="none" stroke="rgba(255,208,48,.32)" strokeWidth="0.8"/>
+        <path d="M968,32 L968,48 M968,32 L952,32" fill="none" stroke="rgba(255,208,48,.32)" strokeWidth="0.8"/>
+        <path d="M32,718 L32,702 M32,718 L48,718" fill="none" stroke="rgba(255,208,48,.32)" strokeWidth="0.8"/>
+        <path d="M968,718 L968,702 M968,718 L952,718" fill="none" stroke="rgba(255,208,48,.32)" strokeWidth="0.8"/>
+
+        {/* ── Ring tick marks ── */}
+        {_JTICKS.map(([x1,y1,x2,y2,cyan,major],i)=>(
+          <line key={i}
+            x1={x1.toFixed(1)} y1={y1.toFixed(1)}
+            x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+            stroke={cyan?`rgba(0,195,255,${major?.40:.18})`:`rgba(255,208,48,${major?.36:.15})`}
+            strokeWidth={major?.9:.5}/>
+        ))}
+
+        {/* ── Radial arms ── */}
+        {_JARMS.map(({x1,y1,x2,y2,op,cyan,dash},i)=>(
+          <line key={i}
+            x1={x1.toFixed(1)} y1={y1.toFixed(1)}
+            x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+            stroke={`rgba(${cyan?'0,195,255':'255,208,48'},${op})`}
+            strokeWidth={i%4===0?.8:.5}
+            strokeDasharray={dash?'2 8':undefined}/>
+        ))}
+
+        {/* ── HUD data panels ── */}
+        <g fontFamily="'Courier New',Courier,monospace" letterSpacing="1.5">
+          <rect x="24" y="40" width="104" height="40" rx="2"
+            fill="rgba(0,175,255,.04)" stroke="rgba(0,175,255,.22)" strokeWidth=".7"/>
+          <text x="32" y="54" fill="rgba(0,200,255,.88)" fontSize="7">SYSTEM // ONLINE</text>
+          <text x="32" y="66" fill="rgba(0,200,255,.62)" fontSize="6">AI CORE ACTIVE</text>
+          <rect x="24" y="86" width="80" height="18" rx="2"
+            fill="rgba(0,175,255,.03)" stroke="rgba(0,175,255,.15)" strokeWidth=".6"/>
+          <text x="32" y="98" fill="rgba(0,200,255,.68)" fontSize="6">SIGNAL LOCK</text>
+          <rect x="24" y="684" width="96" height="48" rx="2"
+            fill="rgba(0,175,255,.04)" stroke="rgba(0,175,255,.20)" strokeWidth=".7"/>
+          <text x="32" y="698" fill="rgba(0,200,255,.85)" fontSize="7">VOICE LINK</text>
+          <text x="32" y="709" fill="rgba(0,200,255,.60)" fontSize="6">ANALYSIS</text>
+          <text x="32" y="720" fill="rgba(255,210,50,.55)" fontSize="6">HIKARU AI</text>
         </g>
 
         {/* ── Background network lines ── */}
-        <g fill="none" stroke="rgba(255,210,52,.18)" strokeWidth=".8">
-          <path d="M0,175 L140,230 L255,215"/>
-          <path d="M0,418 L82,378 L158,315 L255,295"/>
-          <path d="M0,575 L115,538 L182,495"/>
-          <path d="M228,0 L262,82 L292,142"/>
-          <path d="M415,0 L432,62 L442,130"/>
-          <path d="M178,0 L192,52 L212,112"/>
-          <path d="M178,750 L212,662 L242,612"/>
-          <path d="M315,750 L338,675 L362,622"/>
+        <g fill="none" strokeWidth=".8">
+          <path d="M0,178 L140,232 L258,218" stroke="rgba(0,182,255,.16)"/>
+          <path d="M0,420 L82,380 L158,318 L258,298" stroke="rgba(0,182,255,.14)"/>
+          <path d="M0,578 L115,540 L182,498" stroke="rgba(0,182,255,.14)"/>
+          <path d="M228,0 L262,82 L292,145" stroke="rgba(255,208,48,.16)"/>
+          <path d="M415,0 L432,62 L442,132" stroke="rgba(255,208,48,.16)"/>
+          <path d="M178,0 L192,52 L212,115" stroke="rgba(0,182,255,.12)"/>
+          <path d="M178,750 L212,665 L242,615" stroke="rgba(0,182,255,.14)"/>
+          <path d="M315,750 L338,678 L362,625" stroke="rgba(255,208,48,.12)"/>
         </g>
 
-        {/* ── Moving signals ── */}
+        {/* ── Moving data signals ── */}
         <g fill="none" strokeLinecap="round">
-          <path d="M0,232 L140,232 L255,215"
-            stroke="rgba(255,228,72,.78)" strokeWidth="2.8" strokeDasharray="20 210"
-            className="ha" style={{animation:'ha-wf 7s linear infinite'}}/>
-          <path d="M0,418 L82,378 L158,315 L255,295"
-            stroke="rgba(255,222,65,.74)" strokeWidth="2.8" strokeDasharray="18 225"
-            className="ha" style={{animation:'ha-wf 9s linear infinite 2s'}}/>
-          <path d="M228,0 L262,82 L292,142"
-            stroke="rgba(255,225,68,.72)" strokeWidth="2.8" strokeDasharray="16 162"
-            className="ha" style={{animation:'ha-wf 6s linear infinite 4s'}}/>
-          <path d="M415,0 L432,62 L442,130"
-            stroke="rgba(255,222,65,.70)" strokeWidth="2.8" strokeDasharray="16 142"
-            className="ha" style={{animation:'ha-wf 8s linear infinite 1s'}}/>
-          <path d="M178,750 L212,662 L242,612"
-            stroke="rgba(255,220,62,.70)" strokeWidth="2.8" strokeDasharray="18 158"
-            className="ha" style={{animation:'ha-wr 8s linear infinite 3s'}}/>
-          <path d="M315,750 L338,675 L362,622"
-            stroke="rgba(0,220,210,.65)" strokeWidth="2.5" strokeDasharray="14 158"
-            className="ha" style={{animation:'ha-wr 7.5s linear infinite 6s'}}/>
+          <path d="M0,232 L140,232 L258,218"
+            stroke="rgba(0,220,255,.80)" strokeWidth="2.2" strokeDasharray="18 208"
+            className="jv" style={{animation:'jv-wf 7s linear infinite'}}/>
+          <path d="M0,420 L82,380 L158,318 L258,298"
+            stroke="rgba(255,228,72,.72)" strokeWidth="2.2" strokeDasharray="16 222"
+            className="jv" style={{animation:'jv-wf 9s linear infinite 2s'}}/>
+          <path d="M228,0 L262,82 L292,145"
+            stroke="rgba(0,215,255,.70)" strokeWidth="2.2" strokeDasharray="14 160"
+            className="jv" style={{animation:'jv-wf 6s linear infinite 4s'}}/>
+          <path d="M415,0 L432,62 L442,132"
+            stroke="rgba(255,225,68,.68)" strokeWidth="2.2" strokeDasharray="14 140"
+            className="jv" style={{animation:'jv-wf 8s linear infinite 1s'}}/>
+          <path d="M178,750 L212,665 L242,615"
+            stroke="rgba(0,210,255,.68)" strokeWidth="2.0" strokeDasharray="16 155"
+            className="jv" style={{animation:'jv-wr 8s linear infinite 3s'}}/>
+          <path d="M315,750 L338,678 L362,625"
+            stroke="rgba(255,220,62,.65)" strokeWidth="2.0" strokeDasharray="14 155"
+            className="jv" style={{animation:'jv-wr 7.5s linear infinite 6s'}}/>
         </g>
 
-        {/* ── BRIGHT PARTICLE NODES ── */}
-        {_PNODES.map(([cx,cy,r,cyan,delay],i)=>(
-          <g key={i} className="ha"
-            style={{animation:`${i%3===0?'ha-pbr':'ha-pulse'} ${3.5+(i%5)*.7}s ease-in-out ${delay}s infinite`}}>
-            <circle cx={cx} cy={cy} r={r*2.5}
-              fill={`rgba(${cyan?'0,212,202':'255,205,42'},.085)`}/>
-            <circle cx={cx} cy={cy} r={r}
-              fill={`rgba(${cyan?'0,228,218':'255,230,72'},.88)`}
-              style={{filter:`drop-shadow(0 0 4px rgba(${cyan?'0,212,202':'255,210,55'},1))`}}/>
-            {r>=3.0&&<>
-              <line x1={cx-r*1.8} y1={cy} x2={cx+r*1.8} y2={cy}
-                stroke={`rgba(${cyan?'0,215,205':'255,210,55'},.38)`} strokeWidth=".6"/>
-              <line x1={cx} y1={cy-r*1.8} x2={cx} y2={cy+r*1.8}
-                stroke={`rgba(${cyan?'0,215,205':'255,210,55'},.38)`} strokeWidth=".6"/>
-            </>}
+        {/* ── Bright HUD nodes ── */}
+        {_JNODES.map(([cx,cy,r,cyan,delay],i)=>(
+          <g key={i} className="jv"
+            style={{animation:`${i%3===0?'jv-pbr':'jv-pulse'} ${3+(i%5)*.6}s ease-in-out ${delay}s infinite`}}>
+            <circle cx={cx.toFixed(1)} cy={cy.toFixed(1)} r={r*2.2}
+              fill={`rgba(${cyan?'0,205,255':'255,205,45'},.08)`}/>
+            <circle cx={cx.toFixed(1)} cy={cy.toFixed(1)} r={r}
+              fill={`rgba(${cyan?'0,225,255':'255,230,72'},.90)`}
+              style={{filter:`drop-shadow(0 0 3px rgba(${cyan?'0,210,255':'255,215,55'},1))`}}/>
           </g>
         ))}
 
-        {/* ── BACKGROUND DRIFT PARTICLES ── */}
-        {_PRT.map(([cx,cy,r,anim,delay],i)=>(
+        {/* ── Drift particles ── */}
+        {_JPRT.map(([cx,cy,r,anim,delay],i)=>(
           <circle key={i} cx={cx} cy={cy} r={r}
-            fill={i%5===0?'rgba(0,215,205,.38)':'rgba(255,220,65,.32)'}
-            className="ha"
+            fill={i%4===0?'rgba(0,212,255,.38)':i%3===0?'rgba(255,220,65,.32)':'rgba(0,188,255,.28)'}
+            className="jv"
             style={{animation:`${anim} ${11+(i%8)*1.5}s ease-in-out ${delay}s infinite`}}/>
         ))}
       </svg>
