@@ -14,13 +14,12 @@ import type { VoiceSettings }  from '@/lib/voice/state/types'
 // Visual 100% System準拠。Voice Logic は ConsoleVoiceContext のまま。
 // ============================================================
 
-const BG   = '#020202'
+const BG   = '#010202'
 const GD   = '#FFD700'
 const GB   = '#FFE878'
 const GDim = 'rgba(255,215,0,0.45)'
 const GBdr = 'rgba(255,215,0,0.22)'
 
-// Console-specific status items (same visual language as System)
 const STATUS_ITEMS = [
   { key:'idle',       label:'STANDBY',    sub:'待機中',        color:'#C89010', dot:'#AA7800' },
   { key:'connecting', label:'CONNECTING', sub:'接続中',        color:'#00AFFF', dot:'#00AFFF' },
@@ -32,7 +31,6 @@ const STATUS_ITEMS = [
 
 type StatusKey = typeof STATUS_ITEMS[number]['key']
 
-// Console JARVIS Quick Actions (Console-specific business actions)
 const QUICK = [
   { label:'ダッシュボード', utt:'ダッシュボード',             Icon:Home   },
   { label:'通知確認',       utt:'通知を確認して',             Icon:Bell   },
@@ -154,19 +152,51 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
-// ─── Permanent Holographic Background ────────────────────────
-// Particle positions: [cx, cy, r, animName, delay]
-const _PRT: [number,number,number,string,number][] = [
-  [82,145,1.8,'holo-da',0],[195,65,2.0,'holo-db',1.5],[348,42,1.5,'holo-dc',3.0],
-  [622,38,2.0,'holo-da',0.8],[785,88,1.8,'holo-dd',2.2],[908,175,2.0,'holo-de',4.1],
-  [922,342,1.5,'holo-da',1.2],[915,438,1.8,'holo-db',5.5],[822,558,2.0,'holo-dc',0.5],
-  [695,658,1.8,'holo-dd',3.5],[448,705,1.5,'holo-de',2.0],[272,715,2.0,'holo-da',6.0],
-  [125,638,1.8,'holo-db',1.0],[45,505,2.0,'holo-dc',4.6],[35,352,1.5,'holo-dd',2.8],
-  [48,225,1.8,'holo-de',0.3],[138,102,2.0,'holo-da',5.0],[255,155,1.5,'holo-db',1.8],
-  [388,68,1.8,'holo-dc',3.2],[512,102,2.0,'holo-dd',7.0],[648,155,1.5,'holo-de',0.7],
-  [812,278,1.8,'holo-da',2.3],[858,415,2.0,'holo-db',4.9],[765,538,1.5,'holo-dc',1.5],
-  [598,592,1.8,'holo-dd',3.8],[415,608,2.0,'holo-de',5.3],[262,572,1.5,'holo-da',0.9],
-  [135,488,1.8,'holo-db',2.7],[88,382,2.0,'holo-dc',4.3],[115,278,1.5,'holo-dd',1.3],
+// ─── Holographic AI Background Data ──────────────────────────
+// Pre-computed fluid wave paths (computed once at module load)
+const _WDATA: {d:string;dur:number;rev:boolean;op:number;cyan:boolean;sw:number;da:string}[] = (()=>{
+  const defs:[number,number,number,number,number,boolean,number,boolean,string][] = [
+    [290,30,0.0078,0.00, 18,false,0.28,false,'2.5 7.5'],
+    [316,22,0.0092,1.20, 22,true, 0.34,false,'2 6.5'],
+    [340,26,0.0085,0.60, 16,false,0.40,false,'3 8'],
+    [358,18,0.0105,1.80, 20,true, 0.30,true, '2 6'],
+    [373,12,0.0118,2.40, 25,false,0.28,true, '1.5 5'],
+    [390,18,0.0105,3.00, 21,true, 0.30,true, '2 6'],
+    [408,26,0.0085,2.20, 17,false,0.40,false,'3 8'],
+    [432,22,0.0092,1.60, 23,true, 0.34,false,'2 6.5'],
+    [458,30,0.0078,0.80, 19,false,0.28,false,'2.5 7.5'],
+  ]
+  return defs.map(([y,amp,freq,phase,dur,rev,op,cyan,da])=>{
+    const pts=[`M0,${y}`]
+    for(let x=30;x<=1000;x+=30)
+      pts.push(`L${x},${(y+amp*Math.sin(x*freq+phase)).toFixed(1)}`)
+    return {d:pts.join(' '),dur,rev,op,cyan,sw:cyan?1.3:1.6,da}
+  })
+})()
+
+// Bright particle nodes: [cx, cy, r, isCyan, pulseDelay]
+const _PNODES:[number,number,number,boolean,number][] = [
+  [80,148,3.0,false,0],[192,62,2.8,false,1.5],[352,42,3.2,false,3.0],
+  [628,38,3.0,false,0.8],[790,88,2.8,true,2.2],[915,178,3.2,false,4.1],
+  [925,342,2.8,true,1.2],[918,435,3.0,false,5.5],[825,558,2.8,false,0.5],
+  [698,658,3.2,false,3.5],[452,708,2.5,true,2.0],[275,718,3.0,false,6.0],
+  [130,638,2.8,false,1.0],[48,508,3.2,false,4.6],[38,355,2.5,true,2.8],
+  [50,228,3.0,false,0.3],[142,105,2.8,false,5.0],[260,158,3.2,false,1.8],
+  [395,68,2.5,false,3.2],[518,105,3.0,true,7.0],
+]
+
+// Background drift particles: [cx, cy, r, anim, delay]
+const _PRT:[number,number,number,string,number][] = [
+  [82,145,1.5,'ha-da',0],[195,65,1.8,'ha-db',1.5],[348,42,1.3,'ha-dc',3.0],
+  [622,38,1.8,'ha-da',0.8],[785,88,1.5,'ha-dd',2.2],[908,175,1.8,'ha-de',4.1],
+  [922,342,1.3,'ha-da',1.2],[915,438,1.5,'ha-db',5.5],[822,558,1.8,'ha-dc',0.5],
+  [695,658,1.5,'ha-dd',3.5],[448,705,1.3,'ha-de',2.0],[272,715,1.8,'ha-da',6.0],
+  [125,638,1.5,'ha-db',1.0],[45,505,1.8,'ha-dc',4.6],[35,352,1.3,'ha-dd',2.8],
+  [48,225,1.5,'ha-de',0.3],[138,102,1.8,'ha-da',5.0],[255,155,1.3,'ha-db',1.8],
+  [388,68,1.5,'ha-dc',3.2],[512,102,1.8,'ha-dd',7.0],[648,155,1.3,'ha-de',0.7],
+  [812,278,1.5,'ha-da',2.3],[858,415,1.8,'ha-db',4.9],[765,538,1.3,'ha-dc',1.5],
+  [598,592,1.5,'ha-dd',3.8],[415,608,1.8,'ha-de',5.3],[262,572,1.3,'ha-da',0.9],
+  [135,488,1.5,'ha-db',2.7],[88,382,1.8,'ha-dc',4.3],[115,278,1.3,'ha-dd',1.3],
 ]
 
 // PERMANENT — no Voice state dependency, all CSS animations
@@ -175,277 +205,165 @@ function CircuitBackground({ mode: _mode }: { mode: string }) {
     <div aria-hidden="true"
       style={{position:'absolute',inset:0,zIndex:-1,pointerEvents:'none',overflow:'hidden'}}>
       <style>{`
-        @keyframes holo-grid  {from{background-position:0 0}to{background-position:0 60px}}
-        @keyframes holo-sd1   {0%,4%{transform:translateY(-180px)}93%,100%{transform:translateY(1300px)}}
-        @keyframes holo-sd2   {0%,6%{transform:translateY(-150px)}90%,100%{transform:translateY(1300px)}}
-        @keyframes holo-su1   {0%,4%{transform:translateY(1300px)} 93%,100%{transform:translateY(-150px)}}
-        @keyframes holo-sr1   {0%,4%{transform:translateX(-220px)}92%,100%{transform:translateX(1600px)}}
-        @keyframes holo-sr2   {0%,5%{transform:translateX(-180px)}92%,100%{transform:translateX(1600px)}}
-        @keyframes holo-cw    {to{transform:rotate(360deg)}}
-        @keyframes holo-ccw   {to{transform:rotate(-360deg)}}
-        @keyframes holo-pulse {0%,100%{opacity:.30}50%{opacity:.95}}
-        @keyframes holo-pbr   {0%,100%{opacity:.42}50%{opacity:1}}
-        @keyframes holo-glow  {0%,100%{opacity:.60}50%{opacity:1}}
-        @keyframes holo-panel {0%,18%{opacity:0}28%,78%{opacity:1}90%,100%{opacity:0}}
-        @keyframes holo-fwd   {to{stroke-dashoffset:-500}}
-        @keyframes holo-rev   {to{stroke-dashoffset:500}}
-        @keyframes holo-da    {0%,100%{transform:translate(0,0)}50%{transform:translate(6px,-8px)}}
-        @keyframes holo-db    {0%,100%{transform:translate(0,0)}50%{transform:translate(-7px,5px)}}
-        @keyframes holo-dc    {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,9px)}}
-        @keyframes holo-dd    {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-7px)}}
-        @keyframes holo-de    {0%,100%{transform:translate(0,0)}50%{transform:translate(8px,3px)}}
+        @keyframes ha-grid  {from{transform:perspective(620px) rotateX(62deg) translateY(0)}to{transform:perspective(620px) rotateX(62deg) translateY(60px)}}
+        @keyframes ha-glow  {0%,100%{opacity:.58}50%{opacity:1}}
+        @keyframes ha-vbeam {0%,100%{opacity:.60}50%{opacity:1}}
+        @keyframes ha-cw    {to{transform:rotate(360deg)}}
+        @keyframes ha-ccw   {to{transform:rotate(-360deg)}}
+        @keyframes ha-pulse {0%,100%{opacity:.28}50%{opacity:.92}}
+        @keyframes ha-pbr   {0%,100%{opacity:.42}50%{opacity:1}}
+        @keyframes ha-wf    {to{stroke-dashoffset:-400}}
+        @keyframes ha-wr    {to{stroke-dashoffset:400}}
+        @keyframes ha-da    {0%,100%{transform:translate(0,0)}50%{transform:translate(6px,-8px)}}
+        @keyframes ha-db    {0%,100%{transform:translate(0,0)}50%{transform:translate(-7px,5px)}}
+        @keyframes ha-dc    {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,9px)}}
+        @keyframes ha-dd    {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-7px)}}
+        @keyframes ha-de    {0%,100%{transform:translate(0,0)}50%{transform:translate(8px,3px)}}
         @media(prefers-reduced-motion:reduce){.ha{animation:none!important}}
       `}</style>
 
-      {/* Base */}
+      {/* 1. Dark teal-black base */}
       <div style={{position:'absolute',inset:0,
-        background:'radial-gradient(ellipse 68% 78% at 43% 50%,#040300 0%,#020100 50%,#000000 100%)'}}/>
+        background:'radial-gradient(ellipse 65% 78% at 43% 50%,#060d12 0%,#030809 40%,#020405 70%,#010202 100%)'}}/>
 
-      {/* ── Layer 1: Perspective Grid ── */}
-      <div style={{position:'absolute',inset:0,overflow:'hidden',
-        maskImage:'linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.55) 15%,black 50%,rgba(0,0,0,.40) 80%,transparent 100%)',
-        WebkitMaskImage:'linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.55) 15%,black 50%,rgba(0,0,0,.40) 80%,transparent 100%)',
+      {/* 2. Strong central gold glow */}
+      <div className="ha" style={{
+        position:'absolute',left:'10%',top:'0',width:'65%',height:'100%',
+        background:'radial-gradient(ellipse at 42% 50%,rgba(255,200,40,.30) 0%,rgba(255,178,0,.13) 25%,rgba(255,148,0,.04) 52%,transparent 72%)',
+        animation:'ha-glow 10s ease-in-out infinite',
+      }}/>
+
+      {/* 3. Vertical energy beam */}
+      <div className="ha" style={{
+        position:'absolute',top:0,bottom:0,left:'calc(43% - 1px)',width:'2px',
+        background:'linear-gradient(to bottom,transparent 0%,rgba(255,215,60,.04) 8%,rgba(255,215,60,.38) 42%,rgba(255,218,65,.55) 50%,rgba(255,215,60,.38) 58%,rgba(255,215,60,.04) 92%,transparent 100%)',
+        animation:'ha-vbeam 8s ease-in-out infinite',
+      }}/>
+
+      {/* 4. Bottom perspective grid (holographic floor) */}
+      <div style={{
+        position:'absolute',bottom:0,left:'-12%',right:'-12%',height:'42%',
+        overflow:'hidden',
+        maskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.75) 38%,transparent 100%)',
+        WebkitMaskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.75) 38%,transparent 100%)',
       }}>
         <div className="ha" style={{
-          position:'absolute',left:'-30%',right:'-30%',top:'-40%',bottom:'-5%',
-          backgroundImage:'linear-gradient(rgba(255,210,55,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(255,210,55,.072) 1px,transparent 1px)',
+          position:'absolute',inset:0,
+          backgroundImage:'linear-gradient(rgba(255,210,55,.090) 1px,transparent 1px),linear-gradient(90deg,rgba(255,210,55,.070) 1px,transparent 1px)',
           backgroundSize:'60px 60px',
-          transform:'perspective(680px) rotateX(56deg)',
-          transformOrigin:'50% 65%',
-          animation:'holo-grid 32s linear infinite',
+          transformOrigin:'50% 0%',
+          animation:'ha-grid 30s linear infinite',
         }}/>
       </div>
 
-      {/* ── Layer 2a: Main Holographic Sweep (large glowing band, top→bottom) ── */}
-      <div className="ha" style={{
-        position:'absolute',left:0,right:0,top:0,height:'180px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(255,215,58,.035) 18%,rgba(255,220,62,.22) 50%,rgba(255,215,58,.035) 82%,transparent 100%)',
-        animation:'holo-sd1 14s ease-in-out infinite',
-        willChange:'transform',
-      }}/>
-
-      {/* ── Layer 2b: Second Scan (cyan, different speed) ── */}
-      <div className="ha" style={{
-        position:'absolute',left:0,right:0,top:0,height:'120px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(0,218,208,.022) 20%,rgba(0,225,215,.13) 50%,rgba(0,218,208,.022) 80%,transparent 100%)',
-        animation:'holo-sd2 21s ease-in-out infinite 8s',
-        willChange:'transform',
-      }}/>
-
-      {/* ── Layer 2c: Bottom-up scan ── */}
-      <div className="ha" style={{
-        position:'absolute',left:0,right:0,bottom:0,height:'140px',
-        background:'linear-gradient(to top,transparent 0%,rgba(255,212,55,.025) 22%,rgba(255,218,60,.16) 50%,rgba(255,212,55,.025) 78%,transparent 100%)',
-        animation:'holo-su1 19s ease-in-out infinite 3s',
-        willChange:'transform',
-      }}/>
-
-      {/* ── Layer 2d: Horizontal scan left→right ── */}
-      <div className="ha" style={{
-        position:'absolute',top:0,bottom:0,left:0,width:'130px',
-        background:'linear-gradient(to right,transparent 0%,rgba(255,212,55,.020) 22%,rgba(255,218,60,.12) 50%,rgba(255,212,55,.020) 78%,transparent 100%)',
-        animation:'holo-sr1 26s ease-in-out infinite 5s',
-        willChange:'transform',
-      }}/>
-
-      {/* ── Layer 2e: Second horizontal scan ── */}
-      <div className="ha" style={{
-        position:'absolute',top:0,bottom:0,left:0,width:'100px',
-        background:'linear-gradient(to right,transparent 0%,rgba(255,215,60,.018) 25%,rgba(255,222,65,.10) 50%,rgba(255,215,60,.018) 75%,transparent 100%)',
-        animation:'holo-sr2 38s ease-in-out infinite 18s',
-        willChange:'transform',
-      }}/>
-
-      {/* ── Ambient Glow ── */}
-      <div className="ha" style={{
-        position:'absolute',left:'12%',top:'2%',width:'60%',height:'96%',
-        background:'radial-gradient(circle at 42% 50%,rgba(255,195,0,.13) 0%,rgba(255,172,0,.045) 36%,transparent 66%)',
-        animation:'holo-glow 10s ease-in-out infinite',
-      }}/>
-
-      {/* ── SVG: Network / Arcs / Signals / Particles / HUD ── */}
+      {/* SVG: outer rings + fluid waves + nodes + particles */}
       <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
         style={{position:'absolute',inset:0,width:'100%',height:'100%',
-          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.14) 84%,transparent 100%)',
-          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.14) 84%,transparent 100%)',
+          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
+          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
         }}>
 
-        {/* ── Background network lines ── */}
-        <g fill="none">
-          <g stroke="rgba(255,210,55,.22)" strokeWidth="1">
-            <path d="M0,175 L148,232 L262,215"/>
-            <path d="M0,415 L85,378 L162,315 L262,295"/>
-            <path d="M0,575 L118,538 L185,495"/>
-            <path d="M85,135 L162,175 L242,185"/>
-            <path d="M0,278 L75,258 L135,238"/>
-          </g>
-          <g stroke="rgba(255,210,55,.14)" strokeWidth=".7">
-            <path d="M0,318 L55,302 L115,295"/>
-            <path d="M40,485 L95,460 L142,435"/>
-            <path d="M0,638 L82,618 L152,595"/>
-            <path d="M118,78 L182,108 L225,128"/>
-            <path d="M15,718 L75,698 L145,668"/>
-          </g>
-          <g stroke="rgba(255,210,55,.20)" strokeWidth="1">
-            <path d="M232,0 L265,85 L295,145"/>
-            <path d="M418,0 L435,65 L445,132"/>
-            <path d="M178,0 L195,55 L215,115"/>
-            <path d="M315,0 L332,62 L355,122"/>
-          </g>
-          <g stroke="rgba(255,210,55,.18)" strokeWidth=".9">
-            <path d="M182,750 L215,665 L245,615"/>
-            <path d="M318,750 L340,678 L365,625"/>
-            <path d="M452,750 L455,680 L458,622"/>
-          </g>
-          <g stroke="rgba(255,210,55,.11)" strokeWidth=".7">
-            <path d="M818,155 L750,215 L695,245"/>
-            <path d="M858,385 L795,375 L728,355"/>
-            <path d="M842,522 L775,505 L712,485"/>
-          </g>
-        </g>
+        {/* ── Outer background rings (beyond ConsoleHikaruCore radius ~330px) ── */}
+        <circle cx="430" cy="375" r="362" fill="none"
+          stroke="rgba(255,210,52,.082)" strokeWidth="1.2"/>
+        <circle cx="430" cy="375" r="408" fill="none"
+          stroke="rgba(255,210,52,.062)" strokeWidth="1.0"
+          strokeDasharray="12 28" className="ha"
+          style={{transformOrigin:'430px 375px',animation:'ha-cw 75s linear infinite'}}/>
+        <circle cx="430" cy="375" r="455" fill="none"
+          stroke="rgba(255,205,48,.050)" strokeWidth="0.9" className="ha"
+          style={{transformOrigin:'430px 375px',animation:'ha-ccw 92s linear infinite'}}/>
+        <circle cx="430" cy="375" r="508" fill="none"
+          stroke="rgba(0,210,200,.040)" strokeWidth="0.8"
+          strokeDasharray="18 45" className="ha"
+          style={{transformOrigin:'430px 375px',animation:'ha-cw 65s linear infinite 10s'}}/>
+        <circle cx="430" cy="375" r="562" fill="none"
+          stroke="rgba(255,200,45,.032)" strokeWidth="0.7" className="ha"
+          style={{transformOrigin:'430px 375px',animation:'ha-ccw 88s linear infinite 5s'}}/>
 
-        {/* ── MOVING DATA SIGNALS (bright, clearly visible) ── */}
+        {/* Corner arcs for spatial depth */}
+        <circle cx="50" cy="50" r="382" fill="none"
+          stroke="rgba(255,208,50,.068)" strokeWidth="1.1"
+          strokeDasharray="478 1912" className="ha"
+          style={{transformOrigin:'50px 50px',animation:'ha-cw 72s linear infinite'}}/>
+        <circle cx="920" cy="-80" r="452" fill="none"
+          stroke="rgba(255,205,48,.055)" strokeWidth="1.0"
+          strokeDasharray="562 2268" className="ha"
+          style={{transformOrigin:'920px -80px',animation:'ha-ccw 92s linear infinite'}}/>
+        <circle cx="-60" cy="830" r="522" fill="none"
+          stroke="rgba(255,202,45,.045)" strokeWidth="0.9" className="ha"
+          style={{transformOrigin:'-60px 830px',animation:'ha-cw 65s linear infinite 15s'}}/>
+
+        {/* ── FLUID WAVE FIELD (most important visual element) ── */}
         <g fill="none" strokeLinecap="round">
-          <path d="M0,232 L148,232 L262,215"
-            stroke="rgba(255,228,72,.80)" strokeWidth="2.8"
-            strokeDasharray="20 210" className="ha"
-            style={{animation:'holo-fwd 7s linear infinite'}}/>
-          <path d="M0,415 L85,378 L162,315 L262,295"
-            stroke="rgba(255,222,65,.76)" strokeWidth="2.8"
-            strokeDasharray="18 225" className="ha"
-            style={{animation:'holo-fwd 9s linear infinite 2s'}}/>
-          <path d="M232,0 L265,85 L295,145"
-            stroke="rgba(255,225,68,.75)" strokeWidth="2.8"
-            strokeDasharray="16 165" className="ha"
-            style={{animation:'holo-fwd 6s linear infinite 4s'}}/>
-          <path d="M418,0 L435,65 L445,132"
-            stroke="rgba(255,222,65,.72)" strokeWidth="2.8"
-            strokeDasharray="16 145" className="ha"
-            style={{animation:'holo-fwd 8s linear infinite 1s'}}/>
-          <path d="M182,750 L215,665 L245,615"
-            stroke="rgba(255,220,62,.72)" strokeWidth="2.8"
-            strokeDasharray="18 162" className="ha"
-            style={{animation:'holo-rev 8s linear infinite 3s'}}/>
-          <path d="M318,750 L340,678 L365,625"
-            stroke="rgba(255,222,65,.70)" strokeWidth="2.5"
-            strokeDasharray="16 145" className="ha"
-            style={{animation:'holo-rev 7.5s linear infinite 6s'}}/>
-          <path d="M842,522 L775,505 L712,485"
-            stroke="rgba(255,218,62,.68)" strokeWidth="2.5"
-            strokeDasharray="15 185" className="ha"
-            style={{animation:'holo-rev 10s linear infinite 5s'}}/>
-          <path d="M858,385 L795,375 L728,355"
-            stroke="rgba(0,220,210,.68)" strokeWidth="2.5"
-            strokeDasharray="14 165" className="ha"
-            style={{animation:'holo-rev 11s linear infinite 1.5s'}}/>
-          <path d="M0,575 L118,538 L185,495"
-            stroke="rgba(255,218,62,.70)" strokeWidth="2.5"
-            strokeDasharray="16 168" className="ha"
-            style={{animation:'holo-fwd 8.5s linear infinite 7s'}}/>
-          <path d="M178,0 L195,55 L215,115"
-            stroke="rgba(0,218,208,.65)" strokeWidth="2.2"
-            strokeDasharray="14 135" className="ha"
-            style={{animation:'holo-fwd 5.5s linear infinite 2.5s'}}/>
+          {_WDATA.map(({d,dur,rev,op,cyan,sw,da},i)=>(
+            <path key={i} d={d}
+              stroke={`rgba(${cyan?'0,215,205':'255,215,58'},${op})`}
+              strokeWidth={sw} strokeDasharray={da}
+              className="ha"
+              style={{animation:`${rev?'ha-wr':'ha-wf'} ${dur}s linear infinite`}}/>
+          ))}
         </g>
 
-        {/* ── NETWORK JUNCTION NODES ── */}
-        {([
-          [148,232],[262,215],[85,378],[162,315],[262,295],[118,538],[185,495],
-          [265,85],[295,145],[435,65],[445,132],[215,665],[245,615],[340,678],[365,625],
-          [750,215],[695,245],[795,375],[728,355],[775,505],[712,485],
-        ] as [number,number][]).map(([x,y],i)=>(
+        {/* ── Background network lines ── */}
+        <g fill="none" stroke="rgba(255,210,52,.18)" strokeWidth=".8">
+          <path d="M0,175 L140,230 L255,215"/>
+          <path d="M0,418 L82,378 L158,315 L255,295"/>
+          <path d="M0,575 L115,538 L182,495"/>
+          <path d="M228,0 L262,82 L292,142"/>
+          <path d="M415,0 L432,62 L442,130"/>
+          <path d="M178,0 L192,52 L212,112"/>
+          <path d="M178,750 L212,662 L242,612"/>
+          <path d="M315,750 L338,675 L362,622"/>
+        </g>
+
+        {/* ── Moving signals ── */}
+        <g fill="none" strokeLinecap="round">
+          <path d="M0,232 L140,232 L255,215"
+            stroke="rgba(255,228,72,.78)" strokeWidth="2.8" strokeDasharray="20 210"
+            className="ha" style={{animation:'ha-wf 7s linear infinite'}}/>
+          <path d="M0,418 L82,378 L158,315 L255,295"
+            stroke="rgba(255,222,65,.74)" strokeWidth="2.8" strokeDasharray="18 225"
+            className="ha" style={{animation:'ha-wf 9s linear infinite 2s'}}/>
+          <path d="M228,0 L262,82 L292,142"
+            stroke="rgba(255,225,68,.72)" strokeWidth="2.8" strokeDasharray="16 162"
+            className="ha" style={{animation:'ha-wf 6s linear infinite 4s'}}/>
+          <path d="M415,0 L432,62 L442,130"
+            stroke="rgba(255,222,65,.70)" strokeWidth="2.8" strokeDasharray="16 142"
+            className="ha" style={{animation:'ha-wf 8s linear infinite 1s'}}/>
+          <path d="M178,750 L212,662 L242,612"
+            stroke="rgba(255,220,62,.70)" strokeWidth="2.8" strokeDasharray="18 158"
+            className="ha" style={{animation:'ha-wr 8s linear infinite 3s'}}/>
+          <path d="M315,750 L338,675 L362,622"
+            stroke="rgba(0,220,210,.65)" strokeWidth="2.5" strokeDasharray="14 158"
+            className="ha" style={{animation:'ha-wr 7.5s linear infinite 6s'}}/>
+        </g>
+
+        {/* ── BRIGHT PARTICLE NODES ── */}
+        {_PNODES.map(([cx,cy,r,cyan,delay],i)=>(
           <g key={i} className="ha"
-            style={{animation:`holo-pulse ${4+(i%5)*.8}s ease-in-out ${(i*.55)%6}s infinite`}}>
-            <circle cx={x} cy={y} r={i%4===0?4.0:i%3===0?3.2:2.8}
-              fill="rgba(255,222,70,.72)"
-              style={{filter:'drop-shadow(0 0 3px rgba(255,210,55,.90))'}}/>
-            {i%4===0&&<>
-              <line x1={x-6} y1={y} x2={x+6} y2={y} stroke="rgba(255,215,60,.50)" strokeWidth=".6"/>
-              <line x1={x} y1={y-6} x2={x} y2={y+6} stroke="rgba(255,215,60,.50)" strokeWidth=".6"/>
+            style={{animation:`${i%3===0?'ha-pbr':'ha-pulse'} ${3.5+(i%5)*.7}s ease-in-out ${delay}s infinite`}}>
+            <circle cx={cx} cy={cy} r={r*2.5}
+              fill={`rgba(${cyan?'0,212,202':'255,205,42'},.085)`}/>
+            <circle cx={cx} cy={cy} r={r}
+              fill={`rgba(${cyan?'0,228,218':'255,230,72'},.88)`}
+              style={{filter:`drop-shadow(0 0 4px rgba(${cyan?'0,212,202':'255,210,55'},1))`}}/>
+            {r>=3.0&&<>
+              <line x1={cx-r*1.8} y1={cy} x2={cx+r*1.8} y2={cy}
+                stroke={`rgba(${cyan?'0,215,205':'255,210,55'},.38)`} strokeWidth=".6"/>
+              <line x1={cx} y1={cy-r*1.8} x2={cx} y2={cy+r*1.8}
+                stroke={`rgba(${cyan?'0,215,205':'255,210,55'},.38)`} strokeWidth=".6"/>
             </>}
           </g>
         ))}
 
-        {/* ── BRIGHT ACCENT NODES ── */}
-        {([
-          [148,232,false],[265,85,false],[435,65,true],[215,665,false],[795,375,true],
-        ] as [number,number,boolean][]).map(([x,y,cyan],i)=>(
-          <g key={i} className="ha"
-            style={{animation:`holo-pbr ${3+(i*.7)}s ease-in-out ${i*1.2}s infinite`}}>
-            <circle cx={x} cy={y} r="10"
-              fill={`rgba(${cyan?'0,212,202':'255,205,42'},.10)`}/>
-            <circle cx={x} cy={y} r="4.5"
-              fill={`rgba(${cyan?'0,228,218':'255,232,75'},.88)`}
-              style={{filter:`drop-shadow(0 0 5px rgba(${cyan?'0,212,202':'255,215,58'},1))`}}/>
-          </g>
-        ))}
-
-        {/* ── BACKGROUND ARCS (at screen CORNERS/EDGES, not JARVIS center) ── */}
-        <circle cx="40" cy="40" r="385" fill="none"
-          stroke="rgba(255,210,52,.075)" strokeWidth="1.3"
-          strokeDasharray="483 1940" className="ha"
-          style={{transformOrigin:'40px 40px',animation:'holo-cw 72s linear infinite'}}/>
-        <circle cx="920" cy="-80" r="455" fill="none"
-          stroke="rgba(255,210,52,.062)" strokeWidth="1.1"
-          strokeDasharray="570 2284" className="ha"
-          style={{transformOrigin:'920px -80px',animation:'holo-ccw 92s linear infinite'}}/>
-        <circle cx="-65" cy="825" r="525" fill="none"
-          stroke="rgba(255,210,50,.058)" strokeWidth="1.1"
-          strokeDasharray="657 2641" className="ha"
-          style={{transformOrigin:'-65px 825px',animation:'holo-cw 65s linear infinite 15s'}}/>
-        <circle cx="885" cy="375" r="425" fill="none"
-          stroke="rgba(0,212,202,.048)" strokeWidth="1"
-          strokeDasharray="533 2134" className="ha"
-          style={{transformOrigin:'885px 375px',animation:'holo-ccw 85s linear infinite 8s'}}/>
-        <circle cx="295" cy="195" r="342" fill="none"
-          stroke="rgba(255,205,48,.062)" strokeWidth="1"
-          strokeDasharray="429 1719" className="ha"
-          style={{transformOrigin:'295px 195px',animation:'holo-cw 58s linear infinite 20s'}}/>
-
-        {/* ── FLOATING PARTICLES (30, full screen) ── */}
+        {/* ── BACKGROUND DRIFT PARTICLES ── */}
         {_PRT.map(([cx,cy,r,anim,delay],i)=>(
           <circle key={i} cx={cx} cy={cy} r={r}
-            fill={i%5===0?'rgba(0,215,205,.42)':'rgba(255,220,65,.38)'}
+            fill={i%5===0?'rgba(0,215,205,.38)':'rgba(255,220,65,.32)'}
             className="ha"
             style={{animation:`${anim} ${11+(i%8)*1.5}s ease-in-out ${delay}s infinite`}}/>
         ))}
-
-        {/* ── MICRO HUD PANELS (fade in/out independently) ── */}
-        <g fontFamily="'Courier New',Courier,monospace" letterSpacing="2">
-          <g className="ha" style={{animation:'holo-panel 14s ease-in-out 0s infinite'}}>
-            <rect x="24" y="38" width="92" height="32" rx="2"
-              fill="rgba(255,210,52,.04)" stroke="rgba(255,210,52,.22)" strokeWidth=".7"/>
-            <text x="32" y="52" fill="rgba(255,210,52,.88)" fontSize="7">SCAN // ACTIVE</text>
-            <text x="32" y="63" fill="rgba(255,210,52,.68)" fontSize="6">NODE</text>
-          </g>
-          <g className="ha" style={{animation:'holo-panel 18s ease-in-out 6s infinite'}}>
-            <rect x="24" y="80" width="70" height="18" rx="2"
-              fill="rgba(255,210,52,.04)" stroke="rgba(255,210,52,.18)" strokeWidth=".6"/>
-            <text x="32" y="92" fill="rgba(255,210,52,.75)" fontSize="6">SIGNAL</text>
-          </g>
-          <g className="ha" style={{animation:'holo-panel 16s ease-in-out 4s infinite'}}>
-            <rect x="24" y="688" width="88" height="42" rx="2"
-              fill="rgba(255,210,52,.04)" stroke="rgba(255,210,52,.20)" strokeWidth=".7"/>
-            <text x="32" y="702" fill="rgba(255,210,52,.82)" fontSize="7">PROCESS</text>
-            <text x="32" y="713" fill="rgba(255,210,52,.65)" fontSize="6">SYSTEM</text>
-            <text x="32" y="723" fill="rgba(0,215,205,.60)" fontSize="6">NEURAL</text>
-          </g>
-          <g className="ha" style={{animation:'holo-panel 20s ease-in-out 10s infinite'}}>
-            <rect x="478" y="38" width="84" height="30" rx="2"
-              fill="rgba(255,210,52,.04)" stroke="rgba(255,210,52,.18)" strokeWidth=".6"/>
-            <text x="486" y="52" fill="rgba(255,210,52,.82)" fontSize="7">ANALYSIS</text>
-            <text x="486" y="63" fill="rgba(0,215,205,.68)" fontSize="6">VOICE LINK</text>
-          </g>
-          <g className="ha" style={{animation:'holo-panel 22s ease-in-out 8s infinite'}}>
-            <text x="578" y="380" fill="rgba(255,210,52,.72)" fontSize="7" textAnchor="end">AI CORE</text>
-          </g>
-          <g className="ha" style={{animation:'holo-panel 12s ease-in-out 3s infinite'}}>
-            <rect x="318" y="698" width="74" height="30" rx="2"
-              fill="rgba(255,210,52,.04)" stroke="rgba(255,210,52,.16)" strokeWidth=".6"/>
-            <text x="326" y="712" fill="rgba(255,210,52,.76)" fontSize="7">VOICE</text>
-            <text x="326" y="722" fill="rgba(255,210,52,.58)" fontSize="6">ANALYSIS</text>
-          </g>
-        </g>
       </svg>
     </div>
   )
@@ -477,10 +395,8 @@ export default function ConsoleAssistantPage() {
 
   const toggleSession = () => isSession ? stopSession() : startSession()
 
-  // Conversation: last 4 messages
   const recentMsgs = messages.slice(-4)
 
-  // Suppress unused variable warning
   void isSpeechSupported
 
   return (
@@ -491,7 +407,7 @@ export default function ConsoleAssistantPage() {
           display:flex;flex-direction:column;
           width:240px;flex-shrink:0;
           border-left:1px solid ${GBdr};
-          background:#030303;overflow-y:auto;
+          background:rgba(3,4,5,.92);overflow-y:auto;
         }
         @media(max-width:880px){.jp-right{display:none!important}}
         @keyframes jconn{0%,100%{opacity:.3}50%{opacity:1}}
@@ -585,7 +501,6 @@ export default function ConsoleAssistantPage() {
         <aside className="jp-right">
           <div style={{display:'flex',flexDirection:'column',padding:'16px 16px 12px',flex:1,gap:0}}>
 
-            {/* STATUS: current only */}
             <div style={{marginBottom:16}}>
               <div style={{color:GDim,fontSize:9,fontWeight:700,letterSpacing:'.22em',fontFamily:'monospace',marginBottom:10}}>
                 STATUS
@@ -621,7 +536,6 @@ export default function ConsoleAssistantPage() {
               )}
             </div>
 
-            {/* CONVERSATION */}
             <div style={{marginBottom:16,flex:'1 1 auto',overflow:'hidden',display:'flex',flexDirection:'column'}}>
               <div style={{color:GDim,fontSize:9,fontWeight:700,letterSpacing:'.22em',fontFamily:'monospace',marginBottom:10}}>
                 CONVERSATION
@@ -638,17 +552,11 @@ export default function ConsoleAssistantPage() {
                 ) : (
                   recentMsgs.map((msg, i) => (
                     <div key={i} style={{
-                      marginBottom:10,
-                      paddingBottom:8,
-                      borderBottom: i < recentMsgs.length - 1
-                        ? '1px solid rgba(255,215,0,0.07)' : 'none',
+                      marginBottom:10,paddingBottom:8,
+                      borderBottom: i < recentMsgs.length - 1 ? '1px solid rgba(255,215,0,0.07)' : 'none',
                     }}>
-                      <div style={{
-                        fontSize:9,fontWeight:700,fontFamily:'monospace',
-                        letterSpacing:'.16em',
-                        color: msg.role==='user' ? GD : GB,
-                        marginBottom:3,
-                      }}>
+                      <div style={{fontSize:9,fontWeight:700,fontFamily:'monospace',letterSpacing:'.16em',
+                        color: msg.role==='user' ? GD : GB,marginBottom:3}}>
                         {msg.role==='user' ? 'YOU' : 'JARVIS'}
                       </div>
                       <div style={{fontSize:11,color:'rgba(255,255,255,.80)',lineHeight:1.45,overflow:'hidden',maxHeight:'4.35em'}}>
@@ -660,7 +568,6 @@ export default function ConsoleAssistantPage() {
               </div>
             </div>
 
-            {/* QUICK ACTION — Console business actions */}
             <div style={{marginBottom:14,flexShrink:0}}>
               <div style={{color:GDim,fontSize:9,fontWeight:700,letterSpacing:'.22em',fontFamily:'monospace',marginBottom:8}}>
                 QUICK ACTION
@@ -682,7 +589,6 @@ export default function ConsoleAssistantPage() {
               </div>
             </div>
 
-            {/* Settings */}
             <button onClick={() => setShowSettings(true)}
               style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px 0',
                 borderRadius:10,border:`1px solid ${GBdr}`,background:'rgba(255,215,0,.04)',
