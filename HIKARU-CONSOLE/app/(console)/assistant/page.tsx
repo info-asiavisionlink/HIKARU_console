@@ -1,211 +1,120 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
-import { X, Radio, Settings, Volume2 } from 'lucide-react'
-import { useConsoleJarvis }      from '@/lib/voice/ConsoleVoiceContext'
-import { browserTTS }            from '@/lib/voice/tts/browser'
-import { VOICE_ASSISTANT_NAME }  from '@/lib/voice/config'
-import type { VoiceSettings }    from '@/lib/voice/state/types'
+import { useRouter }           from 'next/navigation'
+import { Settings, Volume2, Home, Bell, Zap, X, Mic, Bot, Users, FileText, Calendar } from 'lucide-react'
+import { ConsoleHikaruCore }   from '@/components/voice/ConsoleHikaruCore'
+import { useConsoleJarvis }    from '@/lib/voice/ConsoleVoiceContext'
+import { browserTTS }          from '@/lib/voice/tts/browser'
+import { VOICE_ASSISTANT_NAME } from '@/lib/voice/config'
+import type { VoiceSettings }  from '@/lib/voice/state/types'
 
 // ============================================================
-// CONSOLE JARVIS — 管理者向けVoice Interface
-// useConsoleJarvis() でProviderのPersistent Sessionを消費。
-// System の /assistant とは完全分離・CONSOLE専用。
+// CONSOLE JARVIS — System JARVIS UI Mirror
+// Visual 100% System準拠。Voice Logic は ConsoleVoiceContext のまま。
 // ============================================================
 
-const G  = 'oklch(0.73 0.12 78)'
-const GB = 'oklch(0.88 0.13 78)'
-const GD = 'oklch(0.73 0.12 78 / 0.50)'
+const BG   = '#020202'
+const GD   = '#FFD700'
+const GB   = '#FFE878'
+const GDim = 'rgba(255,215,0,0.45)'
+const GBdr = 'rgba(255,215,0,0.22)'
 
-const STATE_TEXT: Record<string, string> = {
-  idle:       `${VOICE_ASSISTANT_NAME}が待機中です`,
-  listening:  '音声を聞いています...',
-  processing: '処理しています...',
-  speaking:   '回答中です...',
-  error:      'もう一度お試しください',
-}
+// Console-specific status items (same visual language as System)
+const STATUS_ITEMS = [
+  { key:'idle',       label:'STANDBY',    sub:'待機中',        color:'#C89010', dot:'#AA7800' },
+  { key:'connecting', label:'CONNECTING', sub:'接続中',        color:'#00AFFF', dot:'#00AFFF' },
+  { key:'listening',  label:'LISTENING',  sub:'聞いています',  color:'#FFD700', dot:'#FFD700' },
+  { key:'processing', label:'THINKING',   sub:'考えています',  color:'#FFB800', dot:'#FFB800' },
+  { key:'speaking',   label:'SPEAKING',   sub:'応答しています', color:'#00D860', dot:'#00D860' },
+  { key:'error',      label:'ERROR',      sub:'接続エラー',    color:'#FF3030', dot:'#FF3030' },
+] as const
 
-const QUICK_COMMANDS = [
-  { label: 'ダッシュボード', utterance: 'ダッシュボード' },
-  { label: '案件管理',       utterance: '案件管理を開いて' },
-  { label: '通知確認',       utterance: '通知を確認して' },
-  { label: '経費確認',       utterance: '承認待ちの経費を確認して' },
-  { label: '従業員管理',     utterance: '従業員管理を開いて' },
-  { label: 'シフト管理',     utterance: 'シフト管理を開いて' },
-  { label: '勤怠管理',       utterance: '勤怠管理を開いて' },
-  { label: 'AI分析',         utterance: 'AI分析を開いて' },
+type StatusKey = typeof STATUS_ITEMS[number]['key']
+
+// Console JARVIS Quick Actions (Console-specific business actions)
+const QUICK = [
+  { label:'ダッシュボード', utt:'ダッシュボード',             Icon:Home   },
+  { label:'通知確認',       utt:'通知を確認して',             Icon:Bell   },
+  { label:'案件管理',       utt:'案件管理を開いて',           Icon:FileText},
+  { label:'従業員管理',     utt:'従業員管理を開いて',         Icon:Users  },
+  { label:'シフト管理',     utt:'シフト管理を開いて',         Icon:Calendar},
+  { label:'経費確認',       utt:'承認待ちの経費を確認して',   Icon:Zap    },
+  { label:'AI分析',         utt:'AI分析を開いて',             Icon:Bot    },
+  { label:'設定',           utt:'設定を開いて',               Icon:Settings},
 ]
 
-function ConsoleAICore({ mode, isStandby }: { mode: string; isStandby: boolean }) {
-  const isActive = !isStandby && (mode === 'listening' || mode === 'processing' || mode === 'speaking')
-  const baseGlow = isActive ? `0 0 60px ${G}80, 0 0 120px ${G}40` : `0 0 30px ${G}40`
-
+// ─── Wave bars ───────────────────────────────────────────────
+function Wave({ active, h: mH = 18 }: { active: boolean; h?: number }) {
+  const v = [.25,.48,.70,.92,1,.94,.74,.94,1,.80,.56,.30]
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
-      <style>{`
-        @keyframes ca-cw  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes ca-ccw { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
-        @keyframes ca-pulse { 0%,100% { opacity: 0.7; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
-        @media (prefers-reduced-motion: reduce) { [class*="ca-"] { animation-duration: 60s !important; } }
-      `}</style>
-
-      <svg width="240" height="240" viewBox="0 0 240 240" style={{ position: 'absolute', overflow: 'visible' }}>
-        <g style={{ transformOrigin: '120px 120px', animation: `ca-cw ${isActive ? '6s' : isStandby ? '40s' : '20s'} linear infinite` }}>
-          <circle cx="120" cy="120" r="110" fill="none" stroke={G} strokeWidth="0.5" strokeDasharray="4 16" opacity={isStandby ? '0.2' : '0.4'} />
-        </g>
-        <g style={{ transformOrigin: '120px 120px', animation: `ca-ccw ${isActive ? '3.5s' : '12s'} linear infinite` }}>
-          <circle cx="120" cy="120" r="88" fill="none" stroke={G} strokeWidth="1" strokeDasharray="20 8 6 12" opacity={isStandby ? '0.3' : '0.6'} />
-        </g>
-        <g style={{ transformOrigin: '120px 120px', animation: `ca-cw ${isActive ? '2s' : '8s'} linear infinite` }}>
-          <circle cx="120" cy="120" r="66" fill="none" stroke={GB} strokeWidth="1.5" strokeDasharray="14 6" opacity={isStandby ? '0.3' : '0.7'} />
-        </g>
-        <circle cx="120" cy="120" r="44" fill="none" stroke={G} strokeWidth="0.5" opacity="0.35" />
-        <defs>
-          <radialGradient id="ca-core-v2" cx="40%" cy="35%" r="60%">
-            <stop offset="0%" stopColor={isStandby ? GD : GB} />
-            <stop offset="60%" stopColor="oklch(0.52 0.10 75)" />
-            <stop offset="100%" stopColor="oklch(0.08 0.005 260)" />
-          </radialGradient>
-        </defs>
-        <circle
-          cx="120" cy="120" r="36"
-          fill="url(#ca-core-v2)"
-          style={{
-            animation: `ca-pulse ${isActive ? '0.8s' : '3s'} ease-in-out infinite`,
-            filter: `brightness(${isActive ? 1.5 : isStandby ? 0.6 : 1}) drop-shadow(${baseGlow})`,
-          }}
-        />
-      </svg>
-
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        boxShadow: baseGlow, pointerEvents: 'none',
-        animation: `ca-pulse ${isActive ? '0.8s' : '3s'} ease-in-out infinite`,
-      }} />
-
-      {isStandby && (
-        <div
-          className="absolute bottom-0 text-[9px] tracking-[0.2em] uppercase"
-          style={{ color: GD }}
-        >
-          STANDBY
-        </div>
-      )}
-    </div>
-  )
-}
-
-function VoiceWave({ active }: { active: boolean }) {
-  return (
-    <div className="flex items-center gap-[3px]" style={{ height: 20 }}>
-      <style>{`@keyframes cw { 0%{transform:scaleY(0.3)} 100%{transform:scaleY(1)} }`}</style>
-      {[0.4,0.7,1,0.7,0.4,0.6,0.9,0.6,0.4].map((h, i) => (
-        <div key={i} className="w-[3px] rounded-full" style={{
-          background: G, height: `${h * 100}%`, opacity: active ? 0.9 : 0.3,
-          animation: active ? `cw ${0.55 + i * 0.09}s ${i * 0.07}s ease-in-out infinite alternate` : 'none',
-          transformOrigin: 'bottom',
-        }} />
+    <div style={{ display:'flex', alignItems:'flex-end', gap:2, height:mH }}>
+      <style>{`@keyframes jvw2{0%{transform:scaleY(.09)}100%{transform:scaleY(1)}}`}</style>
+      {v.map((val, i) => (
+        <div key={i} style={{
+          width:3, borderRadius:2, height:`${val*mH}px`,
+          background: active ? GB : GDim, opacity: active ? .88 : .22,
+          animation: active ? `jvw2 ${.38+i*.07}s ease-in-out ${i*.055}s infinite alternate` : 'none',
+          transformOrigin:'bottom',
+        }}/>
       ))}
     </div>
   )
 }
 
-// ─── Voice Settings Panel ────────────────────────────────────
-function VoiceSettingsPanel({
-  settings, onClose, onSave,
-}: {
-  settings: VoiceSettings
-  onClose:  () => void
-  onSave:   (s: VoiceSettings) => void
-}) {
-  const [local,  setLocal]  = React.useState<VoiceSettings>(settings)
-  const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([])
-
+// ─── Clock ───────────────────────────────────────────────────
+function Clock() {
+  const [t, setT] = React.useState('')
   React.useEffect(() => {
-    const load = () => {
-      if (typeof window === 'undefined') return
-      setVoices(window.speechSynthesis.getVoices())
-    }
-    load()
-    window.speechSynthesis.addEventListener?.('voiceschanged', load)
-    return () => window.speechSynthesis.removeEventListener?.('voiceschanged', load)
+    const f = () => setT(new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit', second:'2-digit'}))
+    f(); const id = setInterval(f, 1000); return () => clearInterval(id)
   }, [])
+  return <>{t}</>
+}
 
-  const jpVoices  = voices.filter(v => v.lang.startsWith('ja'))
-  const allVoices = jpVoices.length > 0 ? jpVoices : voices
-
-  const handlePreview = () => {
-    browserTTS.speak(`こんにちは。私は${VOICE_ASSISTANT_NAME}です。音声テストです。`, undefined, local)
-  }
-
+// ─── Voice Settings Panel ─────────────────────────────────────
+function SettingsPanel({ settings, onClose, onSave }: {
+  settings: VoiceSettings; onClose: () => void; onSave: (s: VoiceSettings) => void
+}) {
+  const [l,  setL]  = React.useState<VoiceSettings>(settings)
+  const [vs, setVs] = React.useState<SpeechSynthesisVoice[]>([])
+  React.useEffect(() => {
+    const f = () => { if (typeof window === 'undefined') return; setVs(window.speechSynthesis.getVoices()) }
+    f(); window.speechSynthesis.addEventListener?.('voiceschanged', f)
+    return () => window.speechSynthesis.removeEventListener?.('voiceschanged', f)
+  }, [])
+  const all = vs.filter(v => v.lang.startsWith('ja'))
   return (
-    <div
-      className="absolute inset-0 z-10 flex flex-col p-5 overflow-y-auto"
-      style={{ background: 'oklch(0.04 0.002 260)' }}
-    >
-      <div className="flex items-center justify-between mb-5">
-        <p className="text-sm font-bold tracking-[0.15em] uppercase" style={{ color: GB }}>
-          VOICE SETTINGS
-        </p>
-        <button onClick={onClose} style={{ color: GD }}><X className="h-4 w-4" /></button>
+    <div style={{position:'absolute',inset:0,zIndex:30,background:'#040404',border:`1px solid ${GBdr}`,
+      display:'flex',flexDirection:'column',padding:20,overflowY:'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:18}}>
+        <span style={{color:GB,fontSize:12,fontWeight:700,letterSpacing:'.18em',fontFamily:'monospace'}}>VOICE SETTINGS</span>
+        <button onClick={onClose} style={{color:GDim,background:'none',border:'none',cursor:'pointer'}}><X style={{width:15,height:15}}/></button>
       </div>
-
-      <div className="mb-4">
-        <label className="text-[10px] tracking-[0.2em] uppercase mb-2 block" style={{ color: GD }}>音声</label>
-        <select
-          value={local.voiceURI}
-          onChange={e => setLocal(p => ({ ...p, voiceURI: e.target.value }))}
-          className="w-full rounded-lg px-3 py-2 text-sm"
-          style={{ background: `${G}10`, border: `1px solid ${G}30`, color: 'oklch(0.82 0.008 75)' }}
-        >
-          <option value="">自動（日本語優先）</option>
-          {allVoices.map(v => (
-            <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mb-4">
-        <label className="text-[10px] tracking-[0.2em] uppercase mb-2 flex justify-between" style={{ color: GD }}>
-          <span>速度</span><span style={{ color: GB }}>{local.rate.toFixed(1)}</span>
-        </label>
-        <input type="range" min={0.5} max={2.0} step={0.1} value={local.rate}
-          onChange={e => setLocal(p => ({ ...p, rate: parseFloat(e.target.value) }))}
-          className="w-full accent-amber-400" />
-      </div>
-
-      <div className="mb-4">
-        <label className="text-[10px] tracking-[0.2em] uppercase mb-2 flex justify-between" style={{ color: GD }}>
-          <span>ピッチ</span><span style={{ color: GB }}>{local.pitch.toFixed(1)}</span>
-        </label>
-        <input type="range" min={0} max={2.0} step={0.1} value={local.pitch}
-          onChange={e => setLocal(p => ({ ...p, pitch: parseFloat(e.target.value) }))}
-          className="w-full accent-amber-400" />
-      </div>
-
-      <div className="mb-5">
-        <label className="text-[10px] tracking-[0.2em] uppercase mb-2 flex justify-between" style={{ color: GD }}>
-          <span>音量</span><span style={{ color: GB }}>{local.volume.toFixed(1)}</span>
-        </label>
-        <input type="range" min={0} max={1.0} step={0.1} value={local.volume}
-          onChange={e => setLocal(p => ({ ...p, volume: parseFloat(e.target.value) }))}
-          className="w-full accent-amber-400" />
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={handlePreview}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all active:scale-95"
-          style={{ background: `${G}14`, border: `1px solid ${G}40`, color: GB }}
-        >
-          <Volume2 className="h-4 w-4" />試聴
+      <label style={{color:GDim,fontSize:9,letterSpacing:'.2em',fontFamily:'monospace',marginBottom:5}}>音声</label>
+      <select value={l.voiceURI} onChange={e => setL(p => ({...p, voiceURI:e.target.value}))}
+        style={{background:'rgba(255,200,0,.06)',border:`1px solid ${GBdr}`,color:GB,borderRadius:8,padding:'6px 8px',fontSize:12,marginBottom:14}}>
+        <option value="">自動</option>
+        {all.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+      </select>
+      {(['rate','pitch','volume'] as const).map(k => (
+        <div key={k} style={{marginBottom:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+            <span style={{color:GDim,fontSize:9,letterSpacing:'.2em',fontFamily:'monospace'}}>{{rate:'速度',pitch:'ピッチ',volume:'音量'}[k]}</span>
+            <span style={{color:GB,fontSize:9,fontFamily:'monospace'}}>{l[k].toFixed(1)}</span>
+          </div>
+          <input type="range" min={k==='pitch'?0:k==='volume'?0:.5} max={k==='volume'?1:2} step={.1}
+            value={l[k]} onChange={e => setL(p => ({...p, [k]:parseFloat(e.target.value)}))}
+            style={{width:'100%',accentColor:GD}}/>
+        </div>
+      ))}
+      <div style={{display:'flex',gap:8,marginTop:4}}>
+        <button onClick={() => browserTTS.speak(`こんにちは。私は${VOICE_ASSISTANT_NAME}です。`,undefined,l)}
+          style={{flex:1,padding:'8px 0',borderRadius:10,border:`1px solid ${GBdr}`,background:'none',color:GB,cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+          <Volume2 style={{width:13,height:13}}/>試聴
         </button>
-        <button
-          onClick={() => { onSave(local); onClose() }}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all active:scale-95"
-          style={{ background: `${G}28`, border: `1px solid ${G}`, color: GB }}
-        >
+        <button onClick={() => { onSave(l); onClose() }}
+          style={{flex:1,padding:'8px 0',borderRadius:10,border:`1px solid ${GD}`,background:'rgba(255,215,0,.12)',color:GB,cursor:'pointer',fontSize:12,fontWeight:700}}>
           保存
         </button>
       </div>
@@ -213,220 +122,278 @@ function VoiceSettingsPanel({
   )
 }
 
-// ─── Main page ────────────────────────────────────────────────
+// ─── Responsive JARVIS HUD ────────────────────────────────────
+function JarvisHUD({ mode, isConnecting, onClick }: {
+  mode: string; isConnecting: boolean; onClick: () => void
+}) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [sz,  setSz]  = React.useState(360)
+  const [hov, setHov] = React.useState(false)
+  React.useEffect(() => {
+    if (!ref.current) return
+    const ro = new ResizeObserver(([e]) => {
+      const cw = e.contentRect.width, ch = e.contentRect.height
+      const s  = Math.floor(Math.min(cw, ch) / 1.04)
+      setSz(Math.min(Math.max(s, 180), 700))
+    })
+    ro.observe(ref.current)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={ref}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',minHeight:0,overflow:'hidden'}}>
+      <ConsoleHikaruCore
+        mode={mode as any}
+        size={sz}
+        isConnecting={isConnecting}
+        onClick={onClick}
+        isHovered={hov}
+      />
+    </div>
+  )
+}
+
+// ─── Main ─────────────────────────────────────────────────────
 export default function ConsoleAssistantPage() {
   const router = useRouter()
-  const [showVoiceSettings, setShowVoiceSettings] = React.useState(false)
+  const [showSettings, setShowSettings] = React.useState(false)
 
   const {
-    mode, errorMessage, messages, isSpeechSupported,
-    isSession, isStandby,
-    handleUtterance,
-    startSession, stopSession,
+    mode, errorMessage,
+    isSession, isStandby, isSpeechSupported,
+    startSession, stopSession, handleUtterance,
     voiceSettings, setVoiceSettings,
+    voiceEngineMode, disconnectRealtime,
+    messages,
   } = useConsoleJarvis()
 
+  const isErr   = mode === 'error'
   const isActive = mode === 'listening'
-  const isProc   = mode === 'processing'
-  const isSpeak  = mode === 'speaking'
-  const isError  = mode === 'error'
+  const isProc  = mode === 'processing'
+  const isSpeak = mode === 'speaking'
+  const isConn  = voiceEngineMode === 'realtime-connecting'
+  const isReady = voiceEngineMode === 'realtime'
+  const cfgKey  = isConn ? 'connecting' : mode as StatusKey
 
-  const stateText = isStandby
-    ? `${VOICE_ASSISTANT_NAME}はスタンバイ中です。話しかけてください。`
-    : isError
-    ? (errorMessage || STATE_TEXT.error)
-    : STATE_TEXT[mode] ?? STATE_TEXT.idle
+  const cur = STATUS_ITEMS.find(s => s.key === cfgKey) ?? STATUS_ITEMS[0]
+
+  const toggleSession = () => isSession ? stopSession() : startSession()
+
+  // Conversation: last 4 messages
+  const recentMsgs = messages.slice(-4)
+
+  // Suppress unused variable warning
+  void isSpeechSupported
 
   return (
-    <div className="relative flex flex-col h-full" style={{ minHeight: 'calc(100vh - var(--header-height, 64px))' }}>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - var(--header-height, 64px))',background:BG,position:'relative',overflow:'hidden'}}>
+      <style>{`
+        .jp-right{
+          display:flex;flex-direction:column;
+          width:240px;flex-shrink:0;
+          border-left:1px solid ${GBdr};
+          background:#030303;overflow-y:auto;
+        }
+        @media(max-width:880px){.jp-right{display:none!important}}
+        @keyframes jconn{0%,100%{opacity:.3}50%{opacity:1}}
+        .jqbtn:hover{background:rgba(255,215,0,0.10)!important}
+      `}</style>
 
-      {showVoiceSettings && (
-        <VoiceSettingsPanel
+      {showSettings && (
+        <SettingsPanel
           settings={voiceSettings}
-          onClose={() => setShowVoiceSettings(false)}
+          onClose={() => setShowSettings(false)}
           onSave={setVoiceSettings}
         />
       )}
 
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-6 py-3 shrink-0"
-        style={{ borderBottom: `1px solid ${G}20` }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="h-2 w-2 rounded-full" style={{ background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />
-          <span className="text-sm font-bold tracking-[0.2em] uppercase" style={{ color: 'oklch(0.75 0.009 75)' }}>
-            AI ENGINE
-          </span>
+      {/* ── Header ── */}
+      <header style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+        padding:'8px 18px',flexShrink:0,
+        borderBottom:`1px solid ${GBdr}`,background:'rgba(0,0,0,.88)',zIndex:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:7,height:7,borderRadius:'50%',background:'#4ade80',boxShadow:'0 0 7px #4ade80'}}/>
+          <span style={{color:GDim,fontSize:9,letterSpacing:'.22em',fontFamily:'monospace'}}>AI ENGINE</span>
+          <span style={{color:GDim,fontSize:9,fontFamily:'monospace',opacity:.5}}><Clock/></span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
           {isSession && (
-            <span className="ml-2 text-xs rounded-full px-2 py-0.5 font-bold"
-              style={{ background: `${G}28`, border: `1px solid ${G}`, color: GB }}>
-              {isStandby ? 'スタンバイ' : '会話中'}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <VoiceWave active={isActive || isSpeak} />
-          <button
-            onClick={() => setShowVoiceSettings(p => !p)}
-            className="flex h-7 w-7 items-center justify-center rounded-full"
-            style={{ color: GD }}
-            aria-label="音声設定"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="flex h-7 w-7 items-center justify-center rounded-full"
-            style={{ color: GD }}
-            aria-label="閉じる"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Main: 2-column layout */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* Left: Quick Commands */}
-        <aside
-          className="hidden lg:flex flex-col gap-3 p-4 shrink-0 overflow-y-auto"
-          style={{ width: 220, borderRight: `1px solid ${G}1a` }}
-        >
-          <div className="rounded-xl p-3" style={{ background: `${G}0e`, border: `1px solid ${G}2a` }}>
-            <p className="text-base font-black tracking-[0.08em]" style={{
-              background: `linear-gradient(90deg, ${G}, ${GB})`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            }}>
-              {VOICE_ASSISTANT_NAME}
-            </p>
-            <p className="text-[9px] tracking-[0.22em] uppercase mt-0.5" style={{ color: GD }}>
-              CONSOLE ASSISTANT
-            </p>
-          </div>
-
-          <p className="text-[9px] tracking-[0.25em] uppercase px-1 mt-1" style={{ color: GD }}>QUICK COMMANDS</p>
-          {QUICK_COMMANDS.map(({ label, utterance }) => (
-            <button
-              key={label}
-              onClick={() => handleUtterance(utterance)}
-              disabled={isActive || isProc}
-              className="rounded-lg px-3 py-2 text-xs font-medium text-left transition-all active:scale-95 disabled:opacity-40"
-              style={{ background: `${G}08`, border: `1px solid ${G}20`, color: 'oklch(0.70 0.008 75)' }}
-            >
-              {label}
-            </button>
-          ))}
-
-          <button
-            onClick={() => setShowVoiceSettings(true)}
-            className="flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs transition-all active:scale-95 mt-auto"
-            style={{ background: `${G}08`, border: `1px solid ${G}20`, color: GD }}
-          >
-            <Settings className="h-3.5 w-3.5" />
-            音声設定
-          </button>
-        </aside>
-
-        {/* Center */}
-        <main className="flex flex-1 flex-col items-center overflow-y-auto px-4 pt-8 pb-6 gap-6">
-
-          <ConsoleAICore mode={mode} isStandby={isStandby} />
-
-          {/* Status */}
-          <div
-            className="w-full max-w-md rounded-xl px-5 py-4 text-center"
-            style={{ background: `${G}09`, border: `1px solid ${G}1a` }}
-          >
-            <p className="text-base leading-relaxed"
-              style={{ color: isError ? 'oklch(0.78 0.24 22)' : isStandby ? GD : 'oklch(0.82 0.009 75)' }}>
-              {stateText}
-            </p>
-            {(isActive || isSpeak) && (
-              <div className="flex justify-center mt-3"><VoiceWave active /></div>
-            )}
-          </div>
-
-          {/* Conversation log */}
-          {messages.length > 0 && (
-            <div className="w-full max-w-md space-y-2">
-              {messages.slice(-6).map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className="max-w-[82%] rounded-xl px-4 py-2.5 text-sm leading-relaxed"
-                    style={msg.role === 'user'
-                      ? { background: `${G}1e`, border: `1px solid ${G}38`, color: GB }
-                      : { background: 'oklch(0.09 0.004 260)', border: '1px solid oklch(0.14 0.003 260)', color: 'oklch(0.82 0.008 75)' }
-                    }
-                  >
-                    <p className="text-[8px] tracking-[0.2em] uppercase mb-1" style={{ color: GD }}>
-                      {msg.role === 'user' ? 'YOU' : VOICE_ASSISTANT_NAME}
-                    </p>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
+            <div style={{display:'flex',alignItems:'center',gap:5,padding:'3px 12px',borderRadius:20,
+              background:'rgba(255,215,0,.14)',border:`1px solid ${GD}`,
+              boxShadow:`0 0 12px rgba(255,215,0,.32)`}}>
+              <div style={{width:6,height:6,borderRadius:'50%',
+                background:isStandby?GDim:'#4ade80',
+                animation:'jconn 1.2s ease-in-out infinite'}}/>
+              <span style={{color:GB,fontSize:9,fontWeight:700,letterSpacing:'.16em',fontFamily:'monospace'}}>
+                {isStandby?'STANDBY':'ACTIVE'}
+              </span>
             </div>
           )}
+          <Wave active={isActive||isSpeak}/>
+          <button onClick={() => setShowSettings(p => !p)}
+            style={{color:GDim,background:'none',border:'none',cursor:'pointer',display:'flex',padding:4}}
+            aria-label="設定"><Settings style={{width:15,height:15}}/></button>
+          <button onClick={() => router.push('/dashboard')}
+            style={{color:GDim,background:'none',border:'none',cursor:'pointer',display:'flex',padding:4}}
+            aria-label="閉じる"><X style={{width:15,height:15}}/></button>
+        </div>
+      </header>
 
-          {/* Session button */}
-          <div className="flex flex-col items-center gap-1">
-            <button
-              onClick={() => { if (isSession) stopSession(); else startSession() }}
-              disabled={isProc}
-              className="flex h-20 w-20 items-center justify-center rounded-full transition-all duration-200 active:scale-90 disabled:opacity-40"
-              style={{
-                background: isSession
-                  ? (isActive ? 'oklch(0.62 0.24 22)' : `${G}20`)
-                  : `linear-gradient(135deg, ${G}, ${GB})`,
-                border: isSession ? `2px solid ${G}` : 'none',
-                boxShadow: isSession ? `0 0 24px ${G}50` : `0 0 30px ${G}55`,
-              }}
-              aria-label={isSession ? '会話終了' : 'ハンズフリー開始'}
-            >
-              <Radio className="h-8 w-8" style={{ color: isSession ? GB : 'oklch(0.06 0.003 260)' }} />
-            </button>
-            <span className="text-[11px] font-bold" style={{ color: isSession ? GB : GD }}>
-              {isSession ? (isStandby ? 'スタンバイ中' : '会話中 — タップで終了') : 'ハンズフリー開始'}
+      {/* ── Body ── */}
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+
+        {/* ── Center: JARVIS HUD ── */}
+        <main style={{display:'flex',flex:1,flexDirection:'column',overflow:'hidden',padding:'4px 0 4px'}}>
+
+          <JarvisHUD mode={mode} isConnecting={isConn} onClick={toggleSession}/>
+
+          {/* Tap label */}
+          <div style={{textAlign:'center',flexShrink:0,padding:'3px 0 2px'}}>
+            <span style={{color:isSession?GB:GDim,fontSize:10,fontFamily:'monospace',letterSpacing:'.12em'}}>
+              {isSession
+                ? (isStandby ? 'スタンバイ中 — 話しかけてください' : 'JARVISをタップして起動 / 停止')
+                : 'JARVISをタップして起動 / 停止'}
             </span>
-            <span className="text-[9px]" style={{ color: GD }}>
-              {isSession ? '「終了」と言うかタップ' : '自動で聞き続けます'}
-            </span>
+            {isErr && <span style={{color:'#FF5555',fontSize:9,fontFamily:'monospace',marginLeft:8}}>{errorMessage||'接続エラー'}</span>}
           </div>
 
-          {/* Mobile Quick Commands */}
-          <div className="lg:hidden w-full max-w-md">
-            <p className="text-[9px] tracking-[0.3em] uppercase mb-2" style={{ color: GD }}>QUICK COMMANDS</p>
-            <div className="grid grid-cols-2 gap-2">
-              {QUICK_COMMANDS.map(({ label, utterance }) => (
-                <button
-                  key={label}
-                  onClick={() => handleUtterance(utterance)}
-                  disabled={isActive || isProc}
-                  className="rounded-lg px-3 py-2 text-xs font-medium transition-all active:scale-95 disabled:opacity-40 text-left"
-                  style={{ background: `${G}10`, border: `1px solid ${G}28`, color: 'oklch(0.70 0.008 75)' }}
-                >
-                  {label}
-                </button>
-              ))}
+          {/* Bottom status bar */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:18,
+            padding:'4px 16px 3px',flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:4}}>
+              <div style={{width:5,height:5,borderRadius:'50%',
+                background:isReady?'#4ade80':isConn?'#FFB800':isErr?'#FF4444':GDim,
+                boxShadow:isReady?'0 0 5px #4ade80':isConn?'0 0 5px #FFB800':'none',
+                animation:isConn?'jconn 1.2s ease-in-out infinite':undefined}}/>
+              <span style={{color:GDim,fontSize:9,fontFamily:'monospace'}}>
+                {isReady?'READY':isConn?'CONNECTING':isErr?'ERROR':'STANDBY'}
+              </span>
             </div>
-            <button
-              onClick={() => setShowVoiceSettings(true)}
-              className="flex items-center gap-2 text-xs mt-3"
-              style={{ color: GD }}
-            >
-              <Settings className="h-3 w-3" />
-              音声設定
-            </button>
+            <span style={{color:GBdr,fontSize:9}}>|</span>
+            <div style={{display:'flex',alignItems:'center',gap:4}}>
+              <Mic style={{color:GDim,width:11,height:11}}/>
+              <span style={{color:isSession?GD:GDim,fontSize:9,fontWeight:isSession?700:400,fontFamily:'monospace'}}>
+                MIC {isSession?'ON':'OFF'}
+              </span>
+              <div style={{width:5,height:5,borderRadius:'50%',background:isSession?GD:'#555',boxShadow:isSession?`0 0 5px ${GD}`:'none'}}/>
+            </div>
+            <Wave active={isActive||isSpeak} h={14}/>
+            <span style={{color:GB,fontSize:9,fontWeight:700,fontFamily:'monospace',letterSpacing:'.08em'}}>HIKARU AI</span>
           </div>
-
-          {!isSpeechSupported && (
-            <p className="text-xs text-center" style={{ color: 'oklch(0.50 0.007 75)' }}>
-              このブラウザでは音声入力を利用できません。Chrome または Safari をご使用ください。
-            </p>
-          )}
         </main>
+
+        {/* ── Right Panel ── */}
+        <aside className="jp-right">
+          <div style={{display:'flex',flexDirection:'column',padding:'16px 16px 12px',flex:1,gap:0}}>
+
+            {/* STATUS: current only */}
+            <div style={{marginBottom:16}}>
+              <div style={{color:GDim,fontSize:9,fontWeight:700,letterSpacing:'.22em',fontFamily:'monospace',marginBottom:10}}>
+                STATUS
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
+                borderRadius:12,border:`1px solid ${GBdr}`,background:'rgba(255,215,0,.04)'}}>
+                <div style={{
+                  width:10,height:10,borderRadius:'50%',flexShrink:0,
+                  background:cur.dot,
+                  boxShadow:`0 0 8px ${cur.dot},0 0 18px ${cur.dot}55`,
+                  transition:'all .35s',
+                }}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{
+                    fontSize:13,fontWeight:700,color:cur.color,
+                    fontFamily:'monospace',letterSpacing:'.10em',
+                    textShadow:isSession?`0 0 10px ${cur.color}`:undefined,
+                    transition:'all .35s',
+                  }}>
+                    {cur.label}
+                  </div>
+                  <div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:1}}>{cur.sub}</div>
+                </div>
+                <Wave active={isActive||isSpeak} h={18}/>
+              </div>
+              {isReady && (
+                <button onClick={disconnectRealtime}
+                  style={{marginTop:8,fontSize:9,color:GDim,background:'none',
+                    border:`1px solid ${GBdr}`,cursor:'pointer',borderRadius:6,
+                    padding:'3px 8px',fontFamily:'monospace',width:'100%'}}>
+                  切断
+                </button>
+              )}
+            </div>
+
+            {/* CONVERSATION */}
+            <div style={{marginBottom:16,flex:'1 1 auto',overflow:'hidden',display:'flex',flexDirection:'column'}}>
+              <div style={{color:GDim,fontSize:9,fontWeight:700,letterSpacing:'.22em',fontFamily:'monospace',marginBottom:10}}>
+                CONVERSATION
+              </div>
+              <div style={{
+                flex:1,overflow:'hidden',display:'flex',flexDirection:'column',gap:0,
+                maskImage:'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
+                WebkitMaskImage:'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
+              }}>
+                {recentMsgs.length === 0 ? (
+                  <div style={{color:'rgba(255,215,0,.28)',fontSize:10,fontStyle:'italic',paddingTop:4}}>
+                    まだ会話がありません
+                  </div>
+                ) : (
+                  recentMsgs.map((msg, i) => (
+                    <div key={i} style={{
+                      marginBottom:10,
+                      paddingBottom:8,
+                      borderBottom: i < recentMsgs.length - 1
+                        ? '1px solid rgba(255,215,0,0.07)' : 'none',
+                    }}>
+                      <div style={{
+                        fontSize:9,fontWeight:700,fontFamily:'monospace',
+                        letterSpacing:'.16em',
+                        color: msg.role==='user' ? GD : GB,
+                        marginBottom:3,
+                      }}>
+                        {msg.role==='user' ? 'YOU' : 'JARVIS'}
+                      </div>
+                      <div style={{fontSize:11,color:'rgba(255,255,255,.80)',lineHeight:1.45,overflow:'hidden',maxHeight:'4.35em'}}>
+                        {msg.text.length > 130 ? msg.text.slice(0,128) + '…' : msg.text}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* QUICK ACTION — Console business actions */}
+            <div style={{marginBottom:14,flexShrink:0}}>
+              <div style={{color:GDim,fontSize:9,fontWeight:700,letterSpacing:'.22em',fontFamily:'monospace',marginBottom:8}}>
+                QUICK ACTION
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                {QUICK.map(({label, utt, Icon}) => (
+                  <button key={label} onClick={() => handleUtterance(utt)}
+                    disabled={isActive||isProc}
+                    className="jqbtn"
+                    style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                      gap:5,padding:'10px 4px',borderRadius:10,
+                      border:`1px solid ${GBdr}`,background:'rgba(255,215,0,.04)',
+                      color:'rgba(255,255,255,.65)',cursor:'pointer',fontSize:10,
+                      opacity:isActive||isProc?.4:1,transition:'background .18s'}}>
+                    <Icon style={{color:GDim,width:18,height:18}}/>
+                    <span style={{lineHeight:1.3,textAlign:'center'}}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Settings */}
+            <button onClick={() => setShowSettings(true)}
+              style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px 0',
+                borderRadius:10,border:`1px solid ${GBdr}`,background:'rgba(255,215,0,.04)',
+                color:GDim,cursor:'pointer',fontSize:10,fontFamily:'monospace',
+                letterSpacing:'.14em',flexShrink:0,transition:'background .18s'}}>
+              <Settings style={{width:13,height:13}}/>音声設定
+            </button>
+          </div>
+        </aside>
       </div>
     </div>
   )
