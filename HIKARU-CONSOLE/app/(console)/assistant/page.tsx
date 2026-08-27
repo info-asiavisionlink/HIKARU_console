@@ -154,149 +154,183 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
-// ─── Circuit Background ───────────────────────────────────────
+// ─── Network Background — neural network / holographic ────────
+// Static data outside component: zero-recreation cost
+const _FAR: [number,number][] = [
+  [58,45],[168,72],[292,40],[510,30],[672,52],[838,40],[945,88],
+  [952,195],[882,318],[942,482],[858,598],[782,675],[638,718],[478,722],
+  [318,698],[178,672],[65,618],[38,478],[42,285],[108,162],
+]
+const _MID: [number,number][] = [
+  [118,142],[248,118],[372,92],[588,108],[728,132],[868,172],
+  [918,345],[872,468],[742,572],[602,632],[438,652],[288,625],
+  [142,548],[78,418],[92,258],[186,198],[318,182],[488,175],
+  [625,198],[762,228],[808,395],[724,482],[552,492],[378,472],
+  [228,448],[152,338],
+]
+const _NEAR: [number,number][] = [
+  [182,132],[542,85],[885,232],[875,532],[518,645],[192,528],[102,318],[682,378],
+]
+const _FEDG: [number,number][] = [
+  [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
+  [9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],[16,17],[17,18],[18,19],[19,0],
+  [0,18],[2,17],[4,8],[9,12],[13,16],
+]
+const _MEDG: [number,number][] = [
+  [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],
+  [12,13],[13,14],[14,15],[15,0],[15,1],[0,14],[14,16],[2,16],[16,17],[17,3],[17,18],
+  [18,4],[18,19],[5,19],[19,6],[20,7],[20,21],[21,8],[21,22],[22,9],[22,23],
+  [23,10],[23,24],[24,11],[24,13],[25,13],[25,14],[25,24],[25,15],
+]
+const _FLOWS: [number,number,number,number,number,boolean][] = [
+  [0,15,14,8,0,true],[5,6,7,6,2.5,false],[10,11,12,7.5,5,true],
+  [2,3,4,9,1.5,false],[19,20,21,6.5,4,true],[23,24,13,10,7,false],
+]
+const _PARTS: [number,number,number,number,number][] = [
+  [88,200,1.2,0,0],[195,80,1.0,1.5,1],[340,55,1.5,3,2],[620,38,1.2,0.8,3],
+  [790,95,1.0,2.5,0],[910,180,1.3,4,1],[925,350,1.1,1.2,2],[905,440,1.2,5.5,3],
+  [820,560,1.0,0.5,0],[695,660,1.3,3.5,1],[530,700,1.1,2,2],[375,710,1.2,6,3],
+  [230,685,1.0,1,0],[115,600,1.4,4.5,1],[55,500,1.1,2.8,2],[48,370,1.2,0.3,3],
+  [62,240,1.0,5,0],[140,108,1.3,1.8,1],[270,165,1.1,3.2,2],[455,140,1.2,6.5,3],
+  [650,160,1.0,0.7,0],[810,285,1.4,2.2,1],[855,410,1.1,4.8,2],[760,535,1.2,1.5,3],
+  [580,598,1.0,3.8,0],[415,610,1.3,5.2,1],[268,570,1.1,0.9,2],[142,488,1.2,2.7,3],
+  [98,388,1.0,4.2,0],[130,288,1.3,1.3,1],[225,225,1.1,6.8,2],[348,145,1.2,2.0,3],
+  [525,108,1.0,3.5,0],[688,128,1.4,5.8,1],[828,195,1.1,0.5,2],[895,295,1.2,4.0,3],
+]
+const _DRFT = ['nwbg-drift-a','nwbg-drift-b','nwbg-drift-c','nwbg-drift-d']
+// Central protection zone fade: dim nodes/lines near JARVIS core (cx=430,cy=375)
+function _cf(x: number, y: number): number {
+  const d = Math.sqrt((x-430)**2+(y-375)**2)
+  return d < 110 ? 0.12 : d < 185 ? 0.12+(d-110)/75*0.88 : 1.0
+}
+function _fp(ia: number, ib: number, ic: number): string {
+  return `M${_MID[ia][0]},${_MID[ia][1]} L${_MID[ib][0]},${_MID[ib][1]} L${_MID[ic][0]},${_MID[ic][1]}`
+}
+
 function CircuitBackground({ mode }: { mode: string }) {
-  const bright = (mode === 'listening' || mode === 'speaking') ? 1.35
-               : (mode === 'processing' || mode === 'working')  ? 1.18 : 1.0
-  const f = (b: number) => (b * bright).toFixed(3)
+  const bright = (mode==='listening'||mode==='speaking') ? 1.40
+               : (mode==='processing'||mode==='working')  ? 1.20 : 1.0
+  const f = (b: number) => Math.min(1, b*bright).toFixed(3)
 
   return (
-    <div
-      aria-hidden="true"
-      style={{ position:'absolute', inset:0, zIndex:-1, pointerEvents:'none', overflow:'hidden' }}
-    >
+    <div aria-hidden="true"
+      style={{position:'absolute',inset:0,zIndex:-1,pointerEvents:'none',overflow:'hidden'}}>
       <style>{`
-        @keyframes cbg-f1{to{stroke-dashoffset:-500}}
-        @keyframes cbg-f2{to{stroke-dashoffset:360}}
-        @keyframes cbg-nd{0%,100%{opacity:.26}50%{opacity:.84}}
-        @keyframes cbg-sc{0%{opacity:0;left:-12%}18%{opacity:1}82%{opacity:.5}100%{opacity:0;left:115%}}
-        @keyframes cbg-gl{0%,100%{opacity:.60}50%{opacity:1}}
-        @media(prefers-reduced-motion:reduce){.cbg-a{animation:none!important}}
+        @keyframes nwbg-pulse    {0%,100%{opacity:.22}40%{opacity:.78}80%{opacity:.50}}
+        @keyframes nwbg-pulse-br {0%,100%{opacity:.32}45%{opacity:.92}80%{opacity:.60}}
+        @keyframes nwbg-flow-fwd {to{stroke-dashoffset:-600}}
+        @keyframes nwbg-flow-rev {to{stroke-dashoffset:600}}
+        @keyframes nwbg-drift-a  {0%{transform:translate(0,0)}50%{transform:translate(4px,-6px)}100%{transform:translate(0,0)}}
+        @keyframes nwbg-drift-b  {0%{transform:translate(0,0)}50%{transform:translate(-5px,4px)}100%{transform:translate(0,0)}}
+        @keyframes nwbg-drift-c  {0%{transform:translate(0,0)}50%{transform:translate(3px,6px)}100%{transform:translate(0,0)}}
+        @keyframes nwbg-drift-d  {0%{transform:translate(0,0)}50%{transform:translate(-4px,-4px)}100%{transform:translate(0,0)}}
+        @keyframes nwbg-breath   {0%,100%{opacity:.72}50%{opacity:1}}
+        @keyframes nwbg-glow     {0%,100%{opacity:.58}50%{opacity:1}}
+        @keyframes nwbg-scan     {0%{opacity:0;left:-15%}18%{opacity:1}82%{opacity:.45}100%{opacity:0;left:118%}}
+        @media(prefers-reduced-motion:reduce){.nwbg-a{animation:none!important}}
       `}</style>
 
-      {/* Base: near-black gradient */}
-      <div style={{ position:'absolute', inset:0,
-        background:'radial-gradient(ellipse 58% 68% at 43% 50%,#050604 0%,#030504 42%,#020302 100%)' }}/>
+      {/* Base: deep space black */}
+      <div style={{position:'absolute',inset:0,
+        background:'radial-gradient(ellipse 65% 75% at 43% 50%,#050400 0%,#030200 45%,#010000 100%)'}}/>
 
-      {/* Central ambient gold glow */}
-      <div className="cbg-a" style={{
-        position:'absolute', left:'22%', top:'8%', width:'46%', height:'84%',
-        background:`radial-gradient(ellipse at 40% 50%,rgba(212,175,55,${f(0.05)}) 0%,rgba(185,148,18,${f(0.018)}) 42%,transparent 70%)`,
-        animation:'cbg-gl 7s ease-in-out infinite',
+      {/* Subtle radial energy — very dim gold glow behind JARVIS core */}
+      <div className="nwbg-a" style={{
+        position:'absolute',left:'16%',top:'4%',width:'55%',height:'92%',
+        background:'radial-gradient(circle at 42% 50%,rgba(255,190,0,.12) 0%,rgba(255,160,0,.04) 38%,transparent 68%)',
+        animation:'nwbg-glow 14s ease-in-out infinite',
       }}/>
 
-      {/* SVG circuit network */}
+      {/* SVG: main network */}
       <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
-        style={{ position:'absolute', inset:0, width:'100%', height:'100%',
-          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 84%,transparent 100%)',
-          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 84%,transparent 100%)',
+        style={{position:'absolute',inset:0,width:'100%',height:'100%',
+          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
+          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
         }}>
 
-        {/* BACK LAYER: structural skeleton */}
-        <g stroke={`rgba(212,175,55,${f(0.030)})`} fill="none" strokeWidth=".5" strokeLinecap="square">
-          <path d="M0,185 L260,185 L260,240"/><path d="M0,375 L105,375"/>
-          <path d="M0,565 L165,565 L165,515"/><path d="M155,0 L155,265"/>
-          <path d="M430,0 L430,175"/><path d="M155,490 L155,750"/><path d="M430,595 L430,750"/>
-        </g>
-
-        {/* MID LAYER: main circuit arms */}
-        <g fill="none" strokeLinecap="square">
-          {/* ARM 1 top-left */}
-          <path d="M430,332 L430,268 L368,268 L368,208 L298,208 L218,208 L218,152 L138,152"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          <path d="M368,268 L328,268 L328,322" stroke={`rgba(212,175,55,${f(0.028)})`} strokeWidth=".6"/>
-          <path d="M298,208 L248,208 L248,258" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
-          {/* ARM 2 top-right */}
-          <path d="M458,332 L458,252 L528,252 L568,192 L682,192 L764,152"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          <path d="M528,252 L528,308 L588,308" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
-          {/* ARM 3 right */}
-          <path d="M480,375 L562,375 L602,332 L728,332 L836,332"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          <path d="M728,332 L728,282 L798,282" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
-          <path d="M602,332 L602,282 L648,282" stroke={`rgba(212,175,55,${f(0.020)})`} strokeWidth=".6"/>
-          {/* ARM 4 bottom-right */}
-          <path d="M458,418 L458,502 L542,502 L582,562 L708,562 L812,602"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          <path d="M582,562 L582,502 L648,502" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
-          {/* ARM 5 bottom */}
-          <path d="M430,418 L430,532 L368,532 L368,638 L278,638 L198,698"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          <path d="M368,532 L318,532 L318,592" stroke={`rgba(212,175,55,${f(0.020)})`} strokeWidth=".6"/>
-          {/* ARM 6 bottom-left */}
-          <path d="M398,418 L338,418 L278,478 L178,478 L98,522"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          {/* ARM 7 left */}
-          <path d="M378,375 L288,375 L248,412 L138,412 L52,412"
-            stroke={`rgba(212,175,55,${f(0.065)})`} strokeWidth="1"/>
-          <path d="M288,375 L288,322 L222,322 L118,322" stroke={`rgba(212,175,55,${f(0.022)})`} strokeWidth=".6"/>
-          {/* Teal accents */}
-          <path d="M378,375 L278,375 L238,332 L132,332 L52,332"
-            stroke={`rgba(0,210,210,${f(0.028)})`} strokeWidth=".6"/>
-          <path d="M430,418 L430,552 L462,584 L462,668 L536,668"
-            stroke={`rgba(0,200,218,${f(0.022)})`} strokeWidth=".6"/>
-        </g>
-
-        {/* DATA FLOW: animated dash */}
-        <g fill="none" strokeLinecap="round">
-          <path d="M430,332 L430,268 L368,268 L368,208 L298,208 L218,208 L218,152"
-            stroke={`rgba(255,210,60,${f(0.080)})`} strokeWidth="1.4" strokeDasharray="16 110"
-            className="cbg-a" style={{animation:'cbg-f1 9s linear infinite'}}/>
-          <path d="M836,332 L728,332 L602,332 L562,375 L480,375"
-            stroke={`rgba(255,210,60,${f(0.072)})`} strokeWidth="1.2" strokeDasharray="13 95"
-            className="cbg-a" style={{animation:'cbg-f2 11s linear infinite'}}/>
-          <path d="M52,412 L138,412 L248,412 L288,375 L378,375"
-            stroke={`rgba(255,210,60,${f(0.062)})`} strokeWidth="1.0" strokeDasharray="11 85"
-            className="cbg-a" style={{animation:'cbg-f1 13s linear infinite 4s'}}/>
-          <path d="M536,668 L462,668 L462,584 L430,552 L430,418"
-            stroke={`rgba(0,215,210,${f(0.036)})`} strokeWidth="1.0" strokeDasharray="10 72"
-            className="cbg-a" style={{animation:'cbg-f2 15s linear infinite 6.5s'}}/>
-        </g>
-
-        {/* NODES */}
-        {([
-          [430,268,2.0],[368,208,1.8],[298,208,1.5],
-          [528,252,1.8],[728,332,1.6],[602,332,1.5],
-          [458,502,1.5],[582,562,1.8],[368,532,1.5],
-          [288,375,1.6],[248,412,1.4],[328,268,1.2],[248,258,1.0],[528,308,1.0],
-        ] as [number,number,number][]).map(([x,y,r],i)=>(
-          <circle key={i} cx={x} cy={y} r={r}
-            fill={`rgba(255,210,60,${f(0.10)})`} className="cbg-a"
-            style={{animation:`cbg-nd ${(3.2+(i%4)*.7).toFixed(1)}s ease-in-out ${((i*.35)%2.8).toFixed(1)}s infinite`}}/>
-        ))}
-        {([
-          [462,584,1.2],[430,552,1.0],[238,332,1.0],
-        ] as [number,number,number][]).map(([x,y,r],i)=>(
-          <circle key={i} cx={x} cy={y} r={r}
-            fill={`rgba(0,215,210,${f(0.052)})`} className="cbg-a"
-            style={{animation:`cbg-nd ${(4+i*.8).toFixed(1)}s ease-in-out ${(i*1.2).toFixed(1)}s infinite`}}/>
-        ))}
-
-        {/* HUD ARCS */}
-        <g fill="none">
-          <path d="M 188,375 A 242,242 0 0 1 672,375"
-            stroke={`rgba(212,175,55,${f(0.020)})`} strokeWidth=".55"/>
-          <path d="M 295,278 A 146,146 0 0 1 565,278"
-            stroke={`rgba(212,175,55,${f(0.016)})`} strokeWidth=".45"/>
-          <path d="M 278,448 A 162,162 0 0 0 582,448"
-            stroke={`rgba(212,175,55,${f(0.013)})`} strokeWidth=".40"/>
-          {Array.from({length:7},(_,i)=>{
-            const deg=-152+i*50, r=242, acx=430, acy=375
-            const a=deg*Math.PI/180
+        {/* Layer 1: Far — very dark, 22s breath */}
+        <g className="nwbg-a" style={{animation:'nwbg-breath 22s ease-in-out 0s infinite'}}>
+          {_FEDG.map(([a,b],i)=>{
+            const fade=Math.min(_cf(_FAR[a][0],_FAR[a][1]),_cf(_FAR[b][0],_FAR[b][1]))
             return <line key={i}
-              x1={acx+(r-9)*Math.cos(a)} y1={acy+(r-9)*Math.sin(a)}
-              x2={acx+r*Math.cos(a)}     y2={acy+r*Math.sin(a)}
-              stroke={`rgba(212,175,55,${f(0.024)})`}
-              strokeWidth={i%3===0?.9:.4}/>
+              x1={_FAR[a][0]} y1={_FAR[a][1]} x2={_FAR[b][0]} y2={_FAR[b][1]}
+              stroke={`rgba(255,201,40,${f(0.14*fade)})`} strokeWidth=".6"/>
           })}
+          {_FAR.map(([x,y],i)=>(
+            <circle key={i} cx={x} cy={y} r={1.3}
+              fill={`rgba(255,201,40,${f(0.25*_cf(x,y))})`} className="nwbg-a"
+              style={{animation:`nwbg-pulse ${6+i%5}s ease-in-out ${((i*.72)%9).toFixed(1)}s infinite`}}/>
+          ))}
+        </g>
+
+        {/* Layer 2: Mid — main network, 16s breath */}
+        <g className="nwbg-a" style={{animation:'nwbg-breath 16s ease-in-out 2.5s infinite'}}>
+          {_MEDG.map(([a,b],i)=>{
+            if(a>=_MID.length||b>=_MID.length) return null
+            const fade=Math.min(_cf(_MID[a][0],_MID[a][1]),_cf(_MID[b][0],_MID[b][1]))
+            return <line key={i}
+              x1={_MID[a][0]} y1={_MID[a][1]} x2={_MID[b][0]} y2={_MID[b][1]}
+              stroke={`rgba(255,216,74,${f(0.24*fade)})`} strokeWidth=".9"/>
+          })}
+          {_MID.map(([x,y],i)=>{
+            const fade=_cf(x,y)
+            return <circle key={i} cx={x} cy={y} r={i<6?2.5:i<18?2.0:1.8}
+              fill={`rgba(255,216,74,${f(0.42*fade)})`} className="nwbg-a"
+              style={{animation:`nwbg-pulse ${4+i%7}s ease-in-out ${((i*.42)%10).toFixed(1)}s infinite`}}/>
+          })}
+        </g>
+
+        {/* Data flow — 6 paths, staggered timing */}
+        {_FLOWS.map(([ia,ib,ic,dur,delay,fwd],fi)=>{
+          const fade=_cf(_MID[ib][0],_MID[ib][1])
+          return <path key={fi} d={_fp(ia,ib,ic)} fill="none"
+            stroke={`rgba(255,232,109,${f(0.40*fade)})`}
+            strokeWidth="1.6" strokeDasharray="14 85" strokeLinecap="round"
+            className="nwbg-a"
+            style={{animation:`${fwd?'nwbg-flow-fwd':'nwbg-flow-rev'} ${dur}s linear ${delay}s infinite`}}/>
+        })}
+
+        {/* Layer 3: Near bright accent nodes, 11s breath */}
+        <g className="nwbg-a" style={{animation:'nwbg-breath 11s ease-in-out 1s infinite'}}>
+          {_NEAR.map(([x,y],i)=>{
+            const fade=_cf(x,y)
+            const r=i<3?4.5:3.5
+            return (
+              <g key={i} className="nwbg-a"
+                style={{animation:`nwbg-pulse-br ${3+i%4}s ease-in-out ${((i*.85)%6).toFixed(1)}s infinite`}}>
+                <circle cx={x} cy={y} r={r*2.2} fill={`rgba(255,190,0,${f(0.08*fade)})`}/>
+                <circle cx={x} cy={y} r={r}
+                  fill={`rgba(255,232,109,${f(0.70*fade)})`}
+                  style={{filter:`drop-shadow(0 0 4px rgba(255,210,60,${f(0.90*fade)}))`}}/>
+              </g>
+            )
+          })}
+        </g>
+
+        {/* Digital particles — slow drift */}
+        {_PARTS.map(([cx,cy,r,delay,dt],i)=>(
+          <circle key={i} cx={cx} cy={cy} r={r}
+            fill={`rgba(255,210,60,${f(0.30*_cf(cx,cy))})`} className="nwbg-a"
+            style={{animation:`${_DRFT[dt]??_DRFT[0]} ${9+i%9}s ease-in-out ${delay}s infinite`}}/>
+        ))}
+
+        {/* Micro HUD labels — decorative only, very dim */}
+        <g fill={`rgba(255,200,40,${f(0.070)})`}
+          fontFamily="'Courier New',Courier,monospace" fontSize="7" letterSpacing="2">
+          <text x="35"  y="442">NETWORK</text>
+          <text x="842" y="335">AI CORE</text>
+          <text x="65"  y="588">DATA STREAM</text>
+          <text x="775" y="182">NEURAL LINK</text>
+          <text x="308" y="46" >SYSTEM</text>
+          <text x="545" y="728">VOICE LINK</text>
         </g>
       </svg>
 
-      {/* Slow scan line */}
-      <div className="cbg-a" style={{
-        position:'absolute', top:0, bottom:0, left:0, width:'180px',
-        background:'linear-gradient(to right,transparent 0%,rgba(212,175,55,0.046) 50%,transparent 100%)',
-        animation:'cbg-sc 20s ease-in-out infinite',
+      {/* Slow horizontal scan sweep */}
+      <div className="nwbg-a" style={{
+        position:'absolute',top:0,bottom:0,left:0,width:'200px',
+        background:'linear-gradient(to right,transparent 0%,rgba(255,200,40,.060) 50%,transparent 100%)',
+        animation:'nwbg-scan 28s ease-in-out infinite',
       }}/>
     </div>
   )
