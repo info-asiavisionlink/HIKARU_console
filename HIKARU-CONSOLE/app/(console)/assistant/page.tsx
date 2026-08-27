@@ -154,183 +154,246 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
-// ─── Network Background — neural network / holographic ────────
-// Static data outside component: zero-recreation cost
-const _FAR: [number,number][] = [
-  [58,45],[168,72],[292,40],[510,30],[672,52],[838,40],[945,88],
-  [952,195],[882,318],[942,482],[858,598],[782,675],[638,718],[478,722],
-  [318,698],[178,672],[65,618],[38,478],[42,285],[108,162],
+// ─── 03 Holographic Analysis Field ───────────────────────────
+// Data points: [cx, cy, r, pulseDelay]
+const _DP: [number,number,number,number][] = [
+  [118,175,2.5,0],[285,82,1.8,1.5],[518,58,2.2,3.2],[722,118,2.5,0.8],
+  [882,195,2.0,2.1],[918,382,2.5,4.0],[848,558,2.0,1.2],[682,648,2.5,5.5],
+  [452,702,1.8,0.5],[262,658,2.2,3.8],[92,548,2.5,2.5],[55,378,2.0,0.9],
+  [112,222,1.8,4.5],[582,158,2.5,1.8],[352,578,2.0,6.0],
+  [762,452,2.5,2.8],[172,422,1.8,5.2],[632,578,2.2,0.3],
 ]
-const _MID: [number,number][] = [
-  [118,142],[248,118],[372,92],[588,108],[728,132],[868,172],
-  [918,345],[872,468],[742,572],[602,632],[438,652],[288,625],
-  [142,548],[78,418],[92,258],[186,198],[318,182],[488,175],
-  [625,198],[762,228],[808,395],[724,482],[552,492],[378,472],
-  [228,448],[152,338],
+// Target/lock elements: [cx, cy, size]
+const _TGT: [number,number,number][] = [
+  [148,138,22],[722,128,18],[140,582,20],[802,558,18],[672,382,16],
 ]
-const _NEAR: [number,number][] = [
-  [182,132],[542,85],[885,232],[875,532],[518,645],[192,528],[102,318],[682,378],
-]
-const _FEDG: [number,number][] = [
-  [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
-  [9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],[16,17],[17,18],[18,19],[19,0],
-  [0,18],[2,17],[4,8],[9,12],[13,16],
-]
-const _MEDG: [number,number][] = [
-  [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],
-  [12,13],[13,14],[14,15],[15,0],[15,1],[0,14],[14,16],[2,16],[16,17],[17,3],[17,18],
-  [18,4],[18,19],[5,19],[19,6],[20,7],[20,21],[21,8],[21,22],[22,9],[22,23],
-  [23,10],[23,24],[24,11],[24,13],[25,13],[25,14],[25,24],[25,15],
-]
-const _FLOWS: [number,number,number,number,number,boolean][] = [
-  [0,15,14,8,0,true],[5,6,7,6,2.5,false],[10,11,12,7.5,5,true],
-  [2,3,4,9,1.5,false],[19,20,21,6.5,4,true],[23,24,13,10,7,false],
-]
-const _PARTS: [number,number,number,number,number][] = [
-  [88,200,1.2,0,0],[195,80,1.0,1.5,1],[340,55,1.5,3,2],[620,38,1.2,0.8,3],
-  [790,95,1.0,2.5,0],[910,180,1.3,4,1],[925,350,1.1,1.2,2],[905,440,1.2,5.5,3],
-  [820,560,1.0,0.5,0],[695,660,1.3,3.5,1],[530,700,1.1,2,2],[375,710,1.2,6,3],
-  [230,685,1.0,1,0],[115,600,1.4,4.5,1],[55,500,1.1,2.8,2],[48,370,1.2,0.3,3],
-  [62,240,1.0,5,0],[140,108,1.3,1.8,1],[270,165,1.1,3.2,2],[455,140,1.2,6.5,3],
-  [650,160,1.0,0.7,0],[810,285,1.4,2.2,1],[855,410,1.1,4.8,2],[760,535,1.2,1.5,3],
-  [580,598,1.0,3.8,0],[415,610,1.3,5.2,1],[268,570,1.1,0.9,2],[142,488,1.2,2.7,3],
-  [98,388,1.0,4.2,0],[130,288,1.3,1.3,1],[225,225,1.1,6.8,2],[348,145,1.2,2.0,3],
-  [525,108,1.0,3.5,0],[688,128,1.4,5.8,1],[828,195,1.1,0.5,2],[895,295,1.2,4.0,3],
-]
-const _DRFT = ['nwbg-drift-a','nwbg-drift-b','nwbg-drift-c','nwbg-drift-d']
-// Central protection zone fade: dim nodes/lines near JARVIS core (cx=430,cy=375)
-function _cf(x: number, y: number): number {
+// Center protection fade
+function _hcf(x: number, y: number): number {
   const d = Math.sqrt((x-430)**2+(y-375)**2)
-  return d < 110 ? 0.12 : d < 185 ? 0.12+(d-110)/75*0.88 : 1.0
-}
-function _fp(ia: number, ib: number, ic: number): string {
-  return `M${_MID[ia][0]},${_MID[ia][1]} L${_MID[ib][0]},${_MID[ib][1]} L${_MID[ic][0]},${_MID[ic][1]}`
+  return d < 120 ? 0.10 : d < 200 ? 0.10+(d-120)/80*0.90 : 1.0
 }
 
 function CircuitBackground({ mode }: { mode: string }) {
-  const bright = (mode==='listening'||mode==='speaking') ? 1.40
-               : (mode==='processing'||mode==='working')  ? 1.20 : 1.0
-  const f = (b: number) => Math.min(1, b*bright).toFixed(3)
+  const isListen = mode === 'listening'
+  const isSpeak  = mode === 'speaking'
+  const isProc   = mode === 'processing' || mode === 'working'
+  const isIdle   = mode === 'idle'
+  const bright   = isListen ? 1.00 : isSpeak ? 0.90 : isProc ? 0.82 : isIdle ? 0.55 : 0.68
+  const f = (b: number) => Math.min(1, b * bright).toFixed(3)
+  const cyanB = isListen ? 0.22 : 0.07
 
   return (
     <div aria-hidden="true"
       style={{position:'absolute',inset:0,zIndex:-1,pointerEvents:'none',overflow:'hidden'}}>
       <style>{`
-        @keyframes nwbg-pulse    {0%,100%{opacity:.22}40%{opacity:.78}80%{opacity:.50}}
-        @keyframes nwbg-pulse-br {0%,100%{opacity:.32}45%{opacity:.92}80%{opacity:.60}}
-        @keyframes nwbg-flow-fwd {to{stroke-dashoffset:-600}}
-        @keyframes nwbg-flow-rev {to{stroke-dashoffset:600}}
-        @keyframes nwbg-drift-a  {0%{transform:translate(0,0)}50%{transform:translate(4px,-6px)}100%{transform:translate(0,0)}}
-        @keyframes nwbg-drift-b  {0%{transform:translate(0,0)}50%{transform:translate(-5px,4px)}100%{transform:translate(0,0)}}
-        @keyframes nwbg-drift-c  {0%{transform:translate(0,0)}50%{transform:translate(3px,6px)}100%{transform:translate(0,0)}}
-        @keyframes nwbg-drift-d  {0%{transform:translate(0,0)}50%{transform:translate(-4px,-4px)}100%{transform:translate(0,0)}}
-        @keyframes nwbg-breath   {0%,100%{opacity:.72}50%{opacity:1}}
-        @keyframes nwbg-glow     {0%,100%{opacity:.58}50%{opacity:1}}
-        @keyframes nwbg-scan     {0%{opacity:0;left:-15%}18%{opacity:1}82%{opacity:.45}100%{opacity:0;left:118%}}
-        @media(prefers-reduced-motion:reduce){.nwbg-a{animation:none!important}}
+        @keyframes holo-grid    {0%{background-position:0 0}100%{background-position:0 52px}}
+        @keyframes holo-scanln  {0%{background-position-y:0}100%{background-position-y:-8px}}
+        @keyframes holo-beam    {0%,3%{transform:translateY(-130px)}95%,100%{transform:translateY(1100px)}}
+        @keyframes holo-arc-cw  {to{transform:rotate(360deg)}}
+        @keyframes holo-arc-ccw {to{transform:rotate(-360deg)}}
+        @keyframes holo-pulse   {0%,100%{opacity:.28}50%{opacity:.92}}
+        @keyframes holo-pulsebr {0%,100%{opacity:.38}50%{opacity:1}}
+        @keyframes holo-glow    {0%,100%{opacity:.58}50%{opacity:1}}
+        @keyframes holo-tgt     {0%,100%{opacity:.32}50%{opacity:.75}}
+        @keyframes holo-tgtsc   {0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+        @keyframes holo-noise   {0%,50%{opacity:.010}25%,75%{opacity:.020}}
+        @keyframes holo-fwd     {to{stroke-dashoffset:-380}}
+        @keyframes holo-rev     {to{stroke-dashoffset:380}}
+        @keyframes holo-ring    {0%{transform:scale(.15);opacity:0}50%{opacity:1}100%{transform:scale(1);opacity:0}}
+        @media(prefers-reduced-motion:reduce){.holo-a{animation:none!important}}
       `}</style>
 
-      {/* Base: deep space black */}
+      {/* Base */}
       <div style={{position:'absolute',inset:0,
-        background:'radial-gradient(ellipse 65% 75% at 43% 50%,#050400 0%,#030200 45%,#010000 100%)'}}/>
+        background:'radial-gradient(ellipse 70% 80% at 43% 50%,#040300 0%,#020100 52%,#000000 100%)'}}/>
 
-      {/* Subtle radial energy — very dim gold glow behind JARVIS core */}
-      <div className="nwbg-a" style={{
-        position:'absolute',left:'16%',top:'4%',width:'55%',height:'92%',
-        background:'radial-gradient(circle at 42% 50%,rgba(255,190,0,.12) 0%,rgba(255,160,0,.04) 38%,transparent 68%)',
-        animation:'nwbg-glow 14s ease-in-out infinite',
+      {/* Layer 1: Deep Perspective Grid */}
+      <div style={{position:'absolute',inset:0,overflow:'hidden',
+        maskImage:'linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.6) 18%,black 55%,rgba(0,0,0,.35) 82%,transparent 100%)',
+        WebkitMaskImage:'linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.6) 18%,black 55%,rgba(0,0,0,.35) 82%,transparent 100%)',
+      }}>
+        <div className="holo-a" style={{
+          position:'absolute',left:'-25%',right:'-25%',top:'-30%',bottom:'-10%',
+          backgroundImage:`linear-gradient(rgba(255,210,60,${f(0.055)}) 1px,transparent 1px),linear-gradient(90deg,rgba(255,210,60,${f(0.038)}) 1px,transparent 1px)`,
+          backgroundSize:'52px 52px',
+          transform:'perspective(620px) rotateX(55deg)',
+          transformOrigin:'50% 62%',
+          animation:'holo-grid 30s linear infinite',
+        }}/>
+      </div>
+
+      {/* Layer 2: Horizontal Scan Lines */}
+      <div className="holo-a" style={{
+        position:'absolute',inset:0,
+        backgroundImage:`repeating-linear-gradient(to bottom,rgba(255,216,74,${f(0.030)}) 0px,rgba(255,216,74,${f(0.030)}) 1px,transparent 1px,transparent 8px)`,
+        animation:'holo-scanln 9s linear infinite',
       }}/>
 
-      {/* SVG: main network */}
+      {/* Layer 3: Main Scan Beam */}
+      <div className="holo-a" style={{
+        position:'absolute',left:0,right:0,top:0,height:'115px',
+        background:`linear-gradient(to bottom,transparent 0%,rgba(255,208,55,${f(0.030)}) 22%,rgba(255,215,60,${f(0.095)}) 50%,rgba(255,208,55,${f(0.030)}) 78%,transparent 100%)`,
+        animation:'holo-beam 13s ease-in-out infinite',
+        willChange:'transform',
+      }}/>
+
+      {/* Layer 7: Ambient Glow */}
+      <div className="holo-a" style={{
+        position:'absolute',left:'13%',top:'2%',width:'60%',height:'96%',
+        background:`radial-gradient(circle at 42% 50%,rgba(255,192,0,${f(0.105)}) 0%,rgba(255,165,0,${f(0.038)}) 36%,transparent 68%)`,
+        animation:'holo-glow 11s ease-in-out infinite',
+      }}/>
+
+      {/* SVG: Arcs, Rings, Nodes, Targets, Flow, Labels */}
       <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
         style={{position:'absolute',inset:0,width:'100%',height:'100%',
-          maskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
-          WebkitMaskImage:'linear-gradient(to right,black 0%,black 60%,rgba(0,0,0,.15) 83%,transparent 100%)',
+          maskImage:'linear-gradient(to right,black 0%,black 62%,rgba(0,0,0,.14) 84%,transparent 100%)',
+          WebkitMaskImage:'linear-gradient(to right,black 0%,black 62%,rgba(0,0,0,.14) 84%,transparent 100%)',
         }}>
+        <defs>
+          <radialGradient id="holo-cfade" cx="43%" cy="50%" r="25%" gradientUnits="userSpaceOnUse"
+            fx="430" fy="375">
+            <stop offset="0%"   stopColor="black" stopOpacity=".88"/>
+            <stop offset="100%" stopColor="black" stopOpacity="0"/>
+          </radialGradient>
+          <mask id="holo-cmask" maskUnits="userSpaceOnUse">
+            <rect width="1000" height="750" fill="white"/>
+            <rect width="1000" height="750" fill="url(#holo-cfade)"/>
+          </mask>
+        </defs>
 
-        {/* Layer 1: Far — very dark, 22s breath */}
-        <g className="nwbg-a" style={{animation:'nwbg-breath 22s ease-in-out 0s infinite'}}>
-          {_FEDG.map(([a,b],i)=>{
-            const fade=Math.min(_cf(_FAR[a][0],_FAR[a][1]),_cf(_FAR[b][0],_FAR[b][1]))
-            return <line key={i}
-              x1={_FAR[a][0]} y1={_FAR[a][1]} x2={_FAR[b][0]} y2={_FAR[b][1]}
-              stroke={`rgba(255,201,40,${f(0.14*fade)})`} strokeWidth=".6"/>
-          })}
-          {_FAR.map(([x,y],i)=>(
-            <circle key={i} cx={x} cy={y} r={1.3}
-              fill={`rgba(255,201,40,${f(0.25*_cf(x,y))})`} className="nwbg-a"
-              style={{animation:`nwbg-pulse ${6+i%5}s ease-in-out ${((i*.72)%9).toFixed(1)}s infinite`}}/>
-          ))}
+        {/* Layer 4: Analysis Arcs */}
+        <g mask="url(#holo-cmask)">
+          {/* Outer dim arc — CW 47s, 22% */}
+          <circle cx="430" cy="375" r="338" fill="none"
+            stroke={`rgba(255,210,55,${f(0.072)})`} strokeWidth="1"
+            strokeDasharray="469 1638" className="holo-a"
+            style={{transformOrigin:'430px 375px',animation:'holo-arc-cw 47s linear infinite'}}/>
+          {/* Mid arc — CCW 65s, 35% */}
+          <circle cx="430" cy="375" r="268" fill="none"
+            stroke={`rgba(255,218,62,${f(0.088)})`} strokeWidth="1.2"
+            strokeDasharray="591 1074" className="holo-a"
+            style={{transformOrigin:'430px 375px',animation:'holo-arc-ccw 65s linear infinite'}}/>
+          {/* Inner arc — CW 36s, 16% */}
+          <circle cx="430" cy="375" r="210" fill="none"
+            stroke={`rgba(255,205,50,${f(0.065)})`} strokeWidth=".9"
+            strokeDasharray="211 1099" className="holo-a"
+            style={{transformOrigin:'430px 375px',animation:'holo-arc-cw 36s linear infinite 8s'}}/>
+          {/* Far accent arc — CCW very dim, 10% */}
+          <circle cx="430" cy="375" r="380" fill="none"
+            stroke={`rgba(255,200,45,${f(0.042)})`} strokeWidth=".6"
+            strokeDasharray="239 2149" className="holo-a"
+            style={{transformOrigin:'430px 375px',animation:'holo-arc-ccw 82s linear infinite 5s'}}/>
+          {/* Cyan accent arc (stronger in listening mode) */}
+          <circle cx="430" cy="375" r="295" fill="none"
+            stroke={`rgba(0,222,212,${(cyanB*bright).toFixed(3)})`} strokeWidth=".8"
+            strokeDasharray="370 1483" className="holo-a"
+            style={{transformOrigin:'430px 375px',animation:'holo-arc-cw 55s linear infinite 12s'}}/>
         </g>
 
-        {/* Layer 2: Mid — main network, 16s breath */}
-        <g className="nwbg-a" style={{animation:'nwbg-breath 16s ease-in-out 2.5s infinite'}}>
-          {_MEDG.map(([a,b],i)=>{
-            if(a>=_MID.length||b>=_MID.length) return null
-            const fade=Math.min(_cf(_MID[a][0],_MID[a][1]),_cf(_MID[b][0],_MID[b][1]))
-            return <line key={i}
-              x1={_MID[a][0]} y1={_MID[a][1]} x2={_MID[b][0]} y2={_MID[b][1]}
-              stroke={`rgba(255,216,74,${f(0.24*fade)})`} strokeWidth=".9"/>
-          })}
-          {_MID.map(([x,y],i)=>{
-            const fade=_cf(x,y)
-            return <circle key={i} cx={x} cy={y} r={i<6?2.5:i<18?2.0:1.8}
-              fill={`rgba(255,216,74,${f(0.42*fade)})`} className="nwbg-a"
-              style={{animation:`nwbg-pulse ${4+i%7}s ease-in-out ${((i*.42)%10).toFixed(1)}s infinite`}}/>
-          })}
-        </g>
-
-        {/* Data flow — 6 paths, staggered timing */}
-        {_FLOWS.map(([ia,ib,ic,dur,delay,fwd],fi)=>{
-          const fade=_cf(_MID[ib][0],_MID[ib][1])
-          return <path key={fi} d={_fp(ia,ib,ic)} fill="none"
-            stroke={`rgba(255,232,109,${f(0.40*fade)})`}
-            strokeWidth="1.6" strokeDasharray="14 85" strokeLinecap="round"
-            className="nwbg-a"
-            style={{animation:`${fwd?'nwbg-flow-fwd':'nwbg-flow-rev'} ${dur}s linear ${delay}s infinite`}}/>
-        })}
-
-        {/* Layer 3: Near bright accent nodes, 11s breath */}
-        <g className="nwbg-a" style={{animation:'nwbg-breath 11s ease-in-out 1s infinite'}}>
-          {_NEAR.map(([x,y],i)=>{
-            const fade=_cf(x,y)
-            const r=i<3?4.5:3.5
-            return (
-              <g key={i} className="nwbg-a"
-                style={{animation:`nwbg-pulse-br ${3+i%4}s ease-in-out ${((i*.85)%6).toFixed(1)}s infinite`}}>
-                <circle cx={x} cy={y} r={r*2.2} fill={`rgba(255,190,0,${f(0.08*fade)})`}/>
-                <circle cx={x} cy={y} r={r}
-                  fill={`rgba(255,232,109,${f(0.70*fade)})`}
-                  style={{filter:`drop-shadow(0 0 4px rgba(255,210,60,${f(0.90*fade)}))`}}/>
-              </g>
-            )
-          })}
-        </g>
-
-        {/* Digital particles — slow drift */}
-        {_PARTS.map(([cx,cy,r,delay,dt],i)=>(
-          <circle key={i} cx={cx} cy={cy} r={r}
-            fill={`rgba(255,210,60,${f(0.30*_cf(cx,cy))})`} className="nwbg-a"
-            style={{animation:`${_DRFT[dt]??_DRFT[0]} ${9+i%9}s ease-in-out ${delay}s infinite`}}/>
+        {/* Radar rings — expanding outward from center */}
+        {[0,2.5,5].map((delay,i)=>(
+          <circle key={i} cx="430" cy="375" r="280" fill="none"
+            stroke={`rgba(255,205,50,${f(0.055)})`} strokeWidth=".7" className="holo-a"
+            style={{transformOrigin:'430px 375px',
+              animation:`holo-ring 7s ease-out ${delay}s infinite`}}/>
         ))}
 
-        {/* Micro HUD labels — decorative only, very dim */}
-        <g fill={`rgba(255,200,40,${f(0.070)})`}
-          fontFamily="'Courier New',Courier,monospace" fontSize="7" letterSpacing="2">
-          <text x="35"  y="442">NETWORK</text>
-          <text x="842" y="335">AI CORE</text>
-          <text x="65"  y="588">DATA STREAM</text>
-          <text x="775" y="182">NEURAL LINK</text>
-          <text x="308" y="46" >SYSTEM</text>
-          <text x="545" y="728">VOICE LINK</text>
+        {/* Layer 5: Data Points */}
+        {_DP.map(([cx,cy,r,delay],i)=>{
+          const fade=_hcf(cx,cy)
+          const isCyan=i===3||i===9||i===14
+          const gc=isCyan?'0,218,208':'255,218,68'
+          const sc=isCyan?'0,210,200':'255,205,50'
+          return (
+            <g key={i} className="holo-a"
+              style={{animation:`holo-pulse ${4+i%5}s ease-in-out ${delay}s infinite`}}>
+              <circle cx={cx} cy={cy} r={r*2.8}
+                fill={`rgba(${sc},${f(0.038*fade)})`}/>
+              <circle cx={cx} cy={cy} r={r}
+                fill={`rgba(${gc},${f(0.62*fade)})`}
+                style={{filter:`drop-shadow(0 0 2.5px rgba(${sc},${f(0.78*fade)}))`}}/>
+              {r>=2.0&&<>
+                <line x1={cx-r*2.2} y1={cy} x2={cx+r*2.2} y2={cy}
+                  stroke={`rgba(${sc},${f(0.38*fade)})`} strokeWidth=".5"/>
+                <line x1={cx} y1={cy-r*2.2} x2={cx} y2={cy+r*2.2}
+                  stroke={`rgba(${sc},${f(0.38*fade)})`} strokeWidth=".5"/>
+              </>}
+            </g>
+          )
+        })}
+
+        {/* Layer 6: Target / Lock Elements */}
+        {_TGT.map(([cx,cy,s],i)=>{
+          const hs=s/2, arm=s*.30
+          return (
+            <g key={i} fill="none"
+              stroke={`rgba(255,212,58,${f(0.32)})`} strokeWidth=".9"
+              className="holo-a"
+              style={{transformOrigin:`${cx}px ${cy}px`,
+                animation:`holo-tgt ${5+i*1.6}s ease-in-out ${i*1.3}s infinite${i%2===0?`,holo-tgtsc ${8+i*2}s ease-in-out ${i*.7}s infinite`:''}`}}>
+              <path d={`M${cx-hs+arm},${cy-hs} L${cx-hs},${cy-hs} L${cx-hs},${cy-hs+arm}`}/>
+              <path d={`M${cx+hs-arm},${cy-hs} L${cx+hs},${cy-hs} L${cx+hs},${cy-hs+arm}`}/>
+              <path d={`M${cx-hs+arm},${cy+hs} L${cx-hs},${cy+hs} L${cx-hs},${cy+hs-arm}`}/>
+              <path d={`M${cx+hs-arm},${cy+hs} L${cx+hs},${cy+hs} L${cx+hs},${cy+hs-arm}`}/>
+              <circle cx={cx} cy={cy} r="1.8" fill={`rgba(255,212,58,${f(0.55)})`} stroke="none"/>
+            </g>
+          )
+        })}
+
+        {/* Layer 8: Data Flow */}
+        <g fill="none" strokeLinecap="round">
+          <path d="M112,222 L118,175 L285,82 L518,58"
+            stroke={`rgba(255,228,80,${f(0.24)})`} strokeWidth="1.1"
+            strokeDasharray="12 78" className="holo-a"
+            style={{animation:'holo-fwd 7s linear infinite'}}/>
+          <path d="M722,118 L882,195 L918,382 L848,558"
+            stroke={`rgba(255,225,75,${f(0.22)})`} strokeWidth="1.1"
+            strokeDasharray="11 72" className="holo-a"
+            style={{animation:'holo-rev 9s linear infinite 2s'}}/>
+          <path d="M262,658 L92,548 L55,378 L112,222"
+            stroke={`rgba(255,220,70,${f(0.20)})`} strokeWidth="1.0"
+            strokeDasharray="10 68" className="holo-a"
+            style={{animation:'holo-fwd 11s linear infinite 4s'}}/>
+          <path d="M452,702 L682,648 L848,558"
+            stroke={`rgba(255,225,75,${f(0.20)})`} strokeWidth="1.0"
+            strokeDasharray="9 62" className="holo-a"
+            style={{animation:'holo-rev 8s linear infinite 6s'}}/>
+          <path d="M762,452 L918,382"
+            stroke={`rgba(0,215,205,${f(0.20)})`} strokeWidth=".9"
+            strokeDasharray="8 52" className="holo-a"
+            style={{animation:'holo-fwd 6s linear infinite 1s'}}/>
+        </g>
+
+        {/* Layer 7: Micro Data Labels */}
+        <g fontFamily="'Courier New',Courier,monospace" letterSpacing="1.8" className="holo-a">
+          <g fill={`rgba(255,205,50,${f(0.16)})`} fontSize="7">
+            <text x="28" y="52">SCAN // ACTIVE</text>
+            <text x="28" y="63">NODE</text>
+          </g>
+          <g fill={`rgba(255,205,50,${f(0.13)})`} fontSize="7" textAnchor="end">
+            <text x="575" y="52">ANALYSIS</text>
+            <text x="575" y="63">VOICE</text>
+          </g>
+          <g fill={`rgba(255,205,50,${f(0.13)})`} fontSize="7">
+            <text x="28" y="700">SIGNAL</text>
+            <text x="28" y="711">PROCESS</text>
+          </g>
+          <g fill={`rgba(255,205,50,${f(0.12)})`} fontSize="7" textAnchor="end">
+            <text x="575" y="700">SYSTEM</text>
+            <text x="575" y="711">NEURAL</text>
+          </g>
+          <g fill={`rgba(0,205,195,${f(0.12)})`} fontSize="6" textAnchor="end">
+            <text x="575" y="382">AI CORE</text>
+          </g>
         </g>
       </svg>
 
-      {/* Slow horizontal scan sweep */}
-      <div className="nwbg-a" style={{
-        position:'absolute',top:0,bottom:0,left:0,width:'200px',
-        background:'linear-gradient(to right,transparent 0%,rgba(255,200,40,.060) 50%,transparent 100%)',
-        animation:'nwbg-scan 28s ease-in-out infinite',
+      {/* Layer 9: Holographic Noise */}
+      <div className="holo-a" style={{
+        position:'absolute',inset:0,
+        backgroundImage:`repeating-linear-gradient(to bottom,rgba(255,220,80,.008) 0px,transparent 2px,transparent 3px,rgba(0,215,205,.006) 4px,transparent 5px,transparent 8px)`,
+        animation:'holo-noise .22s steps(1) infinite',
       }}/>
     </div>
   )
