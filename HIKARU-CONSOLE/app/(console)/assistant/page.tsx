@@ -197,14 +197,10 @@ const _FW:{d:string;op:number;sw:number;da:string;dur:number;rev:boolean;cyan:bo
 // Arc segments: gold + cyan, varying rotation speeds
 const _GSEGS:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = (()=>{
   const out:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = []
-  for(let i=0;i<4;i++) out.push({d:_arc(278,i*90-5,i*90+30),op:.62,sw:2.6,cyan:false,dur:34,ccw:i%2===1})
-  for(let i=0;i<8;i++) out.push({d:_arc(312,i*45+4,i*45+18),op:.50,sw:2.0,cyan:false,dur:20,ccw:i%2===0})
-  for(let i=0;i<6;i++) out.push({d:_arc(348,i*60+8,i*60+18),op:.36,sw:1.4,cyan:false,dur:48,ccw:i%3!==0})
-  for(let i=0;i<3;i++) out.push({d:_arc(385,i*120+15,i*120+32),op:.44,sw:1.5,cyan:true, dur:30,ccw:i%2===1})
-  for(let i=0;i<4;i++) out.push({d:_arc(428,i*90+12,i*90+32),op:.26,sw:1.1,cyan:false,dur:65,ccw:i%2===0})
-  for(let i=0;i<3;i++) out.push({d:_arc(472,i*120+6,i*120+20),op:.17,sw:0.8,cyan:false,dur:90,ccw:true})
-  out.push({d:_arc(518,10,55),op:.25,sw:1.1,cyan:true,dur:80,ccw:false})
-  out.push({d:_arc(518,190,235),op:.19,sw:0.9,cyan:true,dur:95,ccw:true})
+  // Only near-core arcs remain — no large outer HUD rings
+  for(let i=0;i<4;i++) out.push({d:_arc(278,i*90-5,i*90+28),op:.42,sw:2.0,cyan:false,dur:38,ccw:i%2===1})
+  for(let i=0;i<8;i++) out.push({d:_arc(310,i*45+5,i*45+16),op:.28,sw:1.4,cyan:false,dur:22,ccw:i%2===0})
+  for(let i=0;i<3;i++) out.push({d:_arc(294,i*120+20,i*120+38),op:.32,sw:1.2,cyan:true, dur:32,ccw:i%2===1})
   return out
 })()
 
@@ -334,18 +330,31 @@ function CircuitBackground({ mode }: { mode: string }) {
         background:'linear-gradient(to bottom,rgba(0,210,230,.60) 0%,rgba(0,195,220,.38) 32%,rgba(0,178,210,.14) 70%,transparent 100%)',
       }}/>
 
+      {/* Core Energy Aura — organic gold energy field (CSS, centered at JARVIS) */}
+      <div className="jm" style={{
+        position:'absolute',
+        left:'calc(43% - 240px)',top:'calc(50% - 240px)',
+        width:'480px',height:'480px',
+        background:`radial-gradient(circle at 50% 50%,rgba(255,200,40,${isSpeak?.28:isListen?.20:.14}) 0%,rgba(255,175,0,${isSpeak?.14:isProc?.12:.08}) 35%,rgba(255,140,0,.04) 58%,transparent 78%)`,
+        filter:'blur(18px)',
+        borderRadius:'50%',
+        animation:'jm-glow 10s ease-in-out infinite 1s',
+        pointerEvents:'none',
+        transition:'background 1.2s ease',
+      }}/>
+      {/* Core inner ring tight glow */}
+      <div style={{
+        position:'absolute',
+        left:'calc(43% - 280px)',top:'calc(50% - 280px)',
+        width:'560px',height:'560px',
+        background:`radial-gradient(circle at 50% 50%,transparent 42%,rgba(255,215,55,${isSpeak?.10:isProc?.08:.055}) 48%,transparent 54%)`,
+        borderRadius:'50%',
+        pointerEvents:'none',
+      }}/>
+
       {/* ── SVG ── */}
       <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
         style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
-
-        {/* ── BACK: ghost outer rings ── */}
-        <circle cx={_JCX} cy={_JCY} r="582" fill="none"
-          stroke="rgba(255,200,38,.038)" strokeWidth="0.6"
-          strokeDasharray="24 62" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 105s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="635" fill="none"
-          stroke="rgba(255,195,32,.022)" strokeWidth="0.5" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 132s linear infinite'}}/>
 
         {/* ── BACK: Fluid wave particle ribbons ── */}
         {_FW.map(({d,op,sw,da,dur,rev,cyan},i)=>(
@@ -382,38 +391,13 @@ function CircuitBackground({ mode }: { mode: string }) {
           </g>
         ))}
 
-        {/* ── MID: main HUD rings — hierarchy of brightness ── */}
-        <circle cx={_JCX} cy={_JCY} r="488" fill="none"
-          stroke="rgba(255,205,44,.052)" strokeWidth="0.8" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 82s linear infinite 3s'}}/>
-        <circle cx={_JCX} cy={_JCY} r="455" fill="none"
-          stroke="rgba(255,208,46,.070)" strokeWidth="0.9"
-          strokeDasharray="16 38" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 66s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="422" fill="none"
-          stroke="rgba(255,210,48,.088)" strokeWidth="1.0" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 54s linear infinite 1.5s'}}/>
-        <circle cx={_JCX} cy={_JCY} r="390" fill="none"
-          stroke="rgba(255,213,50,.108)" strokeWidth="1.1"/>
-        <circle cx={_JCX} cy={_JCY} r="362" fill="none"
-          stroke="rgba(255,215,52,.126)" strokeWidth="1.2" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 47s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="338" fill="none"
-          stroke="rgba(255,218,55,.145)" strokeWidth="1.4" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 40s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="315" fill="none"
-          stroke="rgba(255,220,58,.165)" strokeWidth="1.5"/>
-        <circle cx={_JCX} cy={_JCY} r="293" fill="none"
-          stroke="rgba(255,222,62,.140)" strokeWidth="1.2"
-          strokeDasharray="6 14" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 32s linear infinite'}}/>
-        {/* Inner glow ring */}
+        {/* ── MID: single subtle Core ring — no large HUD ── */}
         <circle cx={_JCX} cy={_JCY} r="274" fill="none"
-          stroke={`rgba(255,225,65,${isSpeak?.26:isProc?.22:.212})`}
-          strokeWidth="2.5" className="jm"
+          stroke={`rgba(255,225,65,${isSpeak?.14:isProc?.12:.088})`}
+          strokeWidth="1.5" className="jm"
           style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 25s linear infinite',transition:'stroke .8s ease'}}/>
         <circle cx={_JCX} cy={_JCY} r="274" fill="none"
-          stroke="rgba(255,218,52,.060)" strokeWidth="14"/>
+          stroke="rgba(255,218,52,.028)" strokeWidth="8"/>
 
         {/* ── MID: rotating arc segments ── */}
         {_GSEGS.map(({d,op,sw,cyan,dur,ccw},i)=>(
