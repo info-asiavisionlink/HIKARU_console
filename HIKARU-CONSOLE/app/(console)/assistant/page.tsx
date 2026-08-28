@@ -152,64 +152,106 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
-// ─── JARVIS Gold Holographic HUD ──────────────────────────────
+// ─── JARVIS Mystic Holographic AI Core ───────────────────────
 
-const _JCX=430, _JCY=375   // SVG center
-const _JFY=545              // Floor projection center Y
+const _JCX=430, _JCY=375, _JFY=548
 
-// Arc path helper — computes SVG arc command for a segment on a ring
 function _arc(r:number,a0:number,a1:number):string{
   const s=a0*Math.PI/180, e=a1*Math.PI/180, lg=a1-a0>180?1:0
   return `M${(_JCX+r*Math.cos(s)).toFixed(1)},${(_JCY+r*Math.sin(s)).toFixed(1)} A${r},${r} 0 ${lg},1 ${(_JCX+r*Math.cos(e)).toFixed(1)},${(_JCY+r*Math.sin(e)).toFixed(1)}`
 }
 
-// Gold/Cyan arc segments: {d, op, sw, cyan, dur (rotation s), ccw}
-const _GSEGS:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = (()=>{
-  const out:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = []
-  // r=282: 4 bright arcs, medium speed
-  for(let i=0;i<4;i++) out.push({d:_arc(282,i*90-4,i*90+32),op:.65,sw:2.8,cyan:false,dur:36,ccw:i%2===1})
-  // r=318: 8 short segments, fast accent
-  for(let i=0;i<8;i++) out.push({d:_arc(318,i*45+4,i*45+19),op:.55,sw:2.2,cyan:false,dur:20,ccw:i%2===0})
-  // r=355: 6 segments, medium
-  for(let i=0;i<6;i++) out.push({d:_arc(355,i*60+8,i*60+19),op:.40,sw:1.5,cyan:false,dur:50,ccw:i%3!==0})
-  // r=392: 3 cyan accent arcs
-  for(let i=0;i<3;i++) out.push({d:_arc(392,i*120+15,i*120+34),op:.48,sw:1.6,cyan:true,dur:30,ccw:i%2===1})
-  // r=435: 4 gold segments, slow
-  for(let i=0;i<4;i++) out.push({d:_arc(435,i*90+12,i*90+34),op:.30,sw:1.2,cyan:false,dur:68,ccw:i%2===0})
-  // r=480: 3 segments, slow
-  for(let i=0;i<3;i++) out.push({d:_arc(480,i*120+6,i*120+20),op:.20,sw:0.9,cyan:false,dur:92,ccw:true})
-  // r=525: 2 large cyan arcs, very slow
-  out.push({d:_arc(525,12,58),op:.28,sw:1.2,cyan:true,dur:82,ccw:false})
-  out.push({d:_arc(525,192,238),op:.22,sw:1.0,cyan:true,dur:96,ccw:true})
+// Fluid wave particle ribbons — pre-computed sinusoidal paths
+const _FW:{d:string;op:number;sw:number;da:string;dur:number;rev:boolean;cyan:boolean}[] = (()=>{
+  const out:{d:string;op:number;sw:number;da:string;dur:number;rev:boolean;cyan:boolean}[] = []
+  function wp(y0:number,y1:number,amp:number,freq:number,phase:number):string{
+    const pts:string[]=[]
+    for(let x=0;x<=1000;x+=18){
+      const y=(y0+(y1-y0)*x/1000)+amp*Math.sin(x*freq+phase)
+      pts.push(`${x===0?'M':'L'}${x},${y.toFixed(1)}`)
+    }
+    return pts.join(' ')
+  }
+  // top group (y~85–225, gold + cyan)
+  const T:[number,number,number,number,number,number,number,string,number,boolean,boolean][]=[
+    [95, 112,55,0.0055,0.0, .48,1.6,'2 8',   22,false,false],
+    [112,128,46,0.0060,1.2, .38,1.3,'1.5 7', 27,true, false],
+    [128,142,38,0.0065,2.4, .27,1.0,'1 9',   31,false,false],
+    [80, 98, 65,0.0050,3.6, .18,0.8,'1 12',  38,true, false],
+    [104,120,52,0.0058,0.8, .30,1.1,'1.5 9', 29,false,true ],
+    [148,158,28,0.0072,1.6, .14,0.7,'1 13',  44,true, true ],
+  ]
+  // bottom group (y~510–680, gold + cyan)
+  const B:[number,number,number,number,number,number,number,string,number,boolean,boolean][]=[
+    [552,528,46,0.0058,0.8, .42,1.5,'2 8',   25,true, false],
+    [570,546,38,0.0063,2.0, .32,1.2,'1.5 7', 29,false,false],
+    [588,562,30,0.0068,3.2, .22,0.9,'1 9',   33,true, false],
+    [538,512,54,0.0052,1.6, .16,0.7,'1 12',  40,false,false],
+    [560,536,42,0.0060,4.0, .26,1.0,'1.5 9', 27,true, true ],
+  ]
+  for(const [y0,y1,amp,freq,phase,op,sw,da,dur,rev,cyan] of [...T,...B])
+    out.push({d:wp(y0,y1,amp,freq,phase),op,sw,da,dur,rev,cyan})
   return out
 })()
 
+// Arc segments: gold + cyan, varying rotation speeds
+const _GSEGS:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = (()=>{
+  const out:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = []
+  for(let i=0;i<4;i++) out.push({d:_arc(278,i*90-5,i*90+30),op:.62,sw:2.6,cyan:false,dur:34,ccw:i%2===1})
+  for(let i=0;i<8;i++) out.push({d:_arc(312,i*45+4,i*45+18),op:.50,sw:2.0,cyan:false,dur:20,ccw:i%2===0})
+  for(let i=0;i<6;i++) out.push({d:_arc(348,i*60+8,i*60+18),op:.36,sw:1.4,cyan:false,dur:48,ccw:i%3!==0})
+  for(let i=0;i<3;i++) out.push({d:_arc(385,i*120+15,i*120+32),op:.44,sw:1.5,cyan:true, dur:30,ccw:i%2===1})
+  for(let i=0;i<4;i++) out.push({d:_arc(428,i*90+12,i*90+32),op:.26,sw:1.1,cyan:false,dur:65,ccw:i%2===0})
+  for(let i=0;i<3;i++) out.push({d:_arc(472,i*120+6,i*120+20),op:.17,sw:0.8,cyan:false,dur:90,ccw:true})
+  out.push({d:_arc(518,10,55),op:.25,sw:1.1,cyan:true,dur:80,ccw:false})
+  out.push({d:_arc(518,190,235),op:.19,sw:0.9,cyan:true,dur:95,ccw:true})
+  return out
+})()
+
+// Neural network: [x1,y1,x2,y2, lineOp, sigDur, isCyan, lineLen]
+const _NN:[number,number,number,number,number,number,boolean,number][] = [
+  [138,188,245,242, 0.12,4.8,false,120],
+  [245,242,315,268, 0.10,3.6,true,  75],
+  [715,192,625,245, 0.12,5.2,false,104],
+  [625,245,552,268, 0.10,4.0,true,  77],
+  [142,458,248,415, 0.10,4.2,false,114],
+  [715,452,618,410, 0.10,5.0,true, 106],
+  [382,148,430,112, 0.12,3.2,false, 60],
+  [478,148,430,112, 0.10,3.8,false, 60],
+]
+// Neural nodes: [cx,cy,r,isCyan,delay]
+const _NND:[number,number,number,boolean,number][] = [
+  [138,188,2.8,false,0],[245,242,2.2,true,1.5],[315,268,2.8,false,3.0],
+  [715,192,2.8,false,0.8],[625,245,2.2,true,2.2],[552,268,2.5,false,4.5],
+  [142,458,2.8,false,1.0],[248,415,2.2,false,2.8],
+  [715,452,2.8,false,0.5],[618,410,2.2,true,3.5],
+  [430,112,3.2,false,2.0],[382,148,2.5,false,1.2],[478,148,2.5,false,0.3],
+]
+
 // Particles: [cx, cy, r, anim, delay, isCyan]
 const _GPTS:[number,number,number,string,number,boolean][] = [
-  [82,148,1.0,'jg-da',0,false],[195,68,1.2,'jg-db',1.2,false],[348,45,0.8,'jg-dc',2.8,false],
-  [625,40,1.1,'jg-da',0.6,false],[788,92,0.9,'jg-dd',2.0,false],[912,182,1.2,'jg-de',3.8,false],
-  [922,345,0.8,'jg-da',1.0,false],[918,438,1.0,'jg-db',5.2,false],[825,562,1.1,'jg-dc',0.4,false],
-  [698,660,1.0,'jg-dd',3.2,false],[452,708,0.8,'jg-de',1.8,false],[275,720,1.2,'jg-da',5.8,false],
-  [128,640,1.0,'jg-db',0.8,false],[48,510,1.1,'jg-dc',4.2,false],[38,356,0.8,'jg-dd',2.5,false],
-  [52,230,1.0,'jg-de',0.2,false],[140,108,1.2,'jg-da',4.8,false],[258,160,0.9,'jg-db',1.6,false],
-  [392,70,1.0,'jg-dc',3.0,false],[515,108,1.1,'jg-dd',6.8,false],[650,158,0.8,'jg-de',0.5,false],
-  [815,280,1.0,'jg-da',2.0,false],[860,418,1.2,'jg-db',4.6,false],[768,540,0.9,'jg-dc',1.3,false],
-  [602,595,1.0,'jg-dd',3.6,false],[418,612,1.1,'jg-de',5.0,false],[265,575,0.8,'jg-da',0.7,false],
-  [138,492,1.0,'jg-db',2.4,false],[90,385,1.2,'jg-dc',4.0,false],[118,282,0.9,'jg-dd',1.1,false],
-  // bright gold highlights
-  [430,193,1.8,'jg-da',0,false],[278,313,1.5,'jg-db',2.0,false],[582,313,1.5,'jg-dc',1.0,false],
-  [278,437,1.5,'jg-dd',3.0,false],[582,437,1.5,'jg-de',4.0,false],
-  // cyan accents (few)
-  [435,65,1.3,'jg-da',7.0,true],[790,375,1.1,'jg-db',3.5,true],[430,680,1.2,'jg-dc',1.8,true],
-  [70,375,1.0,'jg-dd',5.5,true],
+  [82,148,1.0,'jm-da',0,false],[195,68,1.2,'jm-db',1.2,false],[348,45,0.8,'jm-dc',2.8,false],
+  [625,40,1.1,'jm-da',0.6,false],[788,92,0.9,'jm-dd',2.0,false],[912,182,1.2,'jm-de',3.8,false],
+  [922,345,0.8,'jm-da',1.0,false],[918,438,1.0,'jm-db',5.2,false],[825,562,1.1,'jm-dc',0.4,false],
+  [698,660,1.0,'jm-dd',3.2,false],[452,708,0.8,'jm-de',1.8,false],[275,720,1.2,'jm-da',5.8,false],
+  [128,640,1.0,'jm-db',0.8,false],[48,510,1.1,'jm-dc',4.2,false],[38,356,0.8,'jm-dd',2.5,false],
+  [52,230,1.0,'jm-de',0.2,false],[140,108,1.2,'jm-da',4.8,false],[258,160,0.9,'jm-db',1.6,false],
+  [392,70,1.0,'jm-dc',3.0,false],[515,108,1.1,'jm-dd',6.8,false],[650,158,0.8,'jm-de',0.5,false],
+  [815,280,1.0,'jm-da',2.0,false],[860,418,1.2,'jm-db',4.6,false],[768,540,0.9,'jm-dc',1.3,false],
+  [602,595,1.0,'jm-dd',3.6,false],[418,612,1.1,'jm-de',5.0,false],[265,575,0.8,'jm-da',0.7,false],
+  [138,492,1.0,'jm-db',2.4,false],[90,385,1.2,'jm-dc',4.0,false],[118,282,0.9,'jm-dd',1.1,false],
+  [430,193,1.8,'jm-da',0,false],[278,313,1.5,'jm-db',2.0,false],[582,313,1.5,'jm-dc',1.0,false],
+  [278,437,1.5,'jm-dd',3.0,false],[582,437,1.5,'jm-de',4.0,false],
+  [435,65,1.3,'jm-da',7.0,true],[790,375,1.1,'jm-db',3.5,true],[430,680,1.2,'jm-dc',1.8,true],
+  [70,375,1.0,'jm-dd',5.5,true],[355,92,0.9,'jm-de',2.8,true],
 ]
 
 // Floor ellipses: [rx, ry, opacity, strokeWidth, isCyan]
 const _GFLOOR:[number,number,number,number,boolean][] = [
-  [42, 8, 0.82,1.8,false],[68, 13,0.72,1.6,false],[98, 18,0.62,1.5,false],
-  [132,24,0.54,1.4,false],[170,30,0.46,1.3,false],[212,38,0.36,1.2,false],
-  [258,46,0.26,1.0,false],[308,55,0.17,0.8,false],[362,65,0.10,0.6,false],
-  [158,28,0.22,0.9,true],[248,44,0.15,0.7,true],
+  [42, 8, 0.88,1.8,false],[70, 13,0.78,1.6,false],[102,18,0.68,1.5,false],
+  [140,24,0.56,1.4,false],[182,30,0.44,1.3,false],[228,38,0.32,1.2,false],
+  [278,46,0.22,1.0,false],[335,55,0.14,0.8,false],[395,65,0.08,0.6,false],
+  [162,28,0.25,0.9,true],[252,44,0.18,0.7,true],
 ]
 
 // (old tick/arm/node/particle data removed — replaced by _GSEGS/_GPTS/_GFLOOR)
@@ -217,204 +259,232 @@ const _GFLOOR:[number,number,number,number,boolean][] = [
 
 
 
-// PERMANENT — Voice state independent, all CSS animations
-function CircuitBackground({ mode: _mode }: { mode: string }) {
+// PERMANENT — background runs independently of voice state; mode used for subtle highlights only
+function CircuitBackground({ mode }: { mode: string }) {
+  const isListen = mode==='listening'
+  const isSpeak  = mode==='speaking'
+  const isProc   = mode==='processing'
   return (
     <div aria-hidden="true"
       style={{position:'absolute',inset:0,zIndex:-1,pointerEvents:'none',overflow:'hidden'}}>
       <style>{`
-        @keyframes jg-cw   {to{transform:rotate(360deg)}}
-        @keyframes jg-ccw  {to{transform:rotate(-360deg)}}
-        @keyframes jg-pulse{0%,100%{opacity:.18}50%{opacity:.88}}
-        @keyframes jg-pbr  {0%,100%{opacity:.38}50%{opacity:1}}
-        @keyframes jg-glow {0%,100%{opacity:.55}50%{opacity:1}}
-        @keyframes jg-beam {0%,100%{opacity:.60}50%{opacity:1}}
-        @keyframes jg-floor{0%,100%{opacity:.55}50%{opacity:.88}}
-        @keyframes jg-da   {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,-6px)}}
-        @keyframes jg-db   {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,4px)}}
-        @keyframes jg-dc   {0%,100%{transform:translate(0,0)}50%{transform:translate(3px,7px)}}
-        @keyframes jg-dd   {0%,100%{transform:translate(0,0)}50%{transform:translate(-4px,-5px)}}
-        @keyframes jg-de   {0%,100%{transform:translate(0,0)}50%{transform:translate(6px,2px)}}
-        @media(prefers-reduced-motion:reduce){.jg{animation:none!important}}
+        @keyframes jm-cw    {to{transform:rotate(360deg)}}
+        @keyframes jm-ccw   {to{transform:rotate(-360deg)}}
+        @keyframes jm-pulse {0%,100%{opacity:.18}50%{opacity:.90}}
+        @keyframes jm-pbr   {0%,100%{opacity:.40}50%{opacity:1}}
+        @keyframes jm-glow  {0%,100%{opacity:.52}50%{opacity:1}}
+        @keyframes jm-beam  {0%,100%{opacity:.58}50%{opacity:1}}
+        @keyframes jm-floor {0%,100%{opacity:.58}50%{opacity:.92}}
+        @keyframes jm-da    {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,-6px)}}
+        @keyframes jm-db    {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,4px)}}
+        @keyframes jm-dc    {0%,100%{transform:translate(0,0)}50%{transform:translate(3px,7px)}}
+        @keyframes jm-dd    {0%,100%{transform:translate(0,0)}50%{transform:translate(-4px,-5px)}}
+        @keyframes jm-de    {0%,100%{transform:translate(0,0)}50%{transform:translate(6px,2px)}}
+        @keyframes jm-wf    {to{stroke-dashoffset:-300}}
+        @keyframes jm-wr    {to{stroke-dashoffset:300}}
+        @keyframes jm-sig   {to{stroke-dashoffset:-268}}
+        @keyframes jm-ripple{0%{transform:scale(0.01);opacity:.75}100%{transform:scale(1);opacity:0}}
+        @media(prefers-reduced-motion:reduce){.jm{animation:none!important}}
       `}</style>
 
-      {/* BACK LAYER */}
+      {/* ── BACK LAYER ── */}
 
-      {/* 1. Near-black base — micro gold tint only at center */}
+      {/* 1. Deep black base — micro gold tint at center only */}
       <div style={{position:'absolute',inset:0,
-        background:'radial-gradient(ellipse 62% 72% at 43% 50%,#030604 0%,#020403 28%,#010202 68%,#010202 100%)'}}/>
+        background:'radial-gradient(ellipse 58% 68% at 43% 50%,#030604 0%,#020403 22%,#010302 55%,#010202 100%)'}}/>
 
-      {/* 2. Gold core ambient glow — primary light source */}
-      <div className="jg" style={{
-        position:'absolute',left:'4%',top:'3%',width:'64%',height:'94%',
-        background:'radial-gradient(ellipse at 43% 50%,rgba(255,192,20,.24) 0%,rgba(255,165,0,.10) 26%,rgba(255,128,0,.03) 50%,transparent 70%)',
-        animation:'jg-glow 11s ease-in-out infinite',
+      {/* 2. Gold ambient glow — primary light, state-reactive */}
+      <div className="jm" style={{
+        position:'absolute',left:'3%',top:'2%',width:'66%',height:'96%',
+        background:`radial-gradient(ellipse at 43% 50%,rgba(255,192,22,${isSpeak?.28:isListen?.21:.16}) 0%,rgba(255,165,0,.07) 28%,rgba(255,128,0,.02) 52%,transparent 72%)`,
+        animation:'jm-glow 11s ease-in-out infinite',
+        transition:'background 1.2s ease',
       }}/>
 
-      {/* 3. Secondary gold breathing halo */}
-      <div className="jg" style={{
-        position:'absolute',left:'12%',top:'8%',width:'56%',height:'84%',
-        background:'radial-gradient(ellipse at 43% 50%,rgba(255,212,42,.13) 0%,rgba(255,180,8,.04) 36%,transparent 62%)',
-        animation:'jg-glow 8s ease-in-out infinite 2.5s',
+      {/* 3. Secondary breathing halo */}
+      <div className="jm" style={{
+        position:'absolute',left:'10%',top:'8%',width:'58%',height:'84%',
+        background:`radial-gradient(ellipse at 43% 50%,rgba(255,212,42,${isSpeak?.15:isProc?.12:.09}) 0%,rgba(255,180,8,.03) 38%,transparent 62%)`,
+        animation:'jm-glow 8s ease-in-out infinite 2.5s',
+        transition:'background 1.2s ease',
       }}/>
 
-      {/* 4. Gold vertical energy axis — 1-2px core + soft glow */}
+      {/* 4. Gold vertical energy axis */}
       <div style={{
-        position:'absolute',top:0,bottom:0,left:'calc(43% - 12px)',width:'24px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(255,210,48,.00) 8%,rgba(255,212,50,.07) 38%,rgba(255,216,55,.16) 50%,rgba(255,212,50,.07) 62%,rgba(255,210,48,.00) 92%,transparent 100%)',
+        position:'absolute',top:0,bottom:0,left:'calc(43% - 14px)',width:'28px',
+        background:'linear-gradient(to bottom,transparent 0%,rgba(255,210,48,.00) 8%,rgba(255,212,50,.07) 36%,rgba(255,216,55,.18) 50%,rgba(255,212,50,.07) 64%,rgba(255,210,48,.00) 92%,transparent 100%)',
       }}/>
-      <div className="jg" style={{
+      <div className="jm" style={{
         position:'absolute',top:0,bottom:0,left:'calc(43% - 1px)',width:'2px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(255,212,50,.05) 8%,rgba(255,218,58,.42) 38%,rgba(255,222,62,.62) 50%,rgba(255,218,58,.42) 62%,rgba(255,210,45,.12) 84%,rgba(255,205,38,.28) 94%,rgba(255,200,35,.08) 100%)',
-        animation:'jg-beam 9s ease-in-out infinite',
+        background:'linear-gradient(to bottom,transparent 0%,rgba(255,212,50,.04) 8%,rgba(255,218,58,.40) 36%,rgba(255,222,65,.62) 50%,rgba(255,218,58,.40) 64%,rgba(255,210,45,.10) 84%,rgba(255,205,38,.24) 94%,rgba(255,200,35,.08) 100%)',
+        animation:'jm-beam 9s ease-in-out infinite',
       }}/>
 
-      {/* 5. Cyan energy beam — center downward to floor */}
-      <div className="jg" style={{
-        position:'absolute',top:'52%',bottom:0,left:'calc(43% - 22px)',width:'44px',
-        background:'linear-gradient(to bottom,rgba(0,198,218,.24) 0%,rgba(0,188,212,.18) 25%,rgba(0,175,205,.10) 60%,rgba(0,162,198,.04) 100%)',
+      {/* 5. Cyan projection beam — center downward to floor */}
+      <div className="jm" style={{
+        position:'absolute',top:'51%',bottom:0,left:'calc(43% - 24px)',width:'48px',
+        background:`linear-gradient(to bottom,rgba(0,200,220,${isListen?.32:.22}) 0%,rgba(0,188,212,.15) 30%,rgba(0,175,205,.07) 65%,rgba(0,162,198,.02) 100%)`,
         maskImage:'linear-gradient(to bottom,black 0%,rgba(0,0,0,.6) 55%,transparent 100%)',
         WebkitMaskImage:'linear-gradient(to bottom,black 0%,rgba(0,0,0,.6) 55%,transparent 100%)',
-        filter:'blur(4px)',
-        animation:'jg-beam 7s ease-in-out infinite 1s',
+        filter:'blur(4px)',animation:'jm-beam 7s ease-in-out infinite 1s',
+        transition:'background 1.2s ease',
       }}/>
       <div style={{
-        position:'absolute',top:'52%',bottom:0,left:'calc(43% - 1px)',width:'2px',
-        background:'linear-gradient(to bottom,rgba(0,208,228,.58) 0%,rgba(0,192,218,.38) 35%,rgba(0,178,210,.16) 72%,transparent 100%)',
+        position:'absolute',top:'51%',bottom:0,left:'calc(43% - 1px)',width:'2px',
+        background:'linear-gradient(to bottom,rgba(0,210,230,.60) 0%,rgba(0,195,220,.38) 32%,rgba(0,178,210,.14) 70%,transparent 100%)',
       }}/>
 
-      {/* SVG — all ring/floor/particle layers */}
+      {/* ── SVG ── */}
       <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
         style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
 
-        {/* ── BACK: faint outer ghost rings ── */}
-        <circle cx={_JCX} cy={_JCY} r="578" fill="none"
-          stroke="rgba(255,200,38,.042)" strokeWidth="0.7"
-          strokeDasharray="22 55" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-cw 100s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="628" fill="none"
-          stroke="rgba(255,195,32,.028)" strokeWidth="0.5" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-ccw 125s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="528" fill="none"
-          stroke="rgba(255,200,40,.035)" strokeWidth="0.6"
-          strokeDasharray="32 85" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-ccw 88s linear infinite 6s'}}/>
+        {/* ── BACK: ghost outer rings ── */}
+        <circle cx={_JCX} cy={_JCY} r="582" fill="none"
+          stroke="rgba(255,200,38,.038)" strokeWidth="0.6"
+          strokeDasharray="24 62" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 105s linear infinite'}}/>
+        <circle cx={_JCX} cy={_JCY} r="635" fill="none"
+          stroke="rgba(255,195,32,.022)" strokeWidth="0.5" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 132s linear infinite'}}/>
 
-        {/* ── MID: main holographic HUD rings ── */}
-        <circle cx={_JCX} cy={_JCY} r="482" fill="none"
-          stroke="rgba(255,205,44,.058)" strokeWidth="0.8" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-cw 78s linear infinite 3s'}}/>
-        <circle cx={_JCX} cy={_JCY} r="450" fill="none"
-          stroke="rgba(255,208,46,.075)" strokeWidth="0.9"
-          strokeDasharray="14 32" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-ccw 62s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="418" fill="none"
-          stroke="rgba(255,210,48,.092)" strokeWidth="1.0" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-cw 50s linear infinite 1.5s'}}/>
-        <circle cx={_JCX} cy={_JCY} r="385" fill="none"
-          stroke="rgba(255,213,50,.112)" strokeWidth="1.1"/>
-        <circle cx={_JCX} cy={_JCY} r="358" fill="none"
-          stroke="rgba(255,215,52,.128)" strokeWidth="1.2" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-ccw 44s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="332" fill="none"
-          stroke="rgba(255,218,55,.148)" strokeWidth="1.4" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-cw 36s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="308" fill="none"
-          stroke="rgba(255,220,58,.168)" strokeWidth="1.5"/>
-        <circle cx={_JCX} cy={_JCY} r="288" fill="none"
-          stroke="rgba(255,222,62,.145)" strokeWidth="1.2"
-          strokeDasharray="5 10" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-ccw 29s linear infinite'}}/>
-        {/* Inner glow ring — thicker, brightest background ring */}
-        <circle cx={_JCX} cy={_JCY} r="270" fill="none"
-          stroke="rgba(255,225,65,.210)" strokeWidth="2.2" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-cw 23s linear infinite'}}/>
-        <circle cx={_JCX} cy={_JCY} r="270" fill="none"
-          stroke="rgba(255,218,52,.065)" strokeWidth="10"/>
+        {/* ── BACK: Fluid wave particle ribbons ── */}
+        {_FW.map(({d,op,sw,da,dur,rev,cyan},i)=>(
+          <path key={i} d={d} fill="none"
+            stroke={`rgba(${cyan?'0,200,215':'255,214,54'},${op})`}
+            strokeWidth={sw} strokeLinecap="round"
+            strokeDasharray={da} className="jm"
+            style={{animation:`${rev?'jm-wr':'jm-wf'} ${dur}s linear infinite ${(i*.88)%6}s`}}/>
+        ))}
 
-        {/* ── ROTATING ARC SEGMENTS (gold + cyan accents) ── */}
+        {/* ── BACK: Neural network lines + traveling signals ── */}
+        {_NN.map(([x1,y1,x2,y2,lineOp,sigDur,cyan,len],i)=>(
+          <g key={i}>
+            <line x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={`rgba(${cyan?'0,200,215':'255,210,50'},${lineOp})`}
+              strokeWidth="0.7"/>
+            <line x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={`rgba(${cyan?'0,215,225':'255,222,62'},.82)`}
+              strokeWidth="1.5" strokeLinecap="round"
+              strokeDasharray={`4 ${len+4}`} className="jm"
+              style={{animation:`jm-sig ${sigDur}s linear infinite ${(i*.72)%4}s`}}/>
+          </g>
+        ))}
+
+        {/* Neural nodes */}
+        {_NND.map(([cx,cy,r,cyan,delay],i)=>(
+          <g key={i} className="jm"
+            style={{animation:`${i%3===0?'jm-pbr':'jm-pulse'} ${3+(i%4)*.7}s ease-in-out ${delay}s infinite`}}>
+            <circle cx={cx} cy={cy} r={r*2.2}
+              fill={`rgba(${cyan?'0,205,220':'255,205,45'},.08)`}/>
+            <circle cx={cx} cy={cy} r={r}
+              fill={`rgba(${cyan?'0,225,235':'255,228,68'},.94)`}
+              style={{filter:`drop-shadow(0 0 3px rgba(${cyan?'0,210,222':'255,212,50'},1))`}}/>
+          </g>
+        ))}
+
+        {/* ── MID: main HUD rings — hierarchy of brightness ── */}
+        <circle cx={_JCX} cy={_JCY} r="488" fill="none"
+          stroke="rgba(255,205,44,.052)" strokeWidth="0.8" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 82s linear infinite 3s'}}/>
+        <circle cx={_JCX} cy={_JCY} r="455" fill="none"
+          stroke="rgba(255,208,46,.070)" strokeWidth="0.9"
+          strokeDasharray="16 38" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 66s linear infinite'}}/>
+        <circle cx={_JCX} cy={_JCY} r="422" fill="none"
+          stroke="rgba(255,210,48,.088)" strokeWidth="1.0" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 54s linear infinite 1.5s'}}/>
+        <circle cx={_JCX} cy={_JCY} r="390" fill="none"
+          stroke="rgba(255,213,50,.108)" strokeWidth="1.1"/>
+        <circle cx={_JCX} cy={_JCY} r="362" fill="none"
+          stroke="rgba(255,215,52,.126)" strokeWidth="1.2" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 47s linear infinite'}}/>
+        <circle cx={_JCX} cy={_JCY} r="338" fill="none"
+          stroke="rgba(255,218,55,.145)" strokeWidth="1.4" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 40s linear infinite'}}/>
+        <circle cx={_JCX} cy={_JCY} r="315" fill="none"
+          stroke="rgba(255,220,58,.165)" strokeWidth="1.5"/>
+        <circle cx={_JCX} cy={_JCY} r="293" fill="none"
+          stroke="rgba(255,222,62,.140)" strokeWidth="1.2"
+          strokeDasharray="6 14" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 32s linear infinite'}}/>
+        {/* Inner glow ring */}
+        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
+          stroke={`rgba(255,225,65,${isSpeak?.26:isProc?.22:.212})`}
+          strokeWidth="2.5" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 25s linear infinite',transition:'stroke .8s ease'}}/>
+        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
+          stroke="rgba(255,218,52,.060)" strokeWidth="14"/>
+
+        {/* ── MID: rotating arc segments ── */}
         {_GSEGS.map(({d,op,sw,cyan,dur,ccw},i)=>(
           <path key={i} d={d} fill="none"
             stroke={`rgba(${cyan?'0,202,222':'255,214,54'},${op})`}
-            strokeWidth={sw} strokeLinecap="round" className="jg"
+            strokeWidth={sw} strokeLinecap="round" className="jm"
             style={{
               transformOrigin:`${_JCX}px ${_JCY}px`,
-              animation:`${ccw?'jg-ccw':'jg-cw'} ${dur}s linear infinite ${(i*.65)%5}s`,
+              animation:`${ccw?'jm-ccw':'jm-cw'} ${dur}s linear infinite ${(i*.62)%5}s`,
               filter:`drop-shadow(0 0 ${cyan?2:3}px rgba(${cyan?'0,198,218':'255,210,48'},${op*.75}))`,
             }}/>
         ))}
 
-        {/* ── FLOOR: holographic projection ── */}
-        <g className="jg" style={{animation:'jg-floor 14s ease-in-out infinite'}}>
-          {/* Radial lines on floor (8 directions) */}
+        {/* ── FLOOR: holographic projection platform ── */}
+        <g className="jm" style={{animation:'jm-floor 14s ease-in-out infinite'}}>
           {([0,22.5,45,67.5,90,112.5,135,157.5] as number[]).map((deg,i)=>{
-            const a=deg*Math.PI/180, r=348
+            const a=deg*Math.PI/180, r=385
             return (
-              <line key={i}
-                x1={_JCX} y1={_JFY}
+              <line key={i} x1={_JCX} y1={_JFY}
                 x2={(_JCX+r*Math.cos(a)).toFixed(1)}
                 y2={(_JFY+r*0.18*Math.sin(a)).toFixed(1)}
-                stroke={`rgba(${i%4===1?'0,198,215':'255,208,48'},.${i%3===0?'09':'06'})`}
+                stroke={`rgba(${i%4===1?'0,200,215':'255,208,48'},.${i%3===0?'09':'06'})`}
                 strokeWidth="0.6"/>
             )
           })}
-          {/* Concentric floor ellipses */}
           {_GFLOOR.map(([rx,ry,op,sw,cyan],i)=>(
             <ellipse key={i} cx={_JCX} cy={_JFY} rx={rx} ry={ry} fill="none"
-              stroke={`rgba(${cyan?'0,198,215':'255,208,48'},${op})`}
+              stroke={`rgba(${cyan?'0,200,215':'255,208,48'},${op})`}
               strokeWidth={sw}
-              style={{filter:`drop-shadow(0 1px ${cyan?2:3}px rgba(${cyan?'0,192,212':'255,200,42'},${op*.45}))`}}/>
+              style={{filter:`drop-shadow(0 1px ${cyan?2:3}px rgba(${cyan?'0,195,212':'255,200,42'},${op*.4}))`}}/>
           ))}
+          {/* Scanner ripple rings */}
+          <circle cx={_JCX} cy={_JFY} r="385" fill="none"
+            stroke="rgba(0,200,215,.55)" strokeWidth="1.2" className="jm"
+            style={{transformOrigin:`${_JCX}px ${_JFY}px`,animation:'jm-ripple 8s ease-out infinite'}}/>
+          <circle cx={_JCX} cy={_JFY} r="385" fill="none"
+            stroke="rgba(255,208,48,.45)" strokeWidth="1.0" className="jm"
+            style={{transformOrigin:`${_JCX}px ${_JFY}px`,animation:'jm-ripple 8s ease-out infinite 4s'}}/>
           {/* Floor center bright point */}
-          <circle cx={_JCX} cy={_JFY} r="4.0" fill="rgba(255,220,60,.90)"
-            style={{filter:'drop-shadow(0 0 7px rgba(255,210,48,1))'}}/>
-          <circle cx={_JCX} cy={_JFY} r="10" fill="rgba(255,215,50,.14)"/>
+          <circle cx={_JCX} cy={_JFY} r="4.8" fill="rgba(255,220,60,.94)"
+            style={{filter:'drop-shadow(0 0 8px rgba(255,210,48,1))'}}/>
+          <circle cx={_JCX} cy={_JFY} r="12" fill="rgba(255,215,50,.14)"/>
         </g>
 
-        {/* ── Minimal background network (very faint) ── */}
-        <g fill="none" stroke="rgba(255,205,46,.058)" strokeWidth="0.6">
-          <path d="M0,188 L122,238 L242,222"/>
-          <path d="M0,432 L75,388 L145,328 L242,308"/>
-          <path d="M245,0 L270,75 L294,140"/>
-          <path d="M250,750 L275,665 L298,615"/>
-        </g>
-        {/* 2 bright moving signals only */}
-        <path d="M0,238 L122,238 L242,222" fill="none"
-          stroke="rgba(255,224,64,.58)" strokeWidth="1.8" strokeDasharray="16 212"
-          strokeLinecap="round" className="jg"
-          style={{animation:'jg-cw 7s linear infinite',strokeDashoffset:0}}/>
-        <path d="M245,0 L270,75 L294,140" fill="none"
-          stroke="rgba(0,208,224,.52)" strokeWidth="1.8" strokeDasharray="14 148"
-          strokeLinecap="round" className="jg"
-          style={{animation:'jg-ccw 6s linear infinite 3s',strokeDashoffset:0}}/>
-
-        {/* ── PARTICLES ── */}
+        {/* ── BACK: particles ── */}
         {_GPTS.map(([cx,cy,r,anim,delay,cyan],i)=>(
           <circle key={i} cx={cx} cy={cy} r={r}
-            fill={`rgba(${cyan?'0,198,218':r>=1.5?'255,224,66':'255,214,54'},${r>=1.5?.72:.44})`}
-            className="jg"
+            fill={`rgba(${cyan?'0,198,218':r>=1.5?'255,224,66':'255,214,54'},${r>=1.5?.74:.44})`}
+            className="jm"
             style={{
               animation:`${anim} ${12+(i%7)*1.4}s ease-in-out ${delay}s infinite`,
-              filter:`drop-shadow(0 0 ${r>=1.5?3:2}px rgba(${cyan?'0,194,214':'255,208,48'},${r>=1.5?.80:.48}))`,
+              filter:`drop-shadow(0 0 ${r>=1.5?3:2}px rgba(${cyan?'0,194,214':'255,208,48'},${r>=1.5?.82:.50}))`,
             }}/>
         ))}
 
-        {/* ── FRONT: inner ring bright arcs (sweeping) ── */}
-        <circle cx={_JCX} cy={_JCY} r="270" fill="none"
-          stroke="rgba(255,228,70,.48)" strokeWidth="1.0"
-          strokeDasharray="50 320" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-cw 19s linear infinite 1s'}}/>
-        <circle cx={_JCX} cy={_JCY} r="270" fill="none"
-          stroke="rgba(255,228,70,.40)" strokeWidth="1.0"
-          strokeDasharray="32 338" className="jg"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jg-ccw 16s linear infinite'}}/>
-        {/* energy contact points at top/bottom of inner ring */}
-        <circle cx={_JCX} cy={_JCY-270} r="4.2" fill="rgba(255,226,66,.92)"
-          className="jg" style={{animation:'jg-pbr 4s ease-in-out infinite'}}/>
-        <circle cx={_JCX} cy={_JCY-270} r="11" fill="rgba(255,215,50,.12)"/>
-        <circle cx={_JCX} cy={_JCY+270} r="4.2" fill="rgba(255,226,66,.92)"
-          className="jg" style={{animation:'jg-pbr 4s ease-in-out infinite 2s'}}/>
-        <circle cx={_JCX} cy={_JCY+270} r="11" fill="rgba(255,215,50,.12)"/>
+        {/* ── FRONT: inner ring sweep arcs (state-sensitive) ── */}
+        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
+          stroke={`rgba(255,228,70,${isSpeak?.55:isListen?.46:.38})`}
+          strokeWidth="1.0" strokeDasharray="58 330" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 21s linear infinite 1s',transition:'stroke .8s ease'}}/>
+        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
+          stroke={`rgba(255,228,70,${isProc?.48:isSpeak?.50:.34})`}
+          strokeWidth="1.0" strokeDasharray="38 350" className="jm"
+          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 18s linear infinite',transition:'stroke .8s ease'}}/>
+        {/* Energy contact points */}
+        <circle cx={_JCX} cy={_JCY-274} r="4.8" fill="rgba(255,226,66,.95)"
+          className="jm" style={{animation:'jm-pbr 4s ease-in-out infinite'}}/>
+        <circle cx={_JCX} cy={_JCY-274} r="13" fill="rgba(255,215,50,.11)"/>
+        <circle cx={_JCX} cy={_JCY+274} r="4.8" fill="rgba(255,226,66,.95)"
+          className="jm" style={{animation:'jm-pbr 4s ease-in-out infinite 2s'}}/>
+        <circle cx={_JCX} cy={_JCY+274} r="13" fill="rgba(255,215,50,.11)"/>
       </svg>
     </div>
   )
