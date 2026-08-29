@@ -7,27 +7,30 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hikaru/lib": "*",
     "@hikaru/types": "*",
     "@hikaru/ui": "*",
+    "@openai/agents": "^0.17.0",
     "@react-pdf/renderer": "^4.6.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.7.0",
     "@supabase/ssr": "^0.6.0",
     "@supabase/supabase-js": "^2.0.0",
+    "csv-parse": "^7.0.2",
     "framer-motion": "^12.43.0",
     "gsap": "^3.15.0",
     "next": "^15.0.0",
-    "@openai/agents": "^0.17.0",
     "openai": "^7.0.0",
-    "zod": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.20.0",
     "three": "^0.185.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.0.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
@@ -39,6 +42,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.11"
   }
 }
