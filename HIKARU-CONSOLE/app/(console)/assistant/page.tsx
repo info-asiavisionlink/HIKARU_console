@@ -194,34 +194,58 @@ const _FW:{d:string;op:number;sw:number;da:string;dur:number;rev:boolean;cyan:bo
   return out
 })()
 
-// Arc segments: gold + cyan, varying rotation speeds
-const _GSEGS:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = (()=>{
-  const out:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = []
-  // Only near-core arcs remain — no large outer HUD rings
-  for(let i=0;i<4;i++) out.push({d:_arc(278,i*90-5,i*90+28),op:.42,sw:2.0,cyan:false,dur:38,ccw:i%2===1})
-  for(let i=0;i<8;i++) out.push({d:_arc(310,i*45+5,i*45+16),op:.28,sw:1.4,cyan:false,dur:22,ccw:i%2===0})
-  for(let i=0;i<3;i++) out.push({d:_arc(294,i*120+20,i*120+38),op:.32,sw:1.2,cyan:true, dur:32,ccw:i%2===1})
-  return out
-})()
+// Arc segments: REMOVED — no circular HUD arcs
+const _GSEGS:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = []
 
-// Neural network: [x1,y1,x2,y2, lineOp, sigDur, isCyan, lineLen]
+// Neural network — organic AI field: [x1,y1, x2,y2, lineOp, sigDur, isCyan, lineLen]
 const _NN:[number,number,number,number,number,number,boolean,number][] = [
-  [138,188,245,242, 0.12,4.8,false,120],
-  [245,242,315,268, 0.10,3.6,true,  75],
-  [715,192,625,245, 0.12,5.2,false,104],
-  [625,245,552,268, 0.10,4.0,true,  77],
-  [142,458,248,415, 0.10,4.2,false,114],
-  [715,452,618,410, 0.10,5.0,true, 106],
-  [382,148,430,112, 0.12,3.2,false, 60],
-  [478,148,430,112, 0.10,3.8,false, 60],
+  // Left cluster
+  [48, 90, 95,165,  0.12,5.5,false, 88],[95,165, 52,252,  0.10,4.8,false, 97],
+  [52,252,108,322,  0.09,5.2,false, 88],[108,322,148,415, 0.09,5.5,false, 99],
+  [148,415, 88,495, 0.10,4.5,false,102],[88,495, 50,578,  0.09,5.8,false, 91],
+  [50,578,108,648,  0.09,4.8,false, 91],[108,648,188,698, 0.08,5.2,false, 94],
+  [225,145,185,228, 0.10,4.5,false, 92],[185,228,245,308, 0.09,5.0,false, 98],
+  [245,308,242,448, 0.08,5.5,false,140],[95,165,225,145,  0.08,4.8,false,131],
+  // Right cluster
+  [922, 88,870,162, 0.12,5.2,false, 93],[870,162,922,252, 0.10,4.8,false,102],
+  [922,252,868,328, 0.09,5.5,false, 93],[868,328,922,412, 0.09,4.5,false, 97],
+  [922,412,868,492, 0.10,5.0,false, 97],[868,492,922,572, 0.09,4.2,false,100],
+  [922,572,870,648, 0.09,5.8,false, 92],[870,648,808,695, 0.08,4.5,false, 78],
+  [775,148,768,228, 0.10,4.8,false, 77],[768,228,755,308, 0.09,5.0,false, 81],
+  [755,308,758,448, 0.08,5.5,false,140],[870,162,775,148, 0.08,4.5,false, 96],
+  // Top connections
+  [305, 45,382, 52, 0.10,4.5,false, 77],[382, 52,455, 48, 0.09,5.0,false, 73],
+  [455, 48,528, 52, 0.09,4.8,false, 73],[528, 52,598, 78, 0.08,5.2,false, 78],
+  [598, 78,648, 98, 0.08,4.8,false, 54],
+  // Bottom connections
+  [305,698,382,685, 0.09,5.0,false, 78],[382,685,455,692, 0.08,4.8,false, 73],
+  [455,692,528,685, 0.09,5.2,false, 73],[528,685,598,662, 0.08,4.5,false, 76],
+  // Cyan accent connections
+  [78,348, 52,252,  0.10,3.8,true,  99],[195,268,245,308, 0.09,4.2,true,  61],
+  [752,348,768,228, 0.10,3.8,true, 122],[808,268,755,308, 0.09,4.2,true,  61],
+  [345, 88,305, 45, 0.09,4.0,true,  61],[512, 88,528, 52, 0.09,4.0,true,  40],
 ]
 // Neural nodes: [cx,cy,r,isCyan,delay]
 const _NND:[number,number,number,boolean,number][] = [
-  [138,188,2.8,false,0],[245,242,2.2,true,1.5],[315,268,2.8,false,3.0],
-  [715,192,2.8,false,0.8],[625,245,2.2,true,2.2],[552,268,2.5,false,4.5],
-  [142,458,2.8,false,1.0],[248,415,2.2,false,2.8],
-  [715,452,2.8,false,0.5],[618,410,2.2,true,3.5],
-  [430,112,3.2,false,2.0],[382,148,2.5,false,1.2],[478,148,2.5,false,0.3],
+  // Left cluster nodes
+  [48, 90,2.8,false,0.0],[95,165,2.5,false,1.2],[52,252,2.8,false,2.8],
+  [108,322,2.5,false,0.5],[148,415,2.8,false,3.5],[88,495,2.5,false,1.8],
+  [50,578,2.8,false,4.2],[108,648,2.5,false,0.8],[188,698,2.2,false,2.5],
+  [225,145,2.8,false,1.5],[185,228,2.5,false,3.0],[245,308,2.8,false,0.2],[242,448,2.5,false,2.2],
+  // Right cluster nodes
+  [922, 88,2.8,false,0.3],[870,162,2.5,false,1.8],[922,252,2.8,false,3.2],
+  [868,328,2.5,false,0.8],[922,412,2.8,false,2.8],[868,492,2.5,false,1.5],
+  [922,572,2.8,false,4.5],[870,648,2.5,false,0.5],[808,695,2.2,false,3.0],
+  [775,148,2.8,false,1.0],[768,228,2.5,false,3.8],[755,308,2.8,false,0.2],[758,448,2.5,false,2.0],
+  // Top nodes
+  [305, 45,2.5,false,2.2],[382, 52,2.8,false,0.8],[455, 48,2.5,false,3.5],
+  [528, 52,2.8,false,1.5],[598, 78,2.5,false,4.0],[648, 98,2.2,false,0.5],
+  // Bottom nodes
+  [305,698,2.5,false,1.8],[382,685,2.8,false,3.2],[455,692,2.5,false,0.5],
+  [528,685,2.8,false,2.5],[598,662,2.5,false,1.0],
+  // Cyan accent nodes
+  [78,348,2.8,true,1.2],[195,268,2.5,true,3.5],[752,348,2.8,true,0.8],
+  [808,268,2.5,true,2.8],[345, 88,2.5,true,1.5],[512, 88,2.5,true,0.2],
 ]
 
 // Particles: [cx, cy, r, anim, delay, isCyan]
@@ -330,6 +354,17 @@ function CircuitBackground({ mode }: { mode: string }) {
         background:'linear-gradient(to bottom,rgba(0,210,230,.60) 0%,rgba(0,195,220,.38) 32%,rgba(0,178,210,.14) 70%,transparent 100%)',
       }}/>
 
+      {/* Bottom perspective grid — very subtle depth layer */}
+      <div style={{
+        position:'absolute',bottom:0,left:'-10%',right:'-10%',height:'48%',
+        backgroundImage:'linear-gradient(rgba(255,210,48,.042) 1px,transparent 1px),linear-gradient(90deg,rgba(255,210,48,.030) 1px,transparent 1px)',
+        backgroundSize:'55px 55px',
+        transform:'perspective(500px) rotateX(62deg)',
+        transformOrigin:'50% 0%',
+        maskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.7) 35%,transparent 75%)',
+        WebkitMaskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.7) 35%,transparent 75%)',
+      }}/>
+
       {/* Core Energy Aura — organic gold energy field (CSS, centered at JARVIS) */}
       <div className="jm" style={{
         position:'absolute',
@@ -391,25 +426,7 @@ function CircuitBackground({ mode }: { mode: string }) {
           </g>
         ))}
 
-        {/* ── MID: single subtle Core ring — no large HUD ── */}
-        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
-          stroke={`rgba(255,225,65,${isSpeak?.14:isProc?.12:.088})`}
-          strokeWidth="1.5" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 25s linear infinite',transition:'stroke .8s ease'}}/>
-        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
-          stroke="rgba(255,218,52,.028)" strokeWidth="8"/>
-
-        {/* ── MID: rotating arc segments ── */}
-        {_GSEGS.map(({d,op,sw,cyan,dur,ccw},i)=>(
-          <path key={i} d={d} fill="none"
-            stroke={`rgba(${cyan?'0,202,222':'255,214,54'},${op})`}
-            strokeWidth={sw} strokeLinecap="round" className="jm"
-            style={{
-              transformOrigin:`${_JCX}px ${_JCY}px`,
-              animation:`${ccw?'jm-ccw':'jm-cw'} ${dur}s linear infinite ${(i*.62)%5}s`,
-              filter:`drop-shadow(0 0 ${cyan?2:3}px rgba(${cyan?'0,198,218':'255,210,48'},${op*.75}))`,
-            }}/>
-        ))}
+        {/* No additional rings — ConsoleHikaruCore provides the core ring */}
 
         {/* ── FLOOR: holographic projection platform ── */}
         <g className="jm" style={{animation:'jm-floor 14s ease-in-out infinite'}}>
@@ -453,22 +470,13 @@ function CircuitBackground({ mode }: { mode: string }) {
             }}/>
         ))}
 
-        {/* ── FRONT: inner ring sweep arcs (state-sensitive) ── */}
-        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
-          stroke={`rgba(255,228,70,${isSpeak?.55:isListen?.46:.38})`}
-          strokeWidth="1.0" strokeDasharray="58 330" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-cw 21s linear infinite 1s',transition:'stroke .8s ease'}}/>
-        <circle cx={_JCX} cy={_JCY} r="274" fill="none"
-          stroke={`rgba(255,228,70,${isProc?.48:isSpeak?.50:.34})`}
-          strokeWidth="1.0" strokeDasharray="38 350" className="jm"
-          style={{transformOrigin:`${_JCX}px ${_JCY}px`,animation:'jm-ccw 18s linear infinite',transition:'stroke .8s ease'}}/>
-        {/* Energy contact points */}
-        <circle cx={_JCX} cy={_JCY-274} r="4.8" fill="rgba(255,226,66,.95)"
-          className="jm" style={{animation:'jm-pbr 4s ease-in-out infinite'}}/>
-        <circle cx={_JCX} cy={_JCY-274} r="13" fill="rgba(255,215,50,.11)"/>
-        <circle cx={_JCX} cy={_JCY+274} r="4.8" fill="rgba(255,226,66,.95)"
-          className="jm" style={{animation:'jm-pbr 4s ease-in-out infinite 2s'}}/>
-        <circle cx={_JCX} cy={_JCY+274} r="13" fill="rgba(255,215,50,.11)"/>
+        {/* ── FRONT: bright energy nodes at Core axis top/bottom ── */}
+        <circle cx={_JCX} cy={_JCY-274} r="4.0" fill="rgba(255,226,66,.90)"
+          className="jm" style={{animation:'jm-pbr 5s ease-in-out infinite'}}/>
+        <circle cx={_JCX} cy={_JCY-274} r="10" fill="rgba(255,215,50,.10)"/>
+        <circle cx={_JCX} cy={_JCY+274} r="4.0" fill="rgba(255,226,66,.90)"
+          className="jm" style={{animation:'jm-pbr 5s ease-in-out infinite 2.5s'}}/>
+        <circle cx={_JCX} cy={_JCY+274} r="10" fill="rgba(255,215,50,.10)"/>
       </svg>
     </div>
   )
