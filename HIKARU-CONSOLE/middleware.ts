@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/auth/callback']
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password']
 
 function isPublicPath(pathname: string): boolean {
   // API ルートはミドルウェア認証をスキップ（API 側で認証を行う）

@@ -7,7 +7,6 @@
 //
 // 使い所:
 //   - loginAction() (既存): password login 成功後
-//   - /auth/callback (将来 P4): invitation受諾でsession確立後
 //   - logoutAction() (既存): サインアウト時
 //
 // 重要:
@@ -17,11 +16,11 @@
 //   - Cookie に token / password / session JSON 等を保存しない
 //   - Cookie 内 role は Console 利用に許可された値 ('admin') に限定
 //
-// Trust Boundary:
-//   Console session cookie の `role='admin'` は
-//   Customer Company Admin であることを示すのみ。
-//   Platform Operator 判定は別 (lib/auth/platform-operator.ts)。
-//   混同禁止。
+// Delivery Model:
+//   HIKARU は SaaS 中央発行型ではなく、顧客企業ごとに環境を構築・納品する
+//   モデルを採用する。初期 Admin は技術側 (Supabase Dashboard) で作成し、
+//   顧客はその認証情報で通常 /login → /setup に進む。
+//   本 helper は通常 login / logout のセッション状態管理に限定する。
 // ============================================================
 
 import { cookies } from 'next/headers'

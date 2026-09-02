@@ -152,10 +152,9 @@ describe('setConsoleSessionCookies — CASE E (role validation)', () => {
     expect(setMock).not.toHaveBeenCalled()
   })
 
-  it('throws when role is "operator" (Platform Operator must not use Console cookie)', async () => {
-    // Console cookie の role='admin' は Customer Admin であることを示すのみ。
-    // Platform Operator は別権限 (platform_operators table)。ここに operator を
-    // 入れられるとその後 middleware が admin として通してしまう危険を防ぐ。
+  it('throws when role is any non-admin value (e.g. "operator")', async () => {
+    // Console cookie の role は 'admin' に限定。任意文字列を Cookie 値として
+    // 受け入れると middleware が admin として通してしまう危険がある。
     await expect(setConsoleSessionCookies({
       userId: 'user-1',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
