@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server'
+import { setConsoleSessionCookies, clearConsoleSessionCookies } from '@/lib/auth/console-session'
 
 interface LoginState {
   error: string | null
@@ -68,12 +69,12 @@ export async function loginAction(
   }
 
   // ③ ミドルウェア用カスタム Cookie（ルートガードに使用）
-  const isProduction = process.env.NODE_ENV === 'production'
-  const maxAge = authData.session.expires_in ?? 3600
-  const opts = { httpOnly: true, secure: isProduction, path: '/', maxAge, sameSite: 'lax' } as const
-
-  cookieStore.set('hk_c_role', profile.role,      opts)
-  cookieStore.set('hk_c_uid',  authData.user.id,  opts)
+  // Cookie 設定は共通 helper 経由。既存挙動 (options / value source) は完全維持。
+  await setConsoleSessionCookies({
+    userId:    authData.user.id,
+    role:      'admin',
+    expiresIn: authData.session.expires_in,
+  })
 
   redirect('/dashboard')
 }
@@ -146,11 +147,8 @@ export async function logoutAction() {
 
   await supabase.auth.signOut()
 
-  // ミドルウェア用カスタム Cookie も削除
-  cookieStore.delete('hk_c_role')
-  cookieStore.delete('hk_c_uid')
-  cookieStore.delete('hk_c_at')
-  cookieStore.delete('hk_c_rt')
+  // ミドルウェア用カスタム Cookie も削除 (レガシー hk_c_at / hk_c_rt 含む)
+  await clearConsoleSessionCookies()
 
   redirect('/login')
 }
