@@ -90,11 +90,13 @@ export async function loginAction(
     redirect(next)
   }
 
-  const status = profile.company_id
+  // Setup status 取得失敗 (COMPANY_NOT_FOUND / DB_ERROR) は Login 自体を
+  // 失敗扱いにせず、default /dashboard に fallback する仕様。
+  const result = profile.company_id
     ? await getSetupStatus(profile.company_id, admin)
     : null
 
-  if (status && !status.readiness.businessReady) {
+  if (result?.ok && !result.status.readiness.businessReady) {
     redirect('/setup')
   }
 

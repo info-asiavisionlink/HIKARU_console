@@ -31,10 +31,19 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const status = await getSetupStatus(auth.companyId, auth.adminClient)
-  if (!status) {
-    return NextResponse.json({ error: 'Failed to fetch setup status', code: 'DB_ERROR' }, { status: 500 })
+  const result = await getSetupStatus(auth.companyId, auth.adminClient)
+  if (!result.ok) {
+    if (result.reason === 'COMPANY_NOT_FOUND') {
+      return NextResponse.json(
+        { error: 'Company record not found', code: 'COMPANY_NOT_FOUND' },
+        { status: 404 },
+      )
+    }
+    return NextResponse.json(
+      { error: 'Failed to fetch setup status', code: 'DB_ERROR' },
+      { status: 500 },
+    )
   }
 
-  return NextResponse.json(status)
+  return NextResponse.json(result.status)
 }
