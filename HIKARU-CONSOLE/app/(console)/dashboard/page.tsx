@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { getDashboardStats, type DashboardStats } from '@/services/dashboard.service'
 import { Skeleton, PageHeader, Badge } from '@hikaru/ui'
+import { SetupBanner } from '@/components/console/SetupBanner'
 import {
   FolderOpen, Building2, UserCheck, Handshake, Activity,
   TrendingUp, CheckCircle2, Pause, XCircle,
@@ -179,6 +180,9 @@ export default function DashboardPage() {
         title="ダッシュボード"
         description="HIKARU AI Quality Management Platform"
       />
+
+      {/* BUSINESS_READY=false 時のみ Setup Center への誘導 Banner を表示 */}
+      <SetupBanner />
 
       {/* System Status Bar */}
       <div className="mb-6 flex items-center gap-5 px-4 py-2.5 rounded-[var(--radius-lg)]"

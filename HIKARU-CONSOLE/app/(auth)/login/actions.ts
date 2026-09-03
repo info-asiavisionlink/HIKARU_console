@@ -5,6 +5,8 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server'
 import { setConsoleSessionCookies, clearConsoleSessionCookies } from '@/lib/auth/console-session'
+import { safeLoginNext } from '@/lib/auth/safe-next'
+import { getSetupStatus } from '@/lib/setup/get-setup-status'
 
 interface LoginState {
   error: string | null
@@ -16,6 +18,8 @@ export async function loginAction(
 ): Promise<LoginState> {
   const email    = (formData.get('email')    as string)?.trim()
   const password = formData.get('password')  as string
+  const nextRaw  = formData.get('next') as string | null
+  const next     = safeLoginNext(nextRaw)
 
   if (!email || !password) {
     return { error: 'メールアドレスまたはIDとパスワードを入力してください。' }
@@ -54,11 +58,11 @@ export async function loginAction(
     return { error: translateAuthError(authError?.message ?? '') }
   }
 
-  // ② ロール確認（admin のみ CONSOLE 利用可）
+  // ② ロール確認（admin のみ CONSOLE 利用可） + company_id 取得
   const admin = createAdminClient()
   const { data: profile } = await admin
     .from('profiles')
-    .select('role')
+    .select('role, company_id')
     .eq('id', authData.user.id)
     .single()
 
@@ -75,6 +79,24 @@ export async function loginAction(
     role:      'admin',
     expiresIn: authData.session.expires_in,
   })
+
+  // ④ Redirect 決定
+  //   優先順位:
+  //     1. 明示的な safe next (認証切れで飛ばされた元 page 等) → next
+  //     2. Setup 未完了 (BUSINESS_READY=false) → /setup
+  //     3. Setup 完了 or Status 取得失敗 → /dashboard (安全 fallback)
+  //   Setup status 取得失敗はログイン自体を失敗扱いにしない。
+  if (next) {
+    redirect(next)
+  }
+
+  const status = profile.company_id
+    ? await getSetupStatus(profile.company_id, admin)
+    : null
+
+  if (status && !status.readiness.businessReady) {
+    redirect('/setup')
+  }
 
   redirect('/dashboard')
 }

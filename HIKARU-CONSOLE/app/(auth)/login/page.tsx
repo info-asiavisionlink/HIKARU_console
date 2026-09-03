@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
 import { LoginForm } from './_components/LoginForm'
+import { safeLoginNext } from '@/lib/auth/safe-next'
 
 export const metadata: Metadata = {
   title: 'ログイン | HIKARU CONSOLE',
 }
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>
+}) {
+  const params = await searchParams
+  const rawNext = Array.isArray(params.next) ? params.next[0] : params.next
+  // Client 側 hidden input へ渡すが、最終判定は Server Action 側で
+  // safeLoginNext() が再実行するので、ここでの正規化は表示上の意味のみ。
+  const next = safeLoginNext(rawNext) ?? ''
+
   return (
     <div className="flex flex-col items-center gap-8 w-full">
       {/* Brand */}
@@ -68,7 +79,7 @@ export default function LoginPage() {
         <div className="absolute bottom-4 right-4 h-4 w-4"
           style={{ borderBottom: '1px solid oklch(0.73 0.12 78 / 0.45)', borderRight: '1px solid oklch(0.73 0.12 78 / 0.45)' }} />
 
-        <LoginForm />
+        <LoginForm next={next} />
       </div>
 
       <p className="text-[9px] text-center uppercase tracking-[0.2em]"

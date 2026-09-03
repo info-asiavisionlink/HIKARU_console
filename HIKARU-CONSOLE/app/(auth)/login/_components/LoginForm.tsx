@@ -17,7 +17,7 @@ function SubmitButton() {
   )
 }
 
-export function LoginForm() {
+export function LoginForm({ next = '' }: { next?: string }) {
   const [state, formAction] = useActionState(loginAction, { error: null })
   const [showPassword, setShowPassword] = useState(false)
 
@@ -28,6 +28,9 @@ export function LoginForm() {
           {state.error}
         </Alert>
       )}
+
+      {/* Server Action で safeLoginNext() が再検証するため、Client 側は透過のみ */}
+      <input type="hidden" name="next" value={next} />
 
       <Input
         name="email"
