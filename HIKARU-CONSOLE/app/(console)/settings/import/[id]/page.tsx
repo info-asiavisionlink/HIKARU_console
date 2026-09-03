@@ -7,9 +7,10 @@ import {
   Skeleton, toast,
 } from '@hikaru/ui'
 import { safeSetupReturn } from '@/lib/setup/return-to'
+import { evaluateCommitEligibility } from '@/lib/import/commit-eligibility'
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, AlertTriangle,
-  ChevronDown, ChevronUp, Loader2, RotateCcw,
+  ChevronDown, ChevronUp, Loader2, RotateCcw, Upload,
 } from 'lucide-react'
 
 // ============================================================
@@ -393,6 +394,11 @@ function ImportSessionContent() {
   const [loading, setLoading]   = React.useState(true)
   const [rowsLoading, setRowsLoading] = React.useState(false)
   const [saving, setSaving]     = React.useState<Record<string, boolean>>({})
+  const [commitOpen, setCommitOpen]       = React.useState(false)
+  const [committing, setCommitting]       = React.useState(false)
+  const [commitResult, setCommitResult]   = React.useState<{
+    inserted: number; updated: number; skipped: number
+  } | null>(null)
 
   // Load session
   React.useEffect(() => {
@@ -472,6 +478,38 @@ function ImportSessionContent() {
     loadRows(filter, newOffset)
   }
 
+  async function handleCommit() {
+    if (committing) return
+    setCommitting(true)
+    try {
+      const res = await fetch(`/api/import/sessions/${sessionId}/commit`, {
+        method:      'POST',
+        credentials: 'include',
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok || !body?.success) {
+        toast.error(body?.message ?? '登録に失敗しました。')
+        return
+      }
+      setCommitResult({
+        inserted: body.data.inserted_count,
+        updated:  body.data.updated_count,
+        skipped:  body.data.skipped_count,
+      })
+      setCommitOpen(false)
+      // Refetch session so 「完了」画面 (session.status !== 'review_required' 分岐) が render される
+      const fresh = await fetch(`/api/import/sessions/${sessionId}`, { credentials: 'include', cache: 'no-store' })
+      if (fresh.ok) {
+        const d = await fresh.json()
+        if (d?.data) setSession(d.data)
+      }
+    } catch {
+      toast.error('登録に失敗しました。')
+    } finally {
+      setCommitting(false)
+    }
+  }
+
   // ---- Loading ----
   if (loading) {
     return (
@@ -499,8 +537,9 @@ function ImportSessionContent() {
   const entityLabel = ENTITY_LABELS[session.entity_type] ?? session.entity_type
   const statusLabel = STATUS_LABELS[session.status] ?? session.status
 
-  // ---- Non-review status (processing or error) ----
+  // ---- Non-review status (processing / completed / error) ----
   if (session.status !== 'review_required') {
+    const isCompleted = session.status === 'completed'
     return (
       <div>
         <PageHeader
@@ -517,7 +556,7 @@ function ImportSessionContent() {
             <CardContent className="py-6 flex items-center gap-4">
               {session.status === 'failed' ? (
                 <AlertCircle className="h-8 w-8 shrink-0" style={{ color: 'oklch(0.75 0.18 30)' }} />
-              ) : session.status === 'completed' ? (
+              ) : isCompleted ? (
                 <CheckCircle2 className="h-8 w-8 shrink-0" style={{ color: 'oklch(0.72 0.18 150)' }} />
               ) : (
                 <Loader2 className="h-8 w-8 shrink-0 animate-spin text-[var(--color-primary)]" />
@@ -531,6 +570,37 @@ function ImportSessionContent() {
               </div>
             </CardContent>
           </Card>
+
+          {isCompleted && commitResult && (
+            <Card>
+              <CardContent className="py-5 space-y-3">
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">登録が完了しました</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">新規</p>
+                    <p className="text-xl font-bold" style={{ color: 'oklch(0.72 0.18 150)' }}>
+                      {commitResult.inserted.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">更新</p>
+                    <p className="text-xl font-bold" style={{ color: 'oklch(0.62 0.15 240)' }}>
+                      {commitResult.updated.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">スキップ</p>
+                    <p className="text-xl font-bold text-[var(--color-muted-foreground)]">
+                      {commitResult.skipped.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <Button className="w-full" onClick={() => router.push(backDestination)}>
+                  {backLabel}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     )
@@ -601,6 +671,136 @@ function ImportSessionContent() {
             この画面での操作では、実際の顧客・店舗データへの書き込みは行われません。
           </p>
         </div>
+
+        {/* Commit CTA (client entity のみ、全行 review 済み時に有効化) */}
+        {(() => {
+          const gate = summary
+            ? evaluateCommitEligibility({
+                sessionStatus: session.status,
+                entityType:    session.entity_type,
+                pendingRows:   summary.total - summary.reviewed,
+                pendingCandidates: summary.pending_candidates,
+                totalRows:     summary.total,
+                invalidRows:   summary.invalid,
+              })
+            : { canCommit: false, reason: null as null | string }
+
+          if (session.entity_type !== 'client') return null
+
+          const pending = summary ? summary.total - summary.reviewed : 0
+          const pendingCands = summary?.pending_candidates ?? 0
+
+          return (
+            <div
+              className="flex flex-wrap items-center gap-3 rounded-xl p-4"
+              style={{
+                background: 'oklch(0.73 0.12 78 / 0.08)',
+                border:     '1px solid oklch(0.73 0.12 78 / 0.28)',
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                  {gate.canCommit
+                    ? '登録する準備ができました'
+                    : '登録するには全ての行に対して選択を完了してください'}
+                </p>
+                {!gate.canCommit && (pending > 0 || pendingCands > 0) && (
+                  <p className="text-xs text-[var(--color-muted-foreground)] mt-1">
+                    未確認: {pending.toLocaleString()} 行
+                    {pendingCands > 0 && ` / 重複候補 ${pendingCands.toLocaleString()} 件`}
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                disabled={!gate.canCommit || committing}
+                onClick={() => setCommitOpen(true)}
+                aria-label="この内容で登録する"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                登録する
+              </Button>
+            </div>
+          )
+        })()}
+
+        {/* Commit Confirmation Modal */}
+        {commitOpen && summary && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'oklch(0 0 0 / 0.55)' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="commit-modal-title"
+          >
+            <div
+              className="w-full max-w-md rounded-2xl p-6"
+              style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
+            >
+              <h2 id="commit-modal-title" className="text-lg font-bold text-[var(--color-foreground)]">
+                この内容で登録しますか？
+              </h2>
+              <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
+                実際の顧客データベースに書き込みます。実行後に取り消すには別途操作が必要です。
+              </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                {(() => {
+                  // approved & pending candidate 無し = CREATE、approved & candidate approved(update) = UPDATE
+                  // ここでは summary からは細分できないため、reviewed 内訳を rough に見せる
+                  const reviewedRows = summary.reviewed
+                  const skippedRoughEstimate = Math.max(0, reviewedRows - (summary.total - summary.invalid))
+                  // 上記は概算。RPC が最終判定。この modal は「登録する意思確認」フォーカス。
+                  return (
+                    <>
+                      <div>
+                        <p className="text-xs text-[var(--color-muted-foreground)]">確認済み行</p>
+                        <p className="text-2xl font-bold text-[var(--color-foreground)]">
+                          {reviewedRows.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[var(--color-muted-foreground)]">総件数</p>
+                        <p className="text-2xl font-bold text-[var(--color-muted-foreground)]">
+                          {summary.total.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[var(--color-muted-foreground)]">対象外</p>
+                        <p className="text-2xl font-bold text-[var(--color-muted-foreground)]">
+                          {(summary.invalid + skippedRoughEstimate).toLocaleString()}
+                        </p>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCommitOpen(false)}
+                  disabled={committing}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCommit}
+                  disabled={committing}
+                  aria-label="登録を確定する"
+                >
+                  {committing ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> 登録中...</>
+                  ) : (
+                    <>登録する</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filter tabs */}
         <div className="flex items-center gap-1 flex-wrap">
