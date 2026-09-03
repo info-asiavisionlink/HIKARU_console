@@ -1,11 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   PageHeader, Button, Card, CardContent, CardHeader, CardTitle,
   Skeleton, toast,
 } from '@hikaru/ui'
+import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RotateCcw,
@@ -375,9 +376,13 @@ function RowCard({
 // Main Page
 // ============================================================
 
-export default function ImportSessionPage() {
+function ImportSessionContent() {
   const router                = useRouter()
   const { id: sessionId }     = useParams<{ id: string }>()
+  const searchParams          = useSearchParams()
+  const returnTo              = safeSetupReturn(searchParams.get('return'))
+  const backDestination       = returnTo ?? '/settings/import'
+  const backLabel             = returnTo === '/setup' ? '初期設定へ戻る' : '一覧へ戻る'
 
   const [session, setSession]   = React.useState<ImportSession | null>(null)
   const [summary, setSummary]   = React.useState<ReviewSummary | null>(null)
@@ -501,9 +506,9 @@ export default function ImportSessionPage() {
         <PageHeader
           title={session.label ?? `${entityLabel}データ移行`}
           action={
-            <Button variant="outline" onClick={() => router.push('/settings/import')}>
+            <Button variant="outline" onClick={() => router.push(backDestination)}>
               <ArrowLeft className="h-4 w-4" />
-              一覧へ戻る
+              {backLabel}
             </Button>
           }
         />
@@ -542,9 +547,9 @@ export default function ImportSessionPage() {
         title={session.label ?? `${entityLabel}データ移行 — 確認`}
         description={`${entityLabel} · ${session.source_type.toUpperCase()}${session.total_rows != null ? ` · ${session.total_rows.toLocaleString()}件` : ''}`}
         action={
-          <Button variant="outline" onClick={() => router.push('/settings/import')}>
+          <Button variant="outline" onClick={() => router.push(backDestination)}>
             <ArrowLeft className="h-4 w-4" />
-            一覧へ戻る
+            {backLabel}
           </Button>
         }
       />
@@ -682,5 +687,13 @@ export default function ImportSessionPage() {
 
       </div>
     </div>
+  )
+}
+
+export default function ImportSessionPage() {
+  return (
+    <React.Suspense fallback={<div />}>
+      <ImportSessionContent />
+    </React.Suspense>
   )
 }

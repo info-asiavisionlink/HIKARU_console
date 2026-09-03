@@ -1,10 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   PageHeader, Button, Card, CardContent, CardHeader, CardTitle, toast,
 } from '@hikaru/ui'
+import { safeSetupReturn } from '@/lib/setup/return-to'
 import { Building2, Store, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
 // ---- Types ----
@@ -47,13 +48,30 @@ const INITIAL_PROCESS_STEPS: ProcessStep[] = [
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB
 
+const VALID_ENTITY_TYPES: readonly EntityType[] = ['client', 'store'] as const
+
+function parsePreselectedEntityType(raw: string | null): EntityType | null {
+  if (!raw) return null
+  return (VALID_ENTITY_TYPES as readonly string[]).includes(raw)
+    ? (raw as EntityType)
+    : null
+}
+
 // ---- Main Component ----
 
-export default function NewImportPage() {
+function NewImportContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const [step, setStep]           = React.useState<Step>(1)
-  const [entityType, setEntityType] = React.useState<EntityType | null>(null)
+  // URL preselect: ?entity_type=client|store で entity Step をスキップ
+  const preselectedEntity = parsePreselectedEntityType(searchParams.get('entity_type'))
+  // Setup Center から呼ばれた場合の戻り先 (allowlist)
+  const returnTo = safeSetupReturn(searchParams.get('return'))
+  // Review page への遷移時に return を保持するための query suffix
+  const returnQuery = returnTo ? `?return=${encodeURIComponent(returnTo)}` : ''
+
+  const [step, setStep]           = React.useState<Step>(preselectedEntity ? 2 : 1)
+  const [entityType, setEntityType] = React.useState<EntityType | null>(preselectedEntity)
   const [file, setFile]           = React.useState<File | null>(null)
   const [dragOver, setDragOver]   = React.useState(false)
   const [processing, setProcessing] = React.useState(false)
@@ -166,9 +184,9 @@ export default function NewImportPage() {
       }
       updateStep('duplicate', 'done')
 
-      // All done — redirect to review
+      // All done — redirect to review (return は保持して Review ページから /setup へ戻れるように)
       toast.success('解析が完了しました。内容を確認してください。')
-      router.push(`/settings/import/${sessionId}`)
+      router.push(`/settings/import/${sessionId}${returnQuery}`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : '予期しないエラーが発生しました。'
       setErrorMsg(msg)
@@ -394,5 +412,13 @@ export default function NewImportPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function NewImportPage() {
+  return (
+    <React.Suspense fallback={<div />}>
+      <NewImportContent />
+    </React.Suspense>
   )
 }

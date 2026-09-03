@@ -2,16 +2,20 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createEmployee } from '@/services/employees.service'
+import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@hikaru/ui'
 import { ArrowLeft, Lock, User, Monitor, Smartphone } from 'lucide-react'
 
-export default function NewEmployeePage() {
+function NewEmployeeContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = safeSetupReturn(searchParams.get('return'))
+  const destination = returnTo ?? '/employees'
   const [loading, setLoading] = React.useState(false)
   const [hasLogin, setHasLogin] = React.useState(true)
 
@@ -73,7 +77,7 @@ export default function NewEmployeePage() {
       toast.error('登録に失敗しました: ' + error)
     } else {
       toast.success('従業員を登録しました')
-      router.push('/employees')
+      router.push(destination)
     }
     setLoading(false)
   }
@@ -247,7 +251,7 @@ export default function NewEmployeePage() {
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? '登録中...' : '従業員を登録'}
             </Button>
-            <Link href="/employees">
+            <Link href={destination}>
               <Button type="button" variant="outline" className="w-full">
                 <ArrowLeft className="h-4 w-4" /> キャンセル
               </Button>
@@ -256,5 +260,13 @@ export default function NewEmployeePage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function NewEmployeePage() {
+  return (
+    <React.Suspense fallback={<div />}>
+      <NewEmployeeContent />
+    </React.Suspense>
   )
 }

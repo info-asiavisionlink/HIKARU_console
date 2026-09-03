@@ -2,15 +2,19 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClientRecord } from '@/services/clients.service'
+import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
 } from '@hikaru/ui'
 import { ArrowLeft, UserPlus, Lock, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react'
 
-export default function NewClientPage() {
+function NewClientContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = safeSetupReturn(searchParams.get('return'))
+  const destination = returnTo ?? '/clients'
   const [loading, setLoading] = React.useState(false)
   const [showPortal, setShowPortal] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
@@ -86,7 +90,7 @@ export default function NewClientPage() {
         const data = await res.json()
         toast.error('ポータルアカウントの作成に失敗しました: ' + (data.error ?? ''))
         // 顧客は作成済みなので詳細ページへ遷移
-        router.push('/clients')
+        router.push(destination)
         setLoading(false)
         return
       }
@@ -96,7 +100,7 @@ export default function NewClientPage() {
       toast.success('顧客を作成しました')
     }
 
-    router.push('/clients')
+    router.push(destination)
     setLoading(false)
   }
 
@@ -222,7 +226,7 @@ export default function NewClientPage() {
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? '保存中...' : showPortal ? '顧客とアカウントを作成' : '顧客を作成'}
             </Button>
-            <Link href="/clients">
+            <Link href={destination}>
               <Button type="button" variant="outline" className="w-full">
                 <ArrowLeft className="h-4 w-4" /> キャンセル
               </Button>
@@ -245,5 +249,13 @@ export default function NewClientPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function NewClientPage() {
+  return (
+    <React.Suspense fallback={<div />}>
+      <NewClientContent />
+    </React.Suspense>
   )
 }

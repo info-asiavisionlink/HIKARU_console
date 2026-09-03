@@ -2,8 +2,9 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createProject } from '@/services/projects.service'
+import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -20,8 +21,11 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'キャンセル' },
 ]
 
-export default function NewProjectPage() {
+function NewProjectContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = safeSetupReturn(searchParams.get('return'))
+  const destination = returnTo ?? '/projects'
   const [loading, setLoading] = React.useState(false)
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])
@@ -116,7 +120,7 @@ export default function NewProjectPage() {
     await Promise.all(tasks)
 
     toast.success('案件を作成しました')
-    router.push('/projects')
+    router.push(destination)
     setLoading(false)
   }
 
@@ -355,7 +359,7 @@ export default function NewProjectPage() {
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? '保存中...' : '案件を作成'}
               </Button>
-              <Link href="/projects">
+              <Link href={destination}>
                 <Button type="button" variant="outline" className="w-full">
                   <ArrowLeft className="h-4 w-4" /> キャンセル
                 </Button>
@@ -365,5 +369,13 @@ export default function NewProjectPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function NewProjectPage() {
+  return (
+    <React.Suspense fallback={<div />}>
+      <NewProjectContent />
+    </React.Suspense>
   )
 }

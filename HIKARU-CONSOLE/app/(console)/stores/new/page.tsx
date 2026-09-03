@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createStore } from '@/services/stores.service'
 import { listClients } from '@/services/clients.service'
+import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -15,6 +16,8 @@ function NewStoreContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultClientId = searchParams.get('client_id') ?? ''
+  const returnTo = safeSetupReturn(searchParams.get('return'))
+  const destination = returnTo ?? '/stores'
 
   const [loading, setLoading] = React.useState(false)
   const [clients, setClients] = React.useState<any[]>([])
@@ -55,7 +58,7 @@ function NewStoreContent() {
       toast.error('保存に失敗しました')
     } else {
       toast.success('店舗を作成しました')
-      router.push('/stores')
+      router.push(destination)
     }
     setLoading(false)
   }
@@ -111,7 +114,7 @@ function NewStoreContent() {
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? '保存中...' : '店舗を作成'}
             </Button>
-            <Link href="/stores">
+            <Link href={destination}>
               <Button type="button" variant="outline" className="w-full">
                 <ArrowLeft className="h-4 w-4" /> キャンセル
               </Button>

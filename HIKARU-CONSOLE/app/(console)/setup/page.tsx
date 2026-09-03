@@ -90,14 +90,21 @@ function ProgressSummary({ status }: { status: SetupStatusData }) {
 
         <div className="mt-3 pt-3 border-t border-[var(--color-border)]">
           {readiness.businessReady ? (
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" style={{ color: 'oklch(0.72 0.18 150)' }} />
-              <span className="text-sm font-medium" style={{ color: 'oklch(0.72 0.18 150)' }}>
-                業務開始の準備が整いました
-              </span>
-              {readiness.operationReady && (
-                <span className="text-xs text-[var(--color-muted-foreground)]">（案件あり）</span>
-              )}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: 'oklch(0.72 0.18 150)' }} />
+                <span className="text-sm font-medium" style={{ color: 'oklch(0.72 0.18 150)' }}>
+                  業務開始の準備が整いました
+                </span>
+                {readiness.operationReady && (
+                  <span className="text-xs text-[var(--color-muted-foreground)]">（案件あり）</span>
+                )}
+              </div>
+              <Link href="/dashboard" className="shrink-0">
+                <Button size="sm" aria-label="HIKARUを使い始める">
+                  HIKARUを使い始める <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -178,13 +185,13 @@ function ClientCard({ status }: { status: SetupStatusData }) {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/clients/new">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 justify-end">
+            <Link href="/clients/new?return=/setup">
               <Button size="sm" aria-label="顧客を1件ずつ登録">
                 <Plus className="h-3.5 w-3.5" /> 1件ずつ
               </Button>
             </Link>
-            <Link href="/settings/import?entity_type=client&return=/setup">
+            <Link href="/settings/import/new?entity_type=client&return=/setup">
               <Button variant="outline" size="sm" aria-label="顧客をまとめて登録">
                 <Upload className="h-3.5 w-3.5" /> まとめて
               </Button>
@@ -222,16 +229,16 @@ function StoreCard({ status }: { status: SetupStatusData }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 justify-end">
             {noClients ? (
-              <Link href="/clients/new">
+              <Link href="/clients/new?return=/setup">
                 <Button size="sm" aria-label="先に顧客を登録">
                   先に顧客を登録
                 </Button>
               </Link>
             ) : (
               <>
-                <Link href="/stores/new">
+                <Link href="/stores/new?return=/setup">
                   <Button size="sm" aria-label="店舗を1件ずつ登録">
                     <Plus className="h-3.5 w-3.5" /> 1件ずつ
                   </Button>
@@ -276,7 +283,7 @@ function EmployeeCard({ status }: { status: SetupStatusData }) {
               </p>
             )}
           </div>
-          <Link href="/employees/new">
+          <Link href="/employees/new?return=/setup" className="shrink-0">
             <Button size="sm" aria-label="従業員を登録">
               <Plus className="h-3.5 w-3.5" /> 従業員を登録
             </Button>
@@ -322,7 +329,7 @@ function ProjectNextStep({ status }: { status: SetupStatusData }) {
               </Button>
             </Link>
           ) : (
-            <Link href="/projects/new">
+            <Link href="/projects/new?return=/setup">
               <Button size="sm" aria-label="案件を登録">
                 <Plus className="h-3.5 w-3.5" /> 案件を登録
               </Button>
