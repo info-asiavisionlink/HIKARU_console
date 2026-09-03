@@ -60,6 +60,7 @@ DECLARE
   v_pending_rows    INT;
   v_pending_cands   INT;
   v_invalid_approved INT;
+  v_update_cand_cnt INT;
   v_mapped          JSONB;
   v_name            TEXT;
   v_code            TEXT;
@@ -159,18 +160,35 @@ BEGIN
     v_contact_name := NULLIF(v_mapped ->> 'contact_name', '');
     v_notes        := NULLIF(v_mapped ->> 'notes', '');
 
-    -- Check for approved UPDATE candidate (resolved_action='update')
-    SELECT id, existing_record_id, existing_record_table
-      INTO v_candidate
+    -- Determine CREATE vs UPDATE by *counting* approved update candidates.
+    -- Ambiguous (>1) は勝手に 1 件選ばず reject する (data integrity 保護)。
+    --   count = 0 → user は CREATE を選択 (現行と同じ挙動)
+    --   count = 1 → UPDATE (safe, exactly one)
+    --   count > 1 → RAISE multiple_update_candidates
+    SELECT COUNT(*) INTO v_update_cand_cnt
     FROM import_duplicate_candidates
     WHERE staging_row_id = v_row.id
       AND session_id     = p_session_id
       AND company_id     = p_company_id
       AND review_status  = 'approved'
-      AND resolved_action = 'update'
-    LIMIT 1;
+      AND resolved_action = 'update';
 
-    IF FOUND THEN
+    IF v_update_cand_cnt > 1 THEN
+      RAISE EXCEPTION 'multiple_update_candidates: row=%, count=%', v_row.id, v_update_cand_cnt
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    IF v_update_cand_cnt = 1 THEN
+      -- Fetch the single approved update candidate (LIMIT 1 は不要、UNIQUE 保証済)
+      SELECT id, existing_record_id, existing_record_table
+        INTO v_candidate
+      FROM import_duplicate_candidates
+      WHERE staging_row_id = v_row.id
+        AND session_id     = p_session_id
+        AND company_id     = p_company_id
+        AND review_status  = 'approved'
+        AND resolved_action = 'update';
+
       -- UPDATE branch
       IF v_candidate.existing_record_table <> 'clients' THEN
         RAISE EXCEPTION 'candidate_wrong_table: %', v_candidate.existing_record_table
