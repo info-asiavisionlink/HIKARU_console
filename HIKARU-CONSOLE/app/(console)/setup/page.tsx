@@ -313,7 +313,7 @@ function ClientCard({ status }: { status: SetupStatusData }) {
       description="取引先・契約先となる顧客情報を登録します。店舗登録や請求機能を利用する前に必要です。"
       manualHref="/clients/new?return=/setup"
       manualLabel="1件ずつ登録"
-      bulkHref="/settings/import/new?entity_type=client&return=/setup"
+      bulkHref="/settings/import/preview/client?return=/setup"
       bulkAvailable={true}
       bulkComingSoonTitle=""
     />
@@ -383,15 +383,11 @@ function StoreCard({ status }: { status: SetupStatusData }) {
                 <Plus className="h-3.5 w-3.5" /> 1件ずつ登録
               </Button>
             </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              aria-label="まとめて移行（準備中）"
-              title="店舗の一括移行は現在準備中です。顧客との紐付け機能を整備後に提供予定です。"
-            >
-              <Ban className="h-3.5 w-3.5" /> 準備中
-            </Button>
+            <Link href="/settings/import/preview/store?return=/setup">
+              <Button variant="outline" size="sm" aria-label="店舗のまとめて移行内容を確認">
+                <Upload className="h-3.5 w-3.5" /> まとめて移行
+              </Button>
+            </Link>
           </div>
         </div>
       </CardContent>
@@ -411,9 +407,9 @@ function EmployeeCard({ status }: { status: SetupStatusData }) {
       description="従業員を登録すると、案件への配置やシフト管理を開始できます。"
       manualHref="/employees/new?return=/setup"
       manualLabel="1件ずつ登録"
-      bulkHref=""
-      bulkAvailable={false}
-      bulkComingSoonTitle="従業員の一括移行は現在準備中です。近日提供予定です。"
+      bulkHref="/settings/import/preview/employee?return=/setup"
+      bulkAvailable={true}
+      bulkComingSoonTitle=""
     />
   )
 }
@@ -457,15 +453,11 @@ function ProjectCard({ status }: { status: SetupStatusData }) {
                 </Button>
               </Link>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              aria-label="まとめて移行（準備中）"
-              title="案件の一括移行は現在準備中です。近日提供予定です。"
-            >
-              <Ban className="h-3.5 w-3.5" /> 準備中
-            </Button>
+            <Link href="/settings/import/preview/project?return=/setup">
+              <Button variant="outline" size="sm" aria-label="案件のまとめて移行内容を確認">
+                <Upload className="h-3.5 w-3.5" /> まとめて移行
+              </Button>
+            </Link>
           </div>
         </div>
       </CardContent>
@@ -479,15 +471,15 @@ function PastDataCard({
   icon: Icon,
   title,
   description,
-  comingSoonTitle,
+  previewHref,
 }: {
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
   title: string
   description: string
-  comingSoonTitle: string
+  previewHref: string
 }) {
   return (
-    <Card style={{ opacity: 0.85 }}>
+    <Card>
       <CardContent className="py-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-3">
           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -503,15 +495,11 @@ function PastDataCard({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              aria-label="データを移行（準備中）"
-              title={comingSoonTitle}
-            >
-              <Ban className="h-3.5 w-3.5" /> データを移行
-            </Button>
+            <Link href={previewHref}>
+              <Button variant="outline" size="sm" aria-label={`${title}の移行内容を確認`}>
+                <Upload className="h-3.5 w-3.5" /> 移行を確認
+              </Button>
+            </Link>
           </div>
         </div>
       </CardContent>
@@ -672,19 +660,19 @@ export default function SetupPage() {
                 icon={Receipt}
                 title="経費履歴"
                 description="過去の経費申請・精算履歴を移行します。"
-                comingSoonTitle="経費履歴の移行は現在準備中です。近日提供予定です。"
+                previewHref="/settings/import/preview/expense?return=/setup"
               />
               <PastDataCard
                 icon={Clock}
                 title="勤怠履歴"
                 description="過去の出退勤・勤怠履歴を移行します。"
-                comingSoonTitle="勤怠履歴の移行は現在準備中です。近日提供予定です。"
+                previewHref="/settings/import/preview/attendance?return=/setup"
               />
               <PastDataCard
                 icon={CalendarDays}
                 title="シフト履歴"
                 description="過去のシフト履歴を移行します。"
-                comingSoonTitle="シフト履歴の移行は現在準備中です。近日提供予定です。"
+                previewHref="/settings/import/preview/shift?return=/setup"
               />
             </div>
 
