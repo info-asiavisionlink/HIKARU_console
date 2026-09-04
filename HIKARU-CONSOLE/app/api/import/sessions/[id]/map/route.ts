@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { requireAdmin, getOwnedSession, writeAuditLog } from '@/lib/import/helpers'
 import { buildHeaderMapping, applyRowMapping, validateMappedRow } from '@/lib/import/mapper'
+import { buildFkIndex, resolveFk, type FkIndex } from '@/lib/import/fk-resolver'
 import type { ImportEntityType } from '@/types/import'
 
 const BATCH_SIZE = 250  // rows per upsert batch
@@ -109,6 +110,30 @@ export async function POST(
     return NextResponse.json({ code: 'STAGING_FAILED', message: 'Staging行の取得に失敗しました' }, { status: 500 })
   }
 
+  // 6.5. FK Resolution pre-load (entity 依存、pre-loaded index で N+1 完全防止)
+  // Store: client_id を CSV 上の client_code / client_name から resolve する。
+  // 他 entity は現時点で FK resolution 不要 (client: FK なし、employee: FK なし)。
+  let storeClientIndex: FkIndex<{ id: string; code: string | null; name: string | null }> | null = null
+
+  if (entityType === 'store') {
+    const { data: clientRows, error: clientLoadErr } = await auth.adminClient
+      .from('clients')
+      .select('id, code, name')
+      .eq('company_id', auth.companyId)
+      .eq('is_active', true)
+      .limit(10000)
+
+    if (clientLoadErr) {
+      return NextResponse.json(
+        { code: 'STAGING_FAILED', message: 'FK resolve 用の顧客一覧取得に失敗しました' },
+        { status: 500 },
+      )
+    }
+    storeClientIndex = buildFkIndex(
+      (clientRows ?? []) as { id: string; code: string | null; name: string | null }[],
+    )
+  }
+
   // 7. Apply mapping + validation to each row (in memory)
   let validCount   = 0
   let invalidCount = 0
@@ -118,6 +143,25 @@ export async function POST(
     const normalizedData = (row['normalized_data'] as Record<string, string | null>) ?? {}
 
     const { mappedData, unmappedHeaders: rowUnmapped } = applyRowMapping(normalizedData, mappingResult)
+
+    // FK Resolution: Store の場合 client_code / client_name → client_id 変換
+    if (entityType === 'store' && storeClientIndex) {
+      const fkResult = resolveFk(storeClientIndex, {
+        code: mappedData['client_code'] ?? null,
+        name: mappedData['client_name'] ?? null,
+      })
+      if (fkResult.status === 'resolved' && fkResult.id) {
+        mappedData['client_id']       = fkResult.id
+        mappedData['client_fk_status'] = 'resolved'
+      } else if (fkResult.status === 'ambiguous') {
+        mappedData['client_id']       = null
+        mappedData['client_fk_status'] = 'ambiguous'
+      } else {
+        mappedData['client_id']       = null
+        mappedData['client_fk_status'] = 'not_found'
+      }
+    }
+
     const validation = validateMappedRow(mappedData, entityType, rowUnmapped)
 
     if (validation.status === 'valid')    validCount++

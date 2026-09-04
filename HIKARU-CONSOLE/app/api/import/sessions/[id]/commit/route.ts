@@ -99,7 +99,7 @@ export async function POST(
 
   if (!gate.canCommit) {
     const messageMap: Record<string, string> = {
-      NOT_CLIENT_ENTITY:         '現在は顧客(client)のみ一括登録に対応しています',
+      ENTITY_NOT_SUPPORTED:      `この種類のデータはまだ一括登録に対応していません (entity_type: ${entityType})`,
       INVALID_SESSION_STATUS:    `このセッションは現在登録できません (状態: ${sessionStatus})`,
       PENDING_ROWS_REMAIN:       `未確認の行が ${pendingRows} 件あります。全ての行に対して選択を完了してください`,
       PENDING_CANDIDATES_REMAIN: `未確認の重複候補が ${pendingCandidates} 件あります`,
@@ -114,8 +114,24 @@ export async function POST(
     )
   }
 
+  // Entity type → RPC name dispatch
+  // eligibility gate と SUPPORTED_COMMIT_ENTITIES で 事前 gate 済のため、
+  // ここに到達する entityType は必ず RPC を持つ。
+  const RPC_BY_ENTITY: Record<string, string> = {
+    client:   'commit_client_import_session',
+    store:    'commit_store_import_session',
+    employee: 'commit_employee_import_session',
+  }
+  const rpcName = RPC_BY_ENTITY[entityType]
+  if (!rpcName) {
+    return NextResponse.json(
+      { code: 'ENTITY_NOT_SUPPORTED', message: '未対応の entity_type です' },
+      { status: 409 },
+    )
+  }
+
   // RPC call — all-or-nothing Postgres transaction inside.
-  // Supabase generated types に RPC は未登録なので明示 cast (migration 051 と契約一致)。
+  // Supabase generated types に RPC は未登録なので明示 cast (Migration 051/053/054 と契約一致)。
   interface CommitRpcRow {
     inserted_count:   number
     updated_count:    number
@@ -124,7 +140,7 @@ export async function POST(
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rpcData, error: rpcErr } = await (auth.adminClient.rpc as any)(
-    'commit_client_import_session',
+    rpcName,
     {
       p_session_id: sessionId,
       p_company_id: auth.companyId,

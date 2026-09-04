@@ -24,7 +24,7 @@ export interface CommitEligibilityInput {
 }
 
 export type CommitBlockedReason =
-  | 'NOT_CLIENT_ENTITY'
+  | 'ENTITY_NOT_SUPPORTED'
   | 'INVALID_SESSION_STATUS'
   | 'PENDING_ROWS_REMAIN'
   | 'PENDING_CANDIDATES_REMAIN'
@@ -37,11 +37,24 @@ export interface CommitEligibilityResult {
 
 const ALLOWED_STATUSES = new Set(['review_required', 'ready_to_commit'])
 
+/**
+ * Backend commit RPC が実装済 + Production 適用済 の entity。
+ * UI enable と Backend commit route の gate、共通の Source of Truth。
+ * 新規 entity 対応時は必ずここに追加してから UI enable する。
+ */
+export const SUPPORTED_COMMIT_ENTITIES: readonly string[] = [
+  'client',
+  // 'store' — Migration 053 適用 + Production verify + E2E PASS 後に enable
+  // 'employee' — Migration 054 適用 + Production verify + E2E PASS 後に enable
+  // 'project' — Batch 2
+  // 'expense' / 'attendance' / 'shift' — Batch 3
+] as const
+
 export function evaluateCommitEligibility(
   input: CommitEligibilityInput,
 ): CommitEligibilityResult {
-  if (input.entityType !== 'client') {
-    return { canCommit: false, reason: 'NOT_CLIENT_ENTITY' }
+  if (!SUPPORTED_COMMIT_ENTITIES.includes(input.entityType)) {
+    return { canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' }
   }
   if (!ALLOWED_STATUSES.has(input.sessionStatus)) {
     return { canCommit: false, reason: 'INVALID_SESSION_STATUS' }

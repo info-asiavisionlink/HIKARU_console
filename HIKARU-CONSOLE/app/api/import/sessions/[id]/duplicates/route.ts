@@ -4,8 +4,10 @@ import { requireAdmin, getOwnedSession, writeAuditLog } from '@/lib/import/helpe
 import {
   detectClientDuplicates,
   detectStoreDuplicates,
+  detectEmployeeDuplicates,
   type ExistingClient,
   type ExistingStore,
+  type ExistingEmployee,
   type StagedRowForDuplicate,
 } from '@/lib/import/duplicate-engine'
 
@@ -57,9 +59,9 @@ export async function POST(
   }
 
   const entityType = session.entity_type as string
-  if (entityType !== 'client' && entityType !== 'store') {
+  if (entityType !== 'client' && entityType !== 'store' && entityType !== 'employee') {
     return NextResponse.json(
-      { code: 'UNSUPPORTED_ENTITY_TYPE', message: `重複検出はclient/storeのみサポートしています (entity_type: ${entityType})` },
+      { code: 'UNSUPPORTED_ENTITY_TYPE', message: `重複検出はclient/store/employeeのみサポートしています (entity_type: ${entityType})` },
       { status: 422 },
     )
   }
@@ -97,8 +99,9 @@ export async function POST(
   }
 
   // ---- Load existing records (READ ONLY — no INSERT/UPDATE/DELETE) ----
-  let existingClients: ExistingClient[] = []
-  let existingStores:  ExistingStore[]  = []
+  let existingClients:   ExistingClient[]   = []
+  let existingStores:    ExistingStore[]    = []
+  let existingEmployees: ExistingEmployee[] = []
 
   if (entityType === 'client') {
     const { data, error } = await auth.adminClient
@@ -113,7 +116,7 @@ export async function POST(
       return NextResponse.json({ code: 'INTERNAL_ERROR', message: '既存クライアントの取得に失敗しました' }, { status: 500 })
     }
     existingClients = (data ?? []) as ExistingClient[]
-  } else {
+  } else if (entityType === 'store') {
     const { data, error } = await auth.adminClient
       .from('stores')
       .select('id, name, phone, address, client_id')
@@ -126,12 +129,31 @@ export async function POST(
       return NextResponse.json({ code: 'INTERNAL_ERROR', message: '既存店舗の取得に失敗しました' }, { status: 500 })
     }
     existingStores = (data ?? []) as ExistingStore[]
+  } else {
+    // employee
+    const { data, error } = await auth.adminClient
+      .from('employees')
+      .select('id, name, employee_number, email, phone')
+      .eq('company_id', auth.companyId)
+      .neq('status', 'deleted')  // logical-deleted は重複判定対象外
+      .limit(EXISTING_LIMIT)
+
+    if (error) {
+      writeAuditLog(auth, sessionId, 'duplicate_scan.failed', { reason: 'existing_employees_fetch_error' })
+      return NextResponse.json({ code: 'INTERNAL_ERROR', message: '既存従業員の取得に失敗しました' }, { status: 500 })
+    }
+    existingEmployees = (data ?? []) as ExistingEmployee[]
   }
 
   // ---- Run duplicate engine (pure in-memory, zero AI) ----
-  const matches = entityType === 'client'
-    ? detectClientDuplicates(allStagingRows, existingClients)
-    : detectStoreDuplicates(allStagingRows, existingStores)
+  let matches
+  if (entityType === 'client') {
+    matches = detectClientDuplicates(allStagingRows, existingClients)
+  } else if (entityType === 'store') {
+    matches = detectStoreDuplicates(allStagingRows, existingStores)
+  } else {
+    matches = detectEmployeeDuplicates(allStagingRows, existingEmployees)
+  }
 
   // ---- Idempotency: delete existing candidates for this session only ----
   const { error: deleteError } = await auth.adminClient

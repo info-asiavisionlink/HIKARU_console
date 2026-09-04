@@ -36,10 +36,11 @@ describe('evaluateCommitEligibility — allow', () => {
 })
 
 describe('evaluateCommitEligibility — reject', () => {
-  it('rejects non-client entity (store/employee/project not supported in STEP A)', () => {
+  it('rejects entity types not in SUPPORTED_COMMIT_ENTITIES allowlist', () => {
+    // Currently only 'client' is in the allowlist. Others rejected as ENTITY_NOT_SUPPORTED.
     for (const et of ['store', 'employee', 'project', 'invoice', 'expense']) {
       expect(evaluateCommitEligibility({ ...base, entityType: et }))
-        .toEqual({ canCommit: false, reason: 'NOT_CLIENT_ENTITY' })
+        .toEqual({ canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' })
     }
   })
 
@@ -74,7 +75,7 @@ describe('evaluateCommitEligibility — precedence', () => {
       ...base,
       entityType:    'store',
       sessionStatus: 'created',
-    })).toEqual({ canCommit: false, reason: 'NOT_CLIENT_ENTITY' })
+    })).toEqual({ canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' })
   })
 
   it('pending rows precedes pending candidates', () => {

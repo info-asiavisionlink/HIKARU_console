@@ -144,12 +144,26 @@ describe('buildHeaderMapping — English aliases', () => {
 
 // ---- buildHeaderMapping — unknown entity type ----
 
+describe('buildHeaderMapping — employee (Batch 1 対応)', () => {
+  it('maps Japanese employee headers', () => {
+    const { headerMapping, unmappedHeaders } = buildHeaderMapping(
+      ['氏名', 'メール', '社員番号', '所属部署'],
+      'employee',
+    )
+    expect(headerMapping['氏名']).toBe('name')
+    expect(headerMapping['メール']).toBe('email')
+    expect(headerMapping['社員番号']).toBe('employee_number')
+    expect(headerMapping['所属部署']).toBe('department')
+    expect(unmappedHeaders).toEqual([])
+  })
+})
+
 describe('buildHeaderMapping — unsupported entity types', () => {
-  it('returns all headers as unmapped for employee (not yet implemented)', () => {
-    const { headerMapping, unmappedHeaders } = buildHeaderMapping(['名前', '部署'], 'employee')
+  it('returns all headers as unmapped for project (not yet implemented)', () => {
+    const { headerMapping, unmappedHeaders } = buildHeaderMapping(['案件名', '契約'], 'project')
     expect(Object.keys(headerMapping)).toHaveLength(0)
-    expect(unmappedHeaders).toContain('名前')
-    expect(unmappedHeaders).toContain('部署')
+    expect(unmappedHeaders).toContain('案件名')
+    expect(unmappedHeaders).toContain('契約')
   })
 })
 
@@ -247,16 +261,71 @@ describe('validateMappedRow — clients', () => {
 })
 
 describe('validateMappedRow — stores', () => {
-  it('valid store row', () => {
-    const r = validateMappedRow({ name: '新宿店' }, 'store', [])
+  it('valid store row (name + client_id resolved)', () => {
+    // Store は client_id が Required (Map route が FK resolve 後に inject する想定)
+    const r = validateMappedRow(
+      { name: '新宿店', client_id: '00000000-0000-0000-0000-000000000001' },
+      'store',
+      [],
+    )
     expect(r.isValid).toBe(true)
     expect(r.status).toBe('valid')
   })
 
   it('invalid: missing required name for store', () => {
-    const r = validateMappedRow({ address: '東京都' }, 'store', [])
+    const r = validateMappedRow(
+      { address: '東京都', client_id: '00000000-0000-0000-0000-000000000001' },
+      'store',
+      [],
+    )
     expect(r.isValid).toBe(false)
     expect(r.missingRequired).toContain('name')
+  })
+
+  it('invalid: missing client_id (FK not resolved)', () => {
+    const r = validateMappedRow({ name: '新宿店' }, 'store', [])
+    expect(r.isValid).toBe(false)
+    expect(r.missingRequired).toContain('client_id')
+  })
+
+  it('invalid: client FK ambiguous → specific error message', () => {
+    const r = validateMappedRow(
+      { name: '新宿店', client_fk_status: 'ambiguous' },
+      'store',
+      [],
+    )
+    expect(r.isValid).toBe(false)
+    expect(r.invalidFields.some(f => f.field === 'client_id' && /複数/.test(f.reason))).toBe(true)
+  })
+
+  it('invalid: client FK not_found → specific error message', () => {
+    const r = validateMappedRow(
+      { name: '新宿店', client_fk_status: 'not_found' },
+      'store',
+      [],
+    )
+    expect(r.isValid).toBe(false)
+    expect(r.invalidFields.some(f => f.field === 'client_id' && /見つかりません/.test(f.reason))).toBe(true)
+  })
+})
+
+describe('validateMappedRow — employees', () => {
+  it('valid employee row (name only)', () => {
+    const r = validateMappedRow({ name: '山田太郎' }, 'employee', [])
+    expect(r.isValid).toBe(true)
+    expect(r.status).toBe('valid')
+  })
+
+  it('invalid: missing name', () => {
+    const r = validateMappedRow({ employee_number: 'EMP-001' }, 'employee', [])
+    expect(r.isValid).toBe(false)
+    expect(r.missingRequired).toContain('name')
+  })
+
+  it('invalid: bad email format', () => {
+    const r = validateMappedRow({ name: '山田太郎', email: 'not-an-email' }, 'employee', [])
+    expect(r.isValid).toBe(false)
+    expect(r.invalidFields.some(f => f.field === 'email')).toBe(true)
   })
 })
 

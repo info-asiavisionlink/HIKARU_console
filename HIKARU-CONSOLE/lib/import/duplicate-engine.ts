@@ -34,6 +34,8 @@ export type MatchReason =
   | 'phone_normalized'
   | 'name_address_normalized'
   | 'name_normalized'
+  | 'employee_number_exact'
+  | 'name_phone_normalized'
 
 export interface ExistingClient {
   id:      string
@@ -51,6 +53,14 @@ export interface ExistingStore {
   client_id: string
 }
 
+export interface ExistingEmployee {
+  id:              string
+  name:            string
+  employee_number: string | null
+  email:           string | null
+  phone:           string | null
+}
+
 export interface StagedRowForDuplicate {
   id:          string
   mapped_data: Record<string, string | null> | null
@@ -59,7 +69,7 @@ export interface StagedRowForDuplicate {
 export interface DuplicateMatch {
   stagingRowId:        string
   existingRecordId:    string
-  existingRecordTable: 'clients' | 'stores'
+  existingRecordTable: 'clients' | 'stores' | 'employees'
   score:               number       // 0.0000–1.0000
   matchReasons:        MatchReason[]
 }
@@ -71,6 +81,10 @@ const SCORE_PHONE             = 0.80
 const SCORE_NAME_ADDRESS      = 0.85
 const SCORE_NAME_CLIENT       = 0.65
 const SCORE_NAME_STORE        = 0.60
+const SCORE_EMPLOYEE_NUMBER   = 0.99  // UNIQUE constraint in DB (migration 011)
+const SCORE_EMPLOYEE_EMAIL    = 0.90
+const SCORE_NAME_PHONE        = 0.80
+const SCORE_NAME_EMPLOYEE     = 0.55  // name-only は誤 match 高、慎重
 const SCORE_THRESHOLD         = 0.50
 const SCORE_EXTRA_SIGNAL_BONUS = 0.05
 const SCORE_MAX               = 1.0
@@ -331,6 +345,136 @@ export function detectStoreDuplicates(
   const all: DuplicateMatch[] = []
   for (const row of stagingRows) {
     all.push(...scanStoreRow(row, lookups))
+  }
+  return all
+}
+
+// ---- Employee Detection ----
+// 判定基準 (優先度順):
+//   1. employee_number 完全一致 (UNIQUE) → 最強 signal
+//   2. email 完全一致 (case-insensitive)
+//   3. name + phone 一致 (両方存在時)
+//   4. name 単独一致 (誤 match 高、低 score)
+
+interface EmployeeLookups {
+  byEmployeeNumber: Map<string, ExistingEmployee[]>
+  byEmail:          Map<string, ExistingEmployee[]>
+  byNamePhone:      Map<string, ExistingEmployee[]>
+  byName:           Map<string, ExistingEmployee[]>
+}
+
+function normalizeEmployeeNumber(raw: string | null | undefined): string | null {
+  if (raw === null || raw === undefined) return null
+  const s = String(raw).trim()
+  return s.length > 0 ? s : null
+}
+
+function buildEmployeeLookups(existing: ExistingEmployee[]): EmployeeLookups {
+  const byEmployeeNumber = new Map<string, ExistingEmployee[]>()
+  const byEmail          = new Map<string, ExistingEmployee[]>()
+  const byNamePhone      = new Map<string, ExistingEmployee[]>()
+  const byName           = new Map<string, ExistingEmployee[]>()
+
+  for (const e of existing) {
+    const en = normalizeEmployeeNumber(e.employee_number)
+    if (en) {
+      const b = byEmployeeNumber.get(en) ?? []
+      b.push(e); byEmployeeNumber.set(en, b)
+    }
+    const ne = normalizeEmail(e.email)
+    if (ne) {
+      const b = byEmail.get(ne) ?? []
+      b.push(e); byEmail.set(ne, b)
+    }
+    const nn = normalizeName(e.name)
+    const np = normalizePhone(e.phone)
+    if (nn && np) {
+      const key = `${nn}|${np}`
+      const b = byNamePhone.get(key) ?? []
+      b.push(e); byNamePhone.set(key, b)
+    }
+    if (nn) {
+      const b = byName.get(nn) ?? []
+      b.push(e); byName.set(nn, b)
+    }
+  }
+  return { byEmployeeNumber, byEmail, byNamePhone, byName }
+}
+
+function scanEmployeeRow(row: StagedRowForDuplicate, lookups: EmployeeLookups): DuplicateMatch[] {
+  const mapped = row.mapped_data
+  if (!mapped) return []
+
+  const signals = new Map<string, { reasons: MatchReason[]; scores: number[] }>()
+  const addSignal = (id: string, reason: MatchReason, score: number) => {
+    const existing = signals.get(id) ?? { reasons: [], scores: [] }
+    if (!existing.reasons.includes(reason)) {
+      existing.reasons.push(reason)
+      existing.scores.push(score)
+      signals.set(id, existing)
+    }
+  }
+
+  // (1) employee_number exact
+  const en = normalizeEmployeeNumber(mapped['employee_number'])
+  if (en) {
+    for (const e of (lookups.byEmployeeNumber.get(en) ?? [])) {
+      addSignal(e.id, 'employee_number_exact', SCORE_EMPLOYEE_NUMBER)
+    }
+  }
+
+  // (2) email exact
+  const ne = normalizeEmail(mapped['email'])
+  if (ne) {
+    for (const e of (lookups.byEmail.get(ne) ?? [])) {
+      addSignal(e.id, 'email_exact', SCORE_EMPLOYEE_EMAIL)
+    }
+  }
+
+  // (3) name + phone
+  const nn = normalizeName(mapped['name'])
+  const np = normalizePhone(mapped['phone'])
+  if (nn && np) {
+    const key = `${nn}|${np}`
+    for (const e of (lookups.byNamePhone.get(key) ?? [])) {
+      addSignal(e.id, 'name_phone_normalized', SCORE_NAME_PHONE)
+    }
+  }
+
+  // (4) name-only (低 score、name+phone 既マッチ record は除外して二重加算防ぐ)
+  if (nn) {
+    for (const e of (lookups.byName.get(nn) ?? [])) {
+      const existing = signals.get(e.id)
+      if (!existing?.reasons.includes('name_phone_normalized')) {
+        addSignal(e.id, 'name_normalized', SCORE_NAME_EMPLOYEE)
+      }
+    }
+  }
+
+  const results: DuplicateMatch[] = []
+  for (const [existingId, { reasons, scores }] of signals) {
+    const score = computeScore(scores)
+    if (score >= SCORE_THRESHOLD) {
+      results.push({
+        stagingRowId:        row.id,
+        existingRecordId:    existingId,
+        existingRecordTable: 'employees',
+        score: Math.round(score * 10000) / 10000,
+        matchReasons:        reasons,
+      })
+    }
+  }
+  return results
+}
+
+export function detectEmployeeDuplicates(
+  stagingRows: StagedRowForDuplicate[],
+  existingEmployees: ExistingEmployee[],
+): DuplicateMatch[] {
+  const lookups = buildEmployeeLookups(existingEmployees)
+  const all: DuplicateMatch[] = []
+  for (const row of stagingRows) {
+    all.push(...scanEmployeeRow(row, lookups))
   }
   return all
 }

@@ -69,30 +69,112 @@ export function normalizeCell(raw: unknown): string {
   return str.normalize('NFC').trim()
 }
 
+// ---- Charset detection + decode ----
+//
+// 日本企業の Excel export は Shift_JIS / CP932 (Windows-31J) 出力が頻出。
+// 優先順序:
+//   1. UTF-8 BOM (EF BB BF) → strip して UTF-8 として decode
+//   2. UTF-8 として妥当 (invalid byte sequence なし) → そのまま
+//   3. Shift_JIS decode 試行
+//   4. 全て失敗 → parse error として返す
+//
+// 推測で silent corruption を起こさない: 不正 bytes は明示 error として扱う。
+
+import { decode as iconvDecode } from 'iconv-lite'
+
+/**
+ * UTF-8 として妥当な byte 列か判定 (invalid multi-byte sequence を検出)。
+ * Node.js TextDecoder は { fatal: true } で invalid → throw する。
+ */
+function isValidUtf8(buffer: Buffer): boolean {
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+    return true
+  } catch {
+    return false
+  }
+}
+
+interface DecodedCsv {
+  text:    string
+  charset: 'utf-8-bom' | 'utf-8' | 'shift-jis'
+  warning: string | null
+}
+
+/**
+ * CSV buffer を文字列へ decode。charset を明示的に判定する。
+ * 判定不能な場合は throw (呼び出し側で parse error として返す)。
+ */
+function decodeCsvBuffer(buffer: Buffer): DecodedCsv {
+  // 1. UTF-8 BOM
+  if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+    const stripped = buffer.slice(3)
+    return {
+      text:    stripped.toString('utf-8'),
+      charset: 'utf-8-bom',
+      warning: 'UTF-8 BOM detected and removed',
+    }
+  }
+
+  // 2. UTF-8 as-is
+  if (isValidUtf8(buffer)) {
+    return { text: buffer.toString('utf-8'), charset: 'utf-8', warning: null }
+  }
+
+  // 3. Shift_JIS fallback (iconv-lite の 'shift_jis' alias は CP932 相当を扱う)
+  try {
+    const text = iconvDecode(buffer, 'shift_jis')
+    // iconv-lite は不正 byte でも throw せず substitute char を挿入する。
+    // � (replacement char) が多量に含まれる場合は silent corruption を疑う。
+    const replaceChars = (text.match(/�/g) ?? []).length
+    if (replaceChars > 10) {
+      throw new Error(
+        `Shift_JIS デコード後に置換文字が ${replaceChars} 個検出されました。文字コードが不明の可能性があります。`,
+      )
+    }
+    return {
+      text,
+      charset: 'shift-jis',
+      warning: 'Shift_JIS / CP932 として解析しました',
+    }
+  } catch (e) {
+    throw new Error(
+      `文字コードを判別できませんでした (UTF-8 / Shift_JIS ともに失敗): ${e instanceof Error ? e.message : String(e)}`,
+    )
+  }
+}
+
 // ---- CSV Parser ----
 
 export function parseCsv(buffer: Buffer): ParseResult {
   const warnings: string[] = []
   const errors: string[]   = []
 
-  // BOM detection (UTF-8 BOM: EF BB BF)
-  let input = buffer
-  if (buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
-    input = buffer.slice(3)
-    warnings.push('UTF-8 BOM detected and removed')
+  // Decode with charset detection (UTF-8 BOM → UTF-8 → Shift_JIS fallback)
+  let decoded: DecodedCsv
+  try {
+    decoded = decodeCsvBuffer(buffer)
+  } catch (e) {
+    return {
+      rows:     [],
+      meta:     emptyMeta(),
+      warnings,
+      errors:   [`CSV解析エラー: ${e instanceof Error ? e.message : String(e)}`],
+    }
   }
+
+  if (decoded.warning) warnings.push(decoded.warning)
 
   // Parse all rows as string arrays (no type coercion)
   let rawRows: string[][]
   try {
-    rawRows = csvParse(input, {
+    rawRows = csvParse(decoded.text, {
       columns:          false,      // return arrays not objects
       skip_empty_lines: false,      // we handle empty rows ourselves
       trim:             false,      // we normalize separately
       cast:             false,      // no type coercion
       relax_quotes:     false,
-      bom:              true,
-      encoding:         'utf8',
+      bom:              false,      // 既に decode 側で strip 済
     }) as string[][]
   } catch (e) {
     return {
@@ -109,6 +191,9 @@ export function parseCsv(buffer: Buffer): ParseResult {
 
   return buildParseResult(rawRows, warnings, errors)
 }
+
+// Export for testing
+export { decodeCsvBuffer }
 
 // ---- XLSX Parser ----
 

@@ -44,13 +44,12 @@ describe('commit route — eligibility gate', () => {
   it('uses evaluateCommitEligibility before RPC call', () => {
     expect(source).toMatch(/import\s*{[^}]*evaluateCommitEligibility[^}]*}\s*from\s*['"]@\/lib\/import\/commit-eligibility['"]/)
 
-    // RPC 呼び出しは `.rpc(...)` の他に型 cast のため `(auth.adminClient.rpc as any)(...)` の可能性あり。
-    // RPC 名 literal 位置で比較する。
-    const rpcIdx  = source.search(/['"]commit_client_import_session['"]/)
+    // gate 呼び出しが実際の RPC dispatch (RPC_BY_ENTITY table) より前であることを構造で確認。
+    // (route 冒頭の JSDoc comment 内 mention は除く)
+    const rpcIdx  = source.search(/const\s+RPC_BY_ENTITY/)
     const gateIdx = source.search(/evaluateCommitEligibility\s*\(/)
     expect(gateIdx).toBeGreaterThan(-1)
     expect(rpcIdx).toBeGreaterThan(-1)
-    // Gate 呼び出しは RPC より前
     expect(gateIdx).toBeLessThan(rpcIdx)
   })
 
@@ -60,9 +59,14 @@ describe('commit route — eligibility gate', () => {
 })
 
 describe('commit route — RPC invocation', () => {
-  it('calls commit_client_import_session RPC', () => {
-    // `.rpc(...)` or `.rpc as any)(...)` の両方に対応
-    expect(source).toMatch(/rpc[\s\S]{0,60}['"]commit_client_import_session['"]/)
+  it('dispatches to entity-specific RPC via RPC_BY_ENTITY map', () => {
+    // Entity → RPC name dispatch table を含み、
+    // client / store / employee 全て network up 済 RPC 名を参照する。
+    expect(source).toMatch(/commit_client_import_session/)
+    expect(source).toMatch(/commit_store_import_session/)
+    expect(source).toMatch(/commit_employee_import_session/)
+    // 実際の rpc() 呼び出しは変数 (rpcName) 経由
+    expect(source).toMatch(/rpc[\s\S]{0,60}\(\s*rpcName\s*,/)
   })
 
   it('passes auth-context companyId to RPC (never from request body)', () => {

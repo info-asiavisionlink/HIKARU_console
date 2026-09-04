@@ -145,12 +145,127 @@ const STORE_ALIASES: ReadonlyArray<[string, string]> = [
   ['notes',  'notes'],
   ['note',   'notes'],
   ['備考欄', 'notes'],
+
+  // client FK reference (Map phase で client_id に resolve される)
+  ['顧客コード',   'client_code'],
+  ['取引先コード', 'client_code'],
+  ['client_code',  'client_code'],
+  ['顧客名',       'client_name'],
+  ['取引先名',     'client_name'],
+  ['取引先',       'client_name'],
+  ['client_name',  'client_name'],
+  ['client',       'client_name'],
+]
+
+// ---- Employee Aliases ----
+// Backing schema: public.employees (migration 011)
+// Import 対象 columns (allowlist, auth_user_id は必ず NULL / employee_number は trigger auto-generate 可):
+//   employee_number, name, name_kana, birth_date, gender, phone, email, address,
+//   emergency_contact, hire_date, department, position, notes, status
+// Not imported: qualifications[] (複雑)、auth_user_id (auth 招待は import では発生禁止)
+
+const EMPLOYEE_ALIASES: ReadonlyArray<[string, string]> = [
+  // name (required)
+  ['氏名',        'name'],
+  ['名前',        'name'],
+  ['従業員名',    'name'],
+  ['employee_name','name'],
+  ['name',        'name'],
+  ['full_name',   'name'],
+
+  // name_kana
+  ['フリガナ',     'name_kana'],
+  ['ふりがな',     'name_kana'],
+  ['カナ',         'name_kana'],
+  ['name_kana',    'name_kana'],
+  ['kana',         'name_kana'],
+
+  // employee_number (UNIQUE)
+  ['社員番号',       'employee_number'],
+  ['従業員番号',     'employee_number'],
+  ['従業員コード',   'employee_number'],
+  ['employee_no',    'employee_number'],
+  ['employee_number','employee_number'],
+  ['employee_code',  'employee_number'],
+  ['emp_no',         'employee_number'],
+
+  // email
+  ['メール',         'email'],
+  ['メールアドレス', 'email'],
+  ['email',          'email'],
+  ['e-mail',         'email'],
+  ['e_mail',         'email'],
+  ['mail',           'email'],
+
+  // phone
+  ['電話',        'phone'],
+  ['電話番号',    'phone'],
+  ['tel',         'phone'],
+  ['phone',       'phone'],
+  ['連絡先',      'phone'],
+
+  // birth_date
+  ['生年月日',   'birth_date'],
+  ['誕生日',     'birth_date'],
+  ['birth_date', 'birth_date'],
+  ['birthday',   'birth_date'],
+  ['dob',        'birth_date'],
+
+  // gender (enum: 'male' | 'female' | 'other')
+  ['性別',   'gender'],
+  ['gender', 'gender'],
+  ['sex',    'gender'],
+
+  // address
+  ['住所',    'address'],
+  ['所在地',  'address'],
+  ['address', 'address'],
+
+  // emergency_contact
+  ['緊急連絡先',         'emergency_contact'],
+  ['緊急',               'emergency_contact'],
+  ['emergency_contact',  'emergency_contact'],
+  ['emergency',          'emergency_contact'],
+
+  // hire_date
+  ['入社日',     'hire_date'],
+  ['雇用開始日', 'hire_date'],
+  ['hire_date',  'hire_date'],
+  ['start_date', 'hire_date'],
+  ['join_date',  'hire_date'],
+
+  // department
+  ['所属部署', 'department'],
+  ['部署',     'department'],
+  ['所属',     'department'],
+  ['department','department'],
+
+  // position
+  ['役職',     'position'],
+  ['ポジション','position'],
+  ['position', 'position'],
+  ['title',    'position'],
+
+  // status (enum: active|on_leave|resigned|suspended|deleted)
+  ['ステータス', 'status'],
+  ['在籍状況',   'status'],
+  ['status',     'status'],
+
+  // notes
+  ['備考',   'notes'],
+  ['メモ',   'notes'],
+  ['notes',  'notes'],
+  ['note',   'notes'],
+  ['備考欄', 'notes'],
 ]
 
 // ---- Required Fields ----
+// Note: store の client_id は Map route が FK resolve 後に inject する。
+// 未 resolve (null) の場合は STORE_REQUIRED check で invalid になる。
 
-const CLIENT_REQUIRED: ReadonlySet<string> = new Set(['name'])
-const STORE_REQUIRED:  ReadonlySet<string> = new Set(['name'])
+const CLIENT_REQUIRED:   ReadonlySet<string> = new Set(['name'])
+const STORE_REQUIRED:    ReadonlySet<string> = new Set(['name', 'client_id'])
+const EMPLOYEE_REQUIRED: ReadonlySet<string> = new Set(['name'])
 
 // ---- Types ----
 
@@ -250,6 +365,16 @@ export function validateMappedRow(
     }
   }
 
+  // Store の client_id FK resolution 状態を明示 error に反映
+  if (entityType === 'store') {
+    const fkStatus = mappedData['client_fk_status']
+    if (fkStatus === 'ambiguous') {
+      invalidFields.push({ field: 'client_id', reason: '顧客名が複数の顧客に一致しました。顧客コードで指定してください' })
+    } else if (fkStatus === 'not_found') {
+      invalidFields.push({ field: 'client_id', reason: '指定された顧客が見つかりませんでした (顧客コードまたは顧客名を確認してください)' })
+    }
+  }
+
   // Email format check
   if (mappedData['email'] !== null && mappedData['email'] !== undefined && mappedData['email'] !== '') {
     if (!EMAIL_RE.test(mappedData['email']!)) {
@@ -283,12 +408,19 @@ export function validateMappedRow(
 function getAliases(entityType: ImportEntityType): ReadonlyArray<[string, string]> {
   if (entityType === 'client')   return CLIENT_ALIASES
   if (entityType === 'store')    return STORE_ALIASES
+  if (entityType === 'employee') return EMPLOYEE_ALIASES
   // Other entity types: return empty (unmapped phase — future)
   return []
 }
 
 function getRequired(entityType: ImportEntityType): ReadonlySet<string> {
-  if (entityType === 'client') return CLIENT_REQUIRED
-  if (entityType === 'store')  return STORE_REQUIRED
+  if (entityType === 'client')   return CLIENT_REQUIRED
+  if (entityType === 'store')    return STORE_REQUIRED
+  if (entityType === 'employee') return EMPLOYEE_REQUIRED
   return new Set()
 }
+
+// ---- Employee-specific validation helpers (for entity_type='employee') ----
+// gender / status enum validation は commit RPC 側で行う (defense in depth)。
+// validateMappedRow の generic 部 (required + email + length) で最低限をカバーし、
+// enum の詳細 validation は staging 時ではなく commit 前の RPC check に委ねる。
