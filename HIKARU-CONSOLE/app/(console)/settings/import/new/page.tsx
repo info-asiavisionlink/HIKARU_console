@@ -6,7 +6,10 @@ import {
   PageHeader, Button, Card, CardContent, CardHeader, CardTitle, toast,
 } from '@hikaru/ui'
 import { safeSetupReturn } from '@/lib/setup/return-to'
-import { Building2, Store, ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import {
+  Building2, Store, Users, FolderOpen, Receipt, Clock, CalendarDays, Ban,
+  ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2,
+} from 'lucide-react'
 
 // ---- Types ----
 
@@ -19,24 +22,73 @@ interface ProcessStep {
   status: 'pending' | 'running' | 'done' | 'error'
 }
 
+interface EntityOption {
+  type:        EntityType | null  // null = 準備中 (選択不可)
+  label:       string
+  description: string
+  icon:        React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+  available:   boolean
+}
+
 // ---- Constants ----
 
-const ENTITY_OPTIONS = [
+// GROUP 1: 基本データの一括移行 (Setup の「業務開始の準備」と対応)
+// 現時点で本番稼働中の bulk import は client のみ。他は準備中として disabled 表示。
+const BASIC_DATA_OPTIONS: readonly EntityOption[] = [
   {
-    type:        'client' as EntityType,
+    type:        'client',
     label:       '顧客',
     description: '顧客企業のデータ（会社名、電話番号、メール、住所など）',
     icon:        Building2,
     available:   true,
   },
   {
-    type:        'store' as EntityType,
+    type:        null,
     label:       '店舗',
     description: '店舗データ（店舗名、住所、電話番号、営業時間など）',
     icon:        Store,
-    available:   true,
+    available:   false,
   },
-]
+  {
+    type:        null,
+    label:       '従業員',
+    description: '従業員データ（氏名、社員番号、契約形態、時給など）',
+    icon:        Users,
+    available:   false,
+  },
+  {
+    type:        null,
+    label:       '案件',
+    description: '案件データ（案件名、顧客・店舗、期間、料金など）',
+    icon:        FolderOpen,
+    available:   false,
+  },
+] as const
+
+// GROUP 2: 過去データの移行 (以前のシステム / Excel からの引き継ぎ)
+const HISTORICAL_DATA_OPTIONS: readonly EntityOption[] = [
+  {
+    type:        null,
+    label:       '経費履歴',
+    description: '過去の経費申請・精算履歴',
+    icon:        Receipt,
+    available:   false,
+  },
+  {
+    type:        null,
+    label:       '勤怠履歴',
+    description: '過去の出退勤・勤怠履歴',
+    icon:        Clock,
+    available:   false,
+  },
+  {
+    type:        null,
+    label:       'シフト履歴',
+    description: '過去のシフト履歴',
+    icon:        CalendarDays,
+    available:   false,
+  },
+] as const
 
 const INITIAL_PROCESS_STEPS: ProcessStep[] = [
   { key: 'session',    label: 'セッション作成',   status: 'pending' },
@@ -48,13 +100,84 @@ const INITIAL_PROCESS_STEPS: ProcessStep[] = [
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB
 
-const VALID_ENTITY_TYPES: readonly EntityType[] = ['client', 'store'] as const
+// URL preselect (`?entity_type=xxx`) で auto-skip 可能なのは実際に enabled な entity のみ。
+// 未対応 entity で来た場合は Step 1 表示 → 準備中 badge で明示。
+const VALID_ENTITY_TYPES: readonly EntityType[] = ['client'] as const
 
 function parsePreselectedEntityType(raw: string | null): EntityType | null {
   if (!raw) return null
   return (VALID_ENTITY_TYPES as readonly string[]).includes(raw)
     ? (raw as EntityType)
     : null
+}
+
+// ---- Sub-component: Entity Choice Card ----
+// 選択可能な card と 準備中 (disabled) card を統一 UI で表示する。
+// disabled の場合 button/click は無効化し、"準備中" badge を明示する。
+
+function EntityChoiceCard({
+  option,
+  selected,
+  onSelect,
+}: {
+  option: EntityOption
+  selected: boolean
+  onSelect: (type: EntityType) => void
+}) {
+  const Icon = option.icon
+
+  if (!option.available || !option.type) {
+    // Disabled 「準備中」card — click 不可
+    return (
+      <Card className="opacity-60" aria-disabled="true">
+        <CardContent className="flex items-center gap-4 py-4">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+            style={{ background: 'var(--color-muted)', color: 'var(--color-muted-foreground)' }}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-medium text-[var(--color-foreground)]">{option.label}</p>
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded"
+                style={{ background: 'var(--color-muted)', color: 'var(--color-muted-foreground)', border: '1px solid var(--color-border)' }}
+              >
+                準備中
+              </span>
+            </div>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{option.description}</p>
+          </div>
+          <Ban className="h-4 w-4 text-[var(--color-muted-foreground)] shrink-0" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <button
+      className="w-full text-left"
+      onClick={() => onSelect(option.type as EntityType)}
+      aria-label={`${option.label}を選択`}
+    >
+      <Card className={`transition-all cursor-pointer ${selected ? 'ring-2 ring-[var(--color-primary)]' : 'hover:border-[var(--color-primary)]'}`}>
+        <CardContent className="flex items-center gap-4 py-4">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+            style={{ background: 'var(--color-muted)', color: 'var(--color-foreground)' }}
+          >
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-[var(--color-foreground)]">{option.label}</p>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{option.description}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[var(--color-muted-foreground)] shrink-0" />
+        </CardContent>
+      </Card>
+    </button>
+  )
 }
 
 // ---- Main Component ----
@@ -203,56 +326,69 @@ function NewImportContent() {
       <div>
         <PageHeader
           title="データ移行 — 対象を選択"
-          description="どのデータを移行しますか？"
+          description="Excel / CSV から HIKARU へまとめてデータを登録できます。基本データの一括移行、または以前のシステムからの過去データ引き継ぎが可能です。"
           action={
             <Button variant="outline" onClick={() => router.back()}>戻る</Button>
           }
         />
 
-        <div className="max-w-2xl space-y-4">
-          {ENTITY_OPTIONS.map(opt => {
-            const Icon     = opt.icon
-            const selected = entityType === opt.type
-            return (
-              <button
-                key={opt.type}
-                className="w-full text-left"
-                onClick={() => { setEntityType(opt.type); setStep(2) }}
-              >
-                <Card className={`transition-all cursor-pointer ${selected ? 'ring-2 ring-[var(--color-primary)]' : 'hover:border-[var(--color-primary)]'}`}>
-                  <CardContent className="flex items-center gap-4 py-4">
-                    <div
-                      className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
-                      style={{ background: 'var(--color-muted)', color: 'var(--color-foreground)' }}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-[var(--color-foreground)]">{opt.label}</p>
-                      <p className="text-sm text-[var(--color-muted-foreground)]">{opt.description}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-[var(--color-muted-foreground)] shrink-0" />
-                  </CardContent>
-                </Card>
-              </button>
-            )
-          })}
+        <div className="max-w-2xl space-y-6">
 
-          {/* Unavailable entity types */}
-          {['従業員', '案件', '請求書', '経費'].map(label => (
-            <Card key={label} className="opacity-40">
-              <CardContent className="flex items-center gap-4 py-4">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
-                  style={{ background: 'var(--color-muted)' }}
+          {/* GROUP 1: 基本データの一括移行 */}
+          <div>
+            <div className="mb-2 flex items-baseline gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'oklch(0.73 0.12 78 / 0.85)' }}>
+                GROUP 1
+              </span>
+              <h2 className="text-sm font-bold tracking-wider text-[var(--color-foreground)] uppercase">
+                基本データの一括移行
+              </h2>
+            </div>
+            <p className="text-xs text-[var(--color-muted-foreground)] mb-3 leading-relaxed">
+              既存の Excel / CSV から、HIKARU の基本データをまとめて登録できます。
+            </p>
+            <div className="space-y-2">
+              {BASIC_DATA_OPTIONS.map(opt => (
+                <EntityChoiceCard
+                  key={opt.label}
+                  option={opt}
+                  selected={opt.available && entityType === opt.type}
+                  onSelect={(t) => { setEntityType(t); setStep(2) }}
                 />
-                <div className="flex-1">
-                  <p className="font-medium text-[var(--color-foreground)]">{label}</p>
-                  <p className="text-sm text-[var(--color-muted-foreground)]">準備中</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+              ))}
+            </div>
+          </div>
+
+          {/* GROUP 2: 過去データの移行 */}
+          <div>
+            <div className="mb-2 flex items-baseline gap-2 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'oklch(0.73 0.12 78 / 0.85)' }}>
+                GROUP 2
+              </span>
+              <h2 className="text-sm font-bold tracking-wider text-[var(--color-foreground)] uppercase">
+                過去データの移行
+              </h2>
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded"
+                style={{ background: 'var(--color-muted)', color: 'var(--color-muted-foreground)', border: '1px solid var(--color-border)' }}
+              >
+                任意
+              </span>
+            </div>
+            <p className="text-xs text-[var(--color-muted-foreground)] mb-3 leading-relaxed">
+              以前のシステムや Excel で管理していた履歴を HIKARU へ引き継ぎます。この移行は任意です。
+            </p>
+            <div className="space-y-2">
+              {HISTORICAL_DATA_OPTIONS.map(opt => (
+                <EntityChoiceCard
+                  key={opt.label}
+                  option={opt}
+                  selected={false}
+                  onSelect={(t) => { setEntityType(t); setStep(2) }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -261,7 +397,7 @@ function NewImportContent() {
   // ---- Render: Step 2 — File Upload ----
 
   if (step === 2 && !processing) {
-    const entityLabel = ENTITY_OPTIONS.find(o => o.type === entityType)?.label ?? ''
+    const entityLabel = BASIC_DATA_OPTIONS.find(o => o.type === entityType)?.label ?? ''
 
     return (
       <div>
