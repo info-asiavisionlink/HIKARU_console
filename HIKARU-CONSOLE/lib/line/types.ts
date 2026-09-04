@@ -22,6 +22,7 @@ export type NotificationEventType =
   | 'expense_submitted'
   | 'expense_approved'
   | 'expense_rejected'
+  | 'expense_settled'
   // 請求書・見積書
   | 'quote_published'
   | 'invoice_issued'

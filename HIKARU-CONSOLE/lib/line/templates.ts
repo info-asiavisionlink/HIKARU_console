@@ -196,6 +196,15 @@ export function expenseRejectedTemplate(p: ExpenseNotificationParams): string {
   ].filter(Boolean).join('\n')
 }
 
+export function expenseSettledTemplate(p: ExpenseNotificationParams): string {
+  return [
+    `【${APP_NAME}】経費が精算されました`,
+    '',
+    `金額：${formatAmount(p.amount)}`,
+    `内容：${p.description}`,
+  ].join('\n')
+}
+
 // ─── 請求書・見積書 ────────────────────────────────────────
 
 export function quotePublishedTemplate(p: InvoiceNotificationParams): string {

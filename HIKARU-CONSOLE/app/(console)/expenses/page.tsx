@@ -179,7 +179,7 @@ export default function ExpensesPage() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs tabular-nums" style={{ color: 'oklch(0.70 0.007 75)' }}>
-                      {exp.expense_date}
+                      {exp.expense_date ?? '—'}
                     </td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'oklch(0.70 0.007 75)' }}>
                       {CATEGORY_LABELS[exp.category] ?? exp.category}

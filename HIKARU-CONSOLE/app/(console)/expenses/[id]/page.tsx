@@ -136,7 +136,7 @@ export default function ExpenseDetailPage() {
             <InfoRow label="カテゴリー" value={CATEGORY_LABELS[expense.category] ?? expense.category} />
             <InfoRow label="金額"
               value={<span className="text-lg font-black" style={{ color: GOLD }}>¥{expense.amount?.toLocaleString()}</span>} />
-            <InfoRow label="発生日" value={expense.expense_date} />
+            <InfoRow label="発生日" value={expense.expense_date ?? '—'} />
             {expense.description && <InfoRow label="内容" value={expense.description} />}
             {expense.note        && <InfoRow label="備考" value={expense.note} />}
           </Section>
