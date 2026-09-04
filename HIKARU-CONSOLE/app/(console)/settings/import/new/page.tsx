@@ -13,7 +13,7 @@ import {
 
 // ---- Types ----
 
-type EntityType = 'client' | 'store'
+type EntityType = 'client' | 'store' | 'employee'
 type Step       = 1 | 2
 
 interface ProcessStep {
@@ -33,7 +33,7 @@ interface EntityOption {
 // ---- Constants ----
 
 // GROUP 1: 基本データの一括移行 (Setup の「業務開始の準備」と対応)
-// 現時点で本番稼働中の bulk import は client のみ。他は準備中として disabled 表示。
+// 本番稼働中の bulk import: client / store / employee。project は Batch 2 で対応予定。
 const BASIC_DATA_OPTIONS: readonly EntityOption[] = [
   {
     type:        'client',
@@ -43,18 +43,18 @@ const BASIC_DATA_OPTIONS: readonly EntityOption[] = [
     available:   true,
   },
   {
-    type:        null,
+    type:        'store',
     label:       '店舗',
-    description: '店舗データ（店舗名、住所、電話番号、営業時間など）',
+    description: '店舗データ（店舗名、住所、電話番号、営業時間など。顧客との紐付けあり）',
     icon:        Store,
-    available:   false,
+    available:   true,
   },
   {
-    type:        null,
+    type:        'employee',
     label:       '従業員',
-    description: '従業員データ（氏名、社員番号、契約形態、時給など）',
+    description: '従業員データ（氏名、社員番号、連絡先、入社日など）',
     icon:        Users,
-    available:   false,
+    available:   true,
   },
   {
     type:        null,
@@ -102,7 +102,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB
 
 // URL preselect (`?entity_type=xxx`) で auto-skip 可能なのは実際に enabled な entity のみ。
 // 未対応 entity で来た場合は Step 1 表示 → 準備中 badge で明示。
-const VALID_ENTITY_TYPES: readonly EntityType[] = ['client'] as const
+const VALID_ENTITY_TYPES: readonly EntityType[] = ['client', 'store', 'employee'] as const
 
 function parsePreselectedEntityType(raw: string | null): EntityType | null {
   if (!raw) return null

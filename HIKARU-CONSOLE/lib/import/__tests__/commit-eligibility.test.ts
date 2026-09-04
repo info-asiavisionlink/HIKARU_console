@@ -6,7 +6,7 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { evaluateCommitEligibility } from '../commit-eligibility'
+import { evaluateCommitEligibility, SUPPORTED_COMMIT_ENTITIES } from '../commit-eligibility'
 
 const base = {
   sessionStatus:     'review_required',
@@ -17,9 +17,34 @@ const base = {
   invalidRows:       0,
 }
 
+describe('SUPPORTED_COMMIT_ENTITIES allowlist', () => {
+  it('exactly matches expected set (client / store / employee only — project/expense/attendance/shift 未実装)', () => {
+    // このリストは backend RPC (Migration 051/053/054) と Production 適用状態の Source of Truth。
+    // 追加は必ず: Migration 適用 + POSTCHECK PASS + Real E2E PASS の 3 条件成立後のみ。
+    expect([...SUPPORTED_COMMIT_ENTITIES].sort())
+      .toEqual(['client', 'employee', 'store'])
+  })
+
+  it('does NOT include unimplemented entities', () => {
+    for (const et of ['project', 'expense', 'attendance', 'shift', 'invoice']) {
+      expect(SUPPORTED_COMMIT_ENTITIES).not.toContain(et)
+    }
+  })
+})
+
 describe('evaluateCommitEligibility — allow', () => {
   it('accepts fully-reviewed client session in review_required', () => {
     expect(evaluateCommitEligibility(base)).toEqual({ canCommit: true, reason: null })
+  })
+
+  it('accepts store session (Migration 053 適用済)', () => {
+    expect(evaluateCommitEligibility({ ...base, entityType: 'store' }))
+      .toEqual({ canCommit: true, reason: null })
+  })
+
+  it('accepts employee session (Migration 054 適用済)', () => {
+    expect(evaluateCommitEligibility({ ...base, entityType: 'employee' }))
+      .toEqual({ canCommit: true, reason: null })
   })
 
   it('accepts session already promoted to ready_to_commit', () => {
@@ -37,8 +62,9 @@ describe('evaluateCommitEligibility — allow', () => {
 
 describe('evaluateCommitEligibility — reject', () => {
   it('rejects entity types not in SUPPORTED_COMMIT_ENTITIES allowlist', () => {
-    // Currently only 'client' is in the allowlist. Others rejected as ENTITY_NOT_SUPPORTED.
-    for (const et of ['store', 'employee', 'project', 'invoice', 'expense']) {
+    // project / expense / attendance / shift はまだ Backend RPC 未実装。
+    // invoice も未対応。すべて ENTITY_NOT_SUPPORTED として弾く。
+    for (const et of ['project', 'invoice', 'expense', 'attendance', 'shift']) {
       expect(evaluateCommitEligibility({ ...base, entityType: et }))
         .toEqual({ canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' })
     }
@@ -70,10 +96,10 @@ describe('evaluateCommitEligibility — reject', () => {
 
 describe('evaluateCommitEligibility — precedence', () => {
   it('entity check precedes status check', () => {
-    // client 以外 + 無効 status → entity 側が先に検知される
+    // unsupported entity + 無効 status → entity 側が先に検知される
     expect(evaluateCommitEligibility({
       ...base,
-      entityType:    'store',
+      entityType:    'project',
       sessionStatus: 'created',
     })).toEqual({ canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' })
   })

@@ -96,7 +96,7 @@ const STORE: EntityMetadata = {
     '顧客企業が運営する店舗・施設情報を CSV / Excel からまとめて登録できます。' +
     '各店舗は必ず既存顧客に紐付けられます。CSV 内で顧客コードまたは顧客名を指定してください。',
   icon:      Store,
-  status:    'preview_only',
+  status:    'enabled',
   fields: [
     { label: '店舗名',           required: true, description: '例: 新宿本店' },
     { label: '店舗コード',       description: '例: ST-001' },
@@ -109,10 +109,8 @@ const STORE: EntityMetadata = {
     { label: '契約情報',         description: '契約内容メモ' },
     { label: '備考',             description: 'その他の任意情報' },
   ],
-  actionEnabled: false,
-  unavailableReason:
-    'このデータ移行機能は現在接続準備中です。' +
-    '画面の確認までは行えますが、実際の登録処理はまだ利用できません。',
+  actionEnabled: true,
+  wizardEntityParam: 'store',
 }
 
 const EMPLOYEE: EntityMetadata = {
@@ -125,7 +123,7 @@ const EMPLOYEE: EntityMetadata = {
     'このデータ移行では従業員情報のみを登録します。' +
     'ログイン用アカウントの作成や招待メールの送信は行われません。',
   icon:      Users,
-  status:    'preview_only',
+  status:    'enabled',
   fields: [
     { label: '氏名',             required: true, description: '例: 山田 太郎' },
     { label: '社員番号',         description: '例: EMP-0001 (未指定の場合は自動採番)' },
@@ -141,10 +139,8 @@ const EMPLOYEE: EntityMetadata = {
     { label: '在籍状況',         description: '在籍中 / 休職中 / 退職 など' },
     { label: '備考',             description: 'その他の任意情報' },
   ],
-  actionEnabled: false,
-  unavailableReason:
-    'このデータ移行機能は現在接続準備中です。' +
-    '画面の確認までは行えますが、実際の登録処理はまだ利用できません。',
+  actionEnabled: true,
+  wizardEntityParam: 'employee',
 }
 
 const PROJECT: EntityMetadata = {
