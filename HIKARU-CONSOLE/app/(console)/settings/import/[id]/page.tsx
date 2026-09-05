@@ -7,7 +7,7 @@ import {
   Skeleton, toast,
 } from '@hikaru/ui'
 import { safeSetupReturn } from '@/lib/setup/return-to'
-import { evaluateCommitEligibility } from '@/lib/import/commit-eligibility'
+import { evaluateCommitEligibility, SUPPORTED_COMMIT_ENTITIES } from '@/lib/import/commit-eligibility'
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, RotateCcw, Upload,
@@ -668,11 +668,11 @@ function ImportSessionContent() {
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[var(--color-muted-foreground)]" />
           <p className="text-sm text-[var(--color-muted-foreground)]">
             内容を確認し、各行に「新規登録」「既存を更新」「取り込まない」を選択してください。
-            この画面での操作では、実際の顧客・店舗データへの書き込みは行われません。
+            最終「登録する」を実行するまで実データには反映されません。
           </p>
         </div>
 
-        {/* Commit CTA (client entity のみ、全行 review 済み時に有効化) */}
+        {/* Commit CTA (SUPPORTED_COMMIT_ENTITIES に含まれる entity のみ、全行 review 済み時に有効化) */}
         {(() => {
           const gate = summary
             ? evaluateCommitEligibility({
@@ -685,7 +685,10 @@ function ImportSessionContent() {
               })
             : { canCommit: false, reason: null as null | string }
 
-          if (session.entity_type !== 'client') return null
+          // Backend commit RPC が接続済み (client / store / employee) の entity のみ最終 commit UI を表示。
+          // Source of Truth は commit-eligibility.ts の SUPPORTED_COMMIT_ENTITIES。
+          // project / expense / attendance / shift は backend 未実装なので non-render。
+          if (!SUPPORTED_COMMIT_ENTITIES.includes(session.entity_type)) return null
 
           const pending = summary ? summary.total - summary.reviewed : 0
           const pendingCands = summary?.pending_candidates ?? 0
@@ -741,7 +744,7 @@ function ImportSessionContent() {
                 この内容で登録しますか？
               </h2>
               <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-                実際の顧客データベースに書き込みます。実行後に取り消すには別途操作が必要です。
+                {ENTITY_LABELS[session.entity_type] ?? 'データ'}を HIKARU に登録します。実行後に取り消すには別途操作が必要です。
               </p>
 
               <div className="mt-4 grid grid-cols-3 gap-3">
