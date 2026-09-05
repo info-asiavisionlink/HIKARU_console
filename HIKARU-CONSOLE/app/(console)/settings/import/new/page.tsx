@@ -230,6 +230,25 @@ function NewImportContent() {
 
   async function startImport() {
     if (!entityType || !file) return
+
+    // Defensive gate: URL preselect と state の不一致検知。
+    // Employee 導線から入ったのに state が client になっている等の routing 事故を
+    // Session 作成前に止める。client への silent fallback は行わない。
+    // URL に entity_type クエリが有る場合のみ厳格チェック (Step1 選択経路は URL 無しなので免除)。
+    const urlEntityRaw = searchParams.get('entity_type')
+    if (urlEntityRaw !== null && urlEntityRaw !== entityType) {
+      setErrorMsg(
+        '移行対象の情報が一致しません。画面を再読み込みして、目的のデータ種別から改めて移行を開始してください。',
+      )
+      return
+    }
+
+    // Defensive gate: VALID_ENTITY_TYPES 外の値では絶対に POST しない。
+    if (!(VALID_ENTITY_TYPES as readonly string[]).includes(entityType)) {
+      setErrorMsg('選択された移行対象が対応していません。画面を再読み込みしてください。')
+      return
+    }
+
     setProcessing(true)
     setErrorMsg('')
     setProcessSteps(INITIAL_PROCESS_STEPS)
@@ -246,6 +265,10 @@ function NewImportContent() {
         body:        JSON.stringify({
           entity_type: entityType,
           source_type: file.name.endsWith('.csv') ? 'csv' : 'xlsx',
+          // Server-side trace: routing 事故を server audit で追跡可能にする。
+          // URL query に含まれていた entity_type を独立に送信し、
+          // server 側は body.entity_type と一致することを検証 + audit log に記録。
+          requested_entity_type: urlEntityRaw,
         }),
       })
       if (!sessionRes.ok) {

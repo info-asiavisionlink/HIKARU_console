@@ -13,7 +13,7 @@ import type { ImportEntityType, ImportSourceType } from '@/types/import'
 // Import Sessionを新規作成する。
 //
 // company_id / created_by / status はサーバー側で決定。
-// クライアントから受け取る値: entity_type, source_type, label のみ。
+// クライアントから受け取る値: entity_type, source_type, label, requested_entity_type (trace) のみ。
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) {
@@ -46,6 +46,23 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // requested_entity_type: browser 側で URL query から独立に送られる trace 値。
+  // Wizard は URL query と state が一致した場合のみここに値を入れる。
+  // 一致検証は既に browser 側で行っているが、server 側でも二重防御として不一致を拒否する。
+  const requestedEntityRaw = raw.requested_entity_type
+  const requestedEntity = typeof requestedEntityRaw === 'string' && requestedEntityRaw.length > 0
+    ? requestedEntityRaw
+    : null
+  if (requestedEntity !== null && requestedEntity !== entityType) {
+    return NextResponse.json(
+      {
+        code:    'ENTITY_TYPE_MISMATCH',
+        message: '移行対象の情報が一致しません。画面を再読み込みしてやり直してください。',
+      },
+      { status: 400 },
+    )
+  }
+
   // label: optional, 最大200文字、空文字はNULL
   const label = typeof raw.label === 'string' ? raw.label.trim().slice(0, 200) || null : null
 
@@ -69,9 +86,14 @@ export async function POST(req: NextRequest) {
 
   const s = session as Record<string, unknown>
 
+  // Audit に routing trace を残す。個人情報・token は含めない。
+  // referer は same-origin 前提 (browser 側の設定次第で空になる可能性あり)。
+  const referer = req.headers.get('referer') ?? null
   writeAuditLog(auth, s.id as string, 'session.created', {
-    entity_type: entityType,
-    source_type: sourceType,
+    entity_type:           entityType,
+    source_type:           sourceType,
+    requested_entity_type: requestedEntity,
+    referer,
   })
 
   return NextResponse.json({ success: true, data: session }, { status: 201 })
