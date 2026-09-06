@@ -59,11 +59,48 @@ export async function POST(
   }
 
   const entityType = session.entity_type as string
-  if (entityType !== 'client' && entityType !== 'store' && entityType !== 'employee') {
+  const SUPPORTED_DUP_ENTITIES = ['client', 'store', 'employee']
+  const HISTORICAL_NO_DUP_SCAN = ['project', 'expense', 'attendance', 'shift']
+
+  if (!SUPPORTED_DUP_ENTITIES.includes(entityType) && !HISTORICAL_NO_DUP_SCAN.includes(entityType)) {
     return NextResponse.json(
-      { code: 'UNSUPPORTED_ENTITY_TYPE', message: `重複検出はclient/store/employeeのみサポートしています (entity_type: ${entityType})` },
+      { code: 'UNSUPPORTED_ENTITY_TYPE', message: `重複検出は対応外です (entity_type: ${entityType})` },
       { status: 422 },
     )
+  }
+
+  // Phase B (historical import) は auto duplicate scan を skip する。
+  // Review 画面で user が明示的に CREATE / UPDATE / SKIP を選択する運用。
+  // (誤 UPDATE の危険を避ける最重要方針: 「推測 UPDATE 禁止」)
+  if (HISTORICAL_NO_DUP_SCAN.includes(entityType)) {
+    // 既存 candidates を idempotent 削除しつつ (re-scan 対策)、新規 candidate は 0 件で返す。
+    await auth.adminClient
+      .from('import_duplicate_candidates')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('company_id', auth.companyId)
+
+    await auth.adminClient
+      .from('import_sessions')
+      .update({ duplicate_rows: 0, updated_at: new Date().toISOString() } as never)
+      .eq('id', sessionId)
+      .eq('company_id', auth.companyId)
+
+    writeAuditLog(auth, sessionId, 'duplicate_scan.skipped_historical', { entity_type: entityType })
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        session:              { id: sessionId, status: session.status },
+        entity_type:          entityType,
+        staging_rows_scanned: 0,
+        existing_records:     0,
+        candidates_created:   0,
+        staging_rows_flagged: 0,
+        matches:              [],
+        note: 'Historical import: 重複判定は Review 画面で行います (auto-scan 無し)',
+      },
+    })
   }
 
   writeAuditLog(auth, sessionId, 'duplicate_scan.started', { entity_type: entityType })

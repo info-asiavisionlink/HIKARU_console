@@ -118,9 +118,13 @@ export async function POST(
   // eligibility gate と SUPPORTED_COMMIT_ENTITIES で 事前 gate 済のため、
   // ここに到達する entityType は必ず RPC を持つ。
   const RPC_BY_ENTITY: Record<string, string> = {
-    client:   'commit_client_import_session',
-    store:    'commit_store_import_session',
-    employee: 'commit_employee_import_session',
+    client:     'commit_client_import_session',
+    store:      'commit_store_import_session',
+    employee:   'commit_employee_import_session',
+    project:    'commit_project_import_session',
+    expense:    'commit_expense_import_session',
+    attendance: 'commit_attendance_import_session',
+    shift:      'commit_shift_import_session',
   }
   const rpcName = RPC_BY_ENTITY[entityType]
   if (!rpcName) {

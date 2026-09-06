@@ -43,11 +43,13 @@ const ALLOWED_STATUSES = new Set(['review_required', 'ready_to_commit'])
  * 新規 entity 対応時は必ずここに追加してから UI enable する。
  */
 export const SUPPORTED_COMMIT_ENTITIES: readonly string[] = [
-  'client',    // Migration 051 適用済 + Production POSTCHECK PASS
-  'store',     // Migration 053 適用済 + Production POSTCHECK PASS (44/44)
-  'employee',  // Migration 054 適用済 + Production POSTCHECK PASS (44/44)
-  // 'project' — Batch 2 (backend 未実装)
-  // 'expense' / 'attendance' / 'shift' — Batch 3 (backend 未実装)
+  'client',      // Migration 051 適用済 + Production POSTCHECK PASS
+  'store',       // Migration 053 適用済 + Production POSTCHECK PASS (44/44)
+  'employee',    // Migration 054 適用済 + Production POSTCHECK PASS (44/44) + 055 helper fix
+  'project',     // Migration 057 (Phase B) — Production apply pending
+  'expense',     // Migration 058 (Phase B, historical, workflow silent) — pending
+  'attendance',  // Migration 056 ENUM + 059 (Phase B, auth_user_id 必須) — pending
+  'shift',       // Migration 056 ENUM + 060 (Phase B, historical, notify silent) — pending
 ] as const
 
 export function evaluateCommitEligibility(

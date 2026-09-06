@@ -13,7 +13,7 @@ import {
 
 // ---- Types ----
 
-type EntityType = 'client' | 'store' | 'employee'
+type EntityType = 'client' | 'store' | 'employee' | 'project' | 'expense' | 'attendance' | 'shift'
 type Step       = 1 | 2
 
 interface ProcessStep {
@@ -57,36 +57,36 @@ const BASIC_DATA_OPTIONS: readonly EntityOption[] = [
     available:   true,
   },
   {
-    type:        null,
+    type:        'project',
     label:       '案件',
-    description: '案件データ（案件名、顧客・店舗、期間、料金など）',
+    description: '案件データ（案件名、顧客・店舗、期間、種別など）',
     icon:        FolderOpen,
-    available:   false,
+    available:   true,
   },
 ] as const
 
 // GROUP 2: 過去データの移行 (以前のシステム / Excel からの引き継ぎ)
 const HISTORICAL_DATA_OPTIONS: readonly EntityOption[] = [
   {
-    type:        null,
+    type:        'expense',
     label:       '経費履歴',
-    description: '過去の経費申請・精算履歴',
+    description: '過去の経費申請・精算履歴 (通知/承認ワークフロー副作用なし)',
     icon:        Receipt,
-    available:   false,
+    available:   true,
   },
   {
-    type:        null,
+    type:        'attendance',
     label:       '勤怠履歴',
-    description: '過去の出退勤・勤怠履歴',
+    description: '過去の出退勤・勤務履歴 (対象従業員は既にアカウント有り必須)',
     icon:        Clock,
-    available:   false,
+    available:   true,
   },
   {
-    type:        null,
+    type:        'shift',
     label:       'シフト履歴',
-    description: '過去のシフト履歴',
+    description: '過去のシフト履歴 (通知副作用なし)',
     icon:        CalendarDays,
-    available:   false,
+    available:   true,
   },
 ] as const
 
@@ -102,7 +102,10 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10MB
 
 // URL preselect (`?entity_type=xxx`) で auto-skip 可能なのは実際に enabled な entity のみ。
 // 未対応 entity で来た場合は Step 1 表示 → 準備中 badge で明示。
-const VALID_ENTITY_TYPES: readonly EntityType[] = ['client', 'store', 'employee'] as const
+const VALID_ENTITY_TYPES: readonly EntityType[] = [
+  'client', 'store', 'employee',
+  'project', 'expense', 'attendance', 'shift',
+] as const
 
 function parsePreselectedEntityType(raw: string | null): EntityType | null {
   if (!raw) return null
@@ -420,7 +423,10 @@ function NewImportContent() {
   // ---- Render: Step 2 — File Upload ----
 
   if (step === 2 && !processing) {
-    const entityLabel = BASIC_DATA_OPTIONS.find(o => o.type === entityType)?.label ?? ''
+    const entityLabel =
+      BASIC_DATA_OPTIONS.find(o => o.type === entityType)?.label
+      ?? HISTORICAL_DATA_OPTIONS.find(o => o.type === entityType)?.label
+      ?? ''
 
     return (
       <div>

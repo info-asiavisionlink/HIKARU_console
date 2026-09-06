@@ -158,12 +158,17 @@ describe('buildHeaderMapping — employee (Batch 1 対応)', () => {
   })
 })
 
-describe('buildHeaderMapping — unsupported entity types', () => {
-  it('returns all headers as unmapped for project (not yet implemented)', () => {
-    const { headerMapping, unmappedHeaders } = buildHeaderMapping(['案件名', '契約'], 'project')
+describe('buildHeaderMapping — Phase B entities now supported (project/expense/attendance/shift)', () => {
+  it('project: 案件名 → name (Migration 057 適用済み)', () => {
+    const { headerMapping } = buildHeaderMapping(['案件名', '案件コード'], 'project')
+    expect(headerMapping['案件名']).toBe('name')
+    expect(headerMapping['案件コード']).toBe('code')
+  })
+  it('invoice: still unsupported (all headers unmapped)', () => {
+    const { headerMapping, unmappedHeaders } = buildHeaderMapping(['請求番号', '請求日'], 'invoice')
     expect(Object.keys(headerMapping)).toHaveLength(0)
-    expect(unmappedHeaders).toContain('案件名')
-    expect(unmappedHeaders).toContain('契約')
+    expect(unmappedHeaders).toContain('請求番号')
+    expect(unmappedHeaders).toContain('請求日')
   })
 })
 

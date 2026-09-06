@@ -111,27 +111,93 @@ export async function POST(
   }
 
   // 6.5. FK Resolution pre-load (entity 依存、pre-loaded index で N+1 完全防止)
-  // Store: client_id を CSV 上の client_code / client_name から resolve する。
-  // 他 entity は現時点で FK resolution 不要 (client: FK なし、employee: FK なし)。
-  let storeClientIndex: FkIndex<{ id: string; code: string | null; name: string | null }> | null = null
+  // Store   : client_id を CSV 上の client_code / client_name から resolve
+  // Project : client_id + store_id
+  // Expense : employees + projects (worker_id は employees.auth_user_id 経由で解決)
+  // Attendance: employees (worker_id は auth_user_id 経由、missing_auth_user 判定)
+  // Shift   : projects + employees + partners
+  let storeClientIndex:  FkIndex<{ id: string; code: string | null; name: string | null }> | null = null
+  let projectStoreIndex: FkIndex<{ id: string; code: string | null; name: string | null }> | null = null
+  let projectsIndex:     FkIndex<{ id: string; code: string | null; name: string | null }> | null = null
+  // Employee has (id, employee_number, name, auth_user_id) — auth_user_id needed to resolve worker_id.
+  let employeesRaw: Array<{ id: string; employee_number: string | null; name: string | null; auth_user_id: string | null }> | null = null
+  let employeesByCode: Map<string, Array<{ id: string; auth_user_id: string | null }>> | null = null
+  let employeesByName: Map<string, Array<{ id: string; auth_user_id: string | null }>> | null = null
+  let partnersIndex:  FkIndex<{ id: string; code: string | null; name: string | null }> | null = null
 
-  if (entityType === 'store') {
-    const { data: clientRows, error: clientLoadErr } = await auth.adminClient
-      .from('clients')
-      .select('id, code, name')
-      .eq('company_id', auth.companyId)
-      .eq('is_active', true)
-      .limit(10000)
+  const needsClient  = entityType === 'store' || entityType === 'project'
+  const needsStore   = entityType === 'project'
+  const needsProject = entityType === 'expense' || entityType === 'shift'
+  const needsEmployee = entityType === 'expense' || entityType === 'attendance' || entityType === 'shift'
+  const needsPartner = entityType === 'shift'
 
-    if (clientLoadErr) {
-      return NextResponse.json(
-        { code: 'STAGING_FAILED', message: 'FK resolve 用の顧客一覧取得に失敗しました' },
-        { status: 500 },
-      )
+  if (needsClient) {
+    const { data, error: err } = await auth.adminClient
+      .from('clients').select('id, code, name')
+      .eq('company_id', auth.companyId).eq('is_active', true).limit(10000)
+    if (err) return NextResponse.json({ code: 'STAGING_FAILED', message: 'FK resolve 用の顧客一覧取得に失敗しました' }, { status: 500 })
+    storeClientIndex = buildFkIndex((data ?? []) as { id: string; code: string | null; name: string | null }[])
+  }
+  if (needsStore) {
+    const { data, error: err } = await auth.adminClient
+      .from('stores').select('id, code, name')
+      .eq('company_id', auth.companyId).limit(10000)
+    if (err) return NextResponse.json({ code: 'STAGING_FAILED', message: 'FK resolve 用の店舗一覧取得に失敗しました' }, { status: 500 })
+    projectStoreIndex = buildFkIndex((data ?? []) as { id: string; code: string | null; name: string | null }[])
+  }
+  if (needsProject) {
+    const { data, error: err } = await auth.adminClient
+      .from('projects').select('id, code, name')
+      .eq('company_id', auth.companyId).limit(10000)
+    if (err) return NextResponse.json({ code: 'STAGING_FAILED', message: 'FK resolve 用の案件一覧取得に失敗しました' }, { status: 500 })
+    projectsIndex = buildFkIndex((data ?? []) as { id: string; code: string | null; name: string | null }[])
+  }
+  if (needsEmployee) {
+    const { data, error: err } = await auth.adminClient
+      .from('employees').select('id, employee_number, name, auth_user_id')
+      .eq('company_id', auth.companyId).limit(10000)
+    if (err) return NextResponse.json({ code: 'STAGING_FAILED', message: 'FK resolve 用の従業員一覧取得に失敗しました' }, { status: 500 })
+    // Supabase generated types が employees を never にしているため cast (Migration 011 準拠の実 shape)
+    employeesRaw = (data ?? []) as unknown as typeof employeesRaw
+    employeesByCode = new Map(); employeesByName = new Map()
+    for (const e of employeesRaw!) {
+      const codeKey = (e.employee_number ?? '').trim().toLowerCase()
+      const nameKey = (e.name ?? '').trim().toLowerCase()
+      if (codeKey) {
+        const arr = employeesByCode.get(codeKey) ?? []; arr.push({ id: e.id, auth_user_id: e.auth_user_id }); employeesByCode.set(codeKey, arr)
+      }
+      if (nameKey) {
+        const arr = employeesByName.get(nameKey) ?? []; arr.push({ id: e.id, auth_user_id: e.auth_user_id }); employeesByName.set(nameKey, arr)
+      }
     }
-    storeClientIndex = buildFkIndex(
-      (clientRows ?? []) as { id: string; code: string | null; name: string | null }[],
-    )
+  }
+  if (needsPartner) {
+    const { data, error: err } = await auth.adminClient
+      .from('partners').select('id, code:partner_code, name')
+      .eq('company_id', auth.companyId).limit(10000)
+    if (err) return NextResponse.json({ code: 'STAGING_FAILED', message: 'FK resolve 用の協力業者一覧取得に失敗しました' }, { status: 500 })
+    partnersIndex = buildFkIndex((data ?? []) as { id: string; code: string | null; name: string | null }[])
+  }
+
+  // Employee resolver: 同時に auth_user_id 存在も確定する (Attendance / Expense の worker_id 用)。
+  function resolveEmployee(code: string | null, name: string | null):
+    { status: 'resolved' | 'missing_auth_user' | 'not_found' | 'ambiguous';
+      employee_id: string | null; auth_user_id: string | null }
+  {
+    if (!employeesByCode || !employeesByName) return { status: 'not_found', employee_id: null, auth_user_id: null }
+    const codeKey = (code ?? '').trim().toLowerCase()
+    const nameKey = (name ?? '').trim().toLowerCase()
+
+    let matches: Array<{ id: string; auth_user_id: string | null }> = []
+    if (codeKey) matches = employeesByCode.get(codeKey) ?? []
+    if (matches.length === 0 && !codeKey && nameKey) matches = employeesByName.get(nameKey) ?? []
+
+    if (matches.length === 0) return { status: 'not_found',  employee_id: null, auth_user_id: null }
+    if (matches.length > 1)   return { status: 'ambiguous',  employee_id: null, auth_user_id: null }
+
+    const m = matches[0]
+    if (m.auth_user_id === null) return { status: 'missing_auth_user', employee_id: m.id, auth_user_id: null }
+    return { status: 'resolved', employee_id: m.id, auth_user_id: m.auth_user_id }
   }
 
   // 7. Apply mapping + validation to each row (in memory)
@@ -159,6 +225,69 @@ export async function POST(
       } else {
         mappedData['client_id']       = null
         mappedData['client_fk_status'] = 'not_found'
+      }
+    }
+
+    // Project: client_id + store_id 両方 optional (両者無指定でも合格)
+    if (entityType === 'project') {
+      if (storeClientIndex && (mappedData['client_code'] || mappedData['client_name'])) {
+        const r = resolveFk(storeClientIndex, { code: mappedData['client_code'] ?? null, name: mappedData['client_name'] ?? null })
+        if (r.status === 'resolved' && r.id) { mappedData['client_id'] = r.id; mappedData['client_fk_status'] = 'resolved' }
+        else { mappedData['client_id'] = null; mappedData['client_fk_status'] = r.status }
+      }
+      if (projectStoreIndex && (mappedData['store_code'] || mappedData['store_name'])) {
+        const r = resolveFk(projectStoreIndex, { code: mappedData['store_code'] ?? null, name: mappedData['store_name'] ?? null })
+        if (r.status === 'resolved' && r.id) { mappedData['store_id'] = r.id; mappedData['store_fk_status'] = 'resolved' }
+        else { mappedData['store_id'] = null; mappedData['store_fk_status'] = r.status }
+      }
+    }
+
+    // Expense: employee → worker_id (auth_user_id 必須) + project_id
+    if (entityType === 'expense') {
+      const empCode = mappedData['employee_number'] ?? null
+      const empName = mappedData['employee_name'] ?? null
+      if (empCode || empName) {
+        const er = resolveEmployee(empCode, empName)
+        mappedData['employee_id']       = er.employee_id ?? null
+        mappedData['worker_id']         = er.auth_user_id ?? null
+        mappedData['worker_fk_status']  = er.status
+      }
+      if (projectsIndex && (mappedData['project_code'] || mappedData['project_name'])) {
+        const r = resolveFk(projectsIndex, { code: mappedData['project_code'] ?? null, name: mappedData['project_name'] ?? null })
+        if (r.status === 'resolved' && r.id) { mappedData['project_id'] = r.id; mappedData['project_fk_status'] = 'resolved' }
+        else { mappedData['project_id'] = null; mappedData['project_fk_status'] = r.status }
+      }
+    }
+
+    // Attendance: employee → worker_id のみ (auth_user_id 必須)
+    if (entityType === 'attendance') {
+      const empCode = mappedData['employee_number'] ?? null
+      const empName = mappedData['employee_name'] ?? null
+      const er = resolveEmployee(empCode, empName)
+      mappedData['employee_id']      = er.employee_id ?? null
+      mappedData['worker_id']        = er.auth_user_id ?? null
+      mappedData['worker_fk_status'] = er.status
+    }
+
+    // Shift: project_id + assignee (employee or partner)
+    if (entityType === 'shift') {
+      if (projectsIndex) {
+        const r = resolveFk(projectsIndex, { code: mappedData['project_code'] ?? null, name: mappedData['project_name'] ?? null })
+        if (r.status === 'resolved' && r.id) { mappedData['project_id'] = r.id; mappedData['project_fk_status'] = 'resolved' }
+        else { mappedData['project_id'] = null; mappedData['project_fk_status'] = r.status }
+      }
+      const assigneeType = mappedData['assignee_type']
+      if (assigneeType === 'employee') {
+        const er = resolveEmployee(mappedData['employee_number'] ?? null, mappedData['employee_name'] ?? null)
+        // Shift.employee_id は employees.id (Employee ログイン ID/auth_user_id は不要)
+        mappedData['employee_id']         = er.employee_id ?? null
+        mappedData['employee_fk_status']  = er.status === 'missing_auth_user' ? 'resolved' : er.status
+        mappedData['partner_id']          = null
+      } else if (assigneeType === 'partner' && partnersIndex) {
+        const r = resolveFk(partnersIndex, { code: mappedData['partner_code'] ?? null, name: mappedData['partner_name'] ?? null })
+        if (r.status === 'resolved' && r.id) { mappedData['partner_id'] = r.id; mappedData['partner_fk_status'] = 'resolved' }
+        else { mappedData['partner_id'] = null; mappedData['partner_fk_status'] = r.status }
+        mappedData['employee_id'] = null
       }
     }
 

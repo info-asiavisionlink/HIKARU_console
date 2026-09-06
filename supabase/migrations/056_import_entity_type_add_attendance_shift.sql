@@ -1,0 +1,61 @@
+-- ============================================================
+-- 056: Extend import_entity_type ENUM (Phase B)
+--
+-- 目的:
+--   Migration 049 で定義された public.import_entity_type ENUM に
+--   Phase B の 2 種類:
+--     - 'attendance'  (勤怠履歴 → attendance_records)
+--     - 'shift'       (シフト履歴 → shifts)
+--   を追加する。
+--
+-- 既存 ENUM 値 (変更しない):
+--   'client', 'store', 'employee', 'project', 'invoice', 'expense'
+--
+-- 重要な PostgreSQL 制約:
+--   ALTER TYPE ... ADD VALUE を含む文は、同一 transaction で
+--   その新規 enum 値を「使用」するとエラーになる。
+--   従って本 migration は ENUM 追加のみを行い、attendance / shift の
+--   commit RPC (Migration 059 / 060) は独立の migration として提供する。
+--
+--   IF NOT EXISTS 句により、複数回実行しても副作用ゼロ (idempotent)。
+--
+-- 順序 (Production 適用):
+--   1) 本 056 を先に単独実行 & commit
+--   2) その後 057 (project) → 058 (expense) → 059 (attendance) → 060 (shift)
+--      を順次実行
+--
+-- 影響範囲:
+--   - Client / Store / Employee / Project / Expense commit: 変更なし
+--     (これらは既に ENUM に含まれる or 追加なしで機能)
+--   - Attendance / Shift: 059 / 060 適用まで RPC は存在しないため
+--     Wizard 側の SUPPORTED_COMMIT_ENTITIES / entity-metadata の enable は
+--     059 / 060 適用後に行う (deployment sequencing)
+--
+-- Migration 049〜055 は変更しない。本ファイルは新規 migration。
+--
+-- 適用手順:
+--   Supabase SQL Editor でユーザーが手動実行 (Claude 側から適用しない)。
+--
+-- Rollback:
+--   PostgreSQL の ENUM 値 DROP は非対応 (安全性のため)。
+--   間違って追加した場合は、その enum を参照する行が 1 件も無いことを
+--   確認した上で以下のような手順が必要 (今回は該当しないため未実施):
+--     - 依存 record 全削除
+--     - CREATE TYPE ... AS ENUM で新型再定義
+--     - USING キャストで既存 column を再 ALTER
+-- ============================================================
+
+ALTER TYPE public.import_entity_type ADD VALUE IF NOT EXISTS 'attendance';
+ALTER TYPE public.import_entity_type ADD VALUE IF NOT EXISTS 'shift';
+
+-- ============================================================
+-- Post-check (適用後 user 実行):
+--
+--   SELECT ARRAY_AGG(e.enumlabel ORDER BY e.enumsortorder) AS values
+--   FROM pg_type t
+--   JOIN pg_enum e ON e.enumtypid = t.oid
+--   JOIN pg_namespace n ON n.oid = t.typnamespace
+--   WHERE n.nspname = 'public' AND t.typname = 'import_entity_type';
+--
+--   期待: {client, store, employee, project, invoice, expense, attendance, shift}
+-- ============================================================

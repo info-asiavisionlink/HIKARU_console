@@ -59,12 +59,16 @@ describe('commit route — eligibility gate', () => {
 })
 
 describe('commit route — RPC invocation', () => {
-  it('dispatches to entity-specific RPC via RPC_BY_ENTITY map', () => {
-    // Entity → RPC name dispatch table を含み、
-    // client / store / employee 全て network up 済 RPC 名を参照する。
+  it('dispatches to entity-specific RPC via RPC_BY_ENTITY map (Phase A + Phase B, 7 entities)', () => {
+    // Phase A
     expect(source).toMatch(/commit_client_import_session/)
     expect(source).toMatch(/commit_store_import_session/)
     expect(source).toMatch(/commit_employee_import_session/)
+    // Phase B
+    expect(source).toMatch(/commit_project_import_session/)
+    expect(source).toMatch(/commit_expense_import_session/)
+    expect(source).toMatch(/commit_attendance_import_session/)
+    expect(source).toMatch(/commit_shift_import_session/)
     // 実際の rpc() 呼び出しは変数 (rpcName) 経由
     expect(source).toMatch(/rpc[\s\S]{0,60}\(\s*rpcName\s*,/)
   })

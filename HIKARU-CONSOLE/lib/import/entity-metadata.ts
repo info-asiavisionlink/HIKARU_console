@@ -150,24 +150,24 @@ const PROJECT: EntityMetadata = {
   shortDesc: '既存の案件・契約案件情報',
   fullDesc:
     '既存の案件・契約案件情報を CSV / Excel からまとめて登録できます。' +
-    '各案件は店舗 (または住所) と紐付けられます。' +
-    'CSV 内で店舗コードまたは店舗名を指定してください。',
+    '各案件は顧客と店舗 (どちらも任意) に紐付けられます。' +
+    'CSV 内で顧客コード / 店舗コードを指定できます。',
   icon:      FolderOpen,
-  status:    'coming_soon',
+  status:    'enabled',
   fields: [
     { label: '案件名',           required: true, description: '例: 新宿本店 定期清掃' },
     { label: '案件コード',       description: '例: PJ-2026-001' },
+    { label: '案件種別',         description: 'spot / recurring / hotel' },
+    { label: '顧客コード / 顧客名', description: '既存顧客との紐付け (任意)' },
     { label: '店舗コード / 店舗名', description: '既存店舗との紐付け (任意)' },
     { label: '開始日',           description: '例: 2026-04-01' },
     { label: '終了日',           description: '例: 2027-03-31' },
-    { label: 'ステータス',       description: '稼働中 / 一時停止 / 完了 / キャンセル' },
+    { label: 'ステータス',       description: 'active / paused / completed / cancelled 等' },
     { label: '契約情報',         description: '契約条件のメモ' },
     { label: '備考',             description: 'その他の任意情報' },
   ],
-  actionEnabled: false,
-  unavailableReason:
-    'このデータ移行機能は現在準備中です。' +
-    '画面の確認までは行えますが、実際の登録処理はまだ利用できません。',
+  actionEnabled: true,
+  wizardEntityParam: 'project',
 }
 
 // ============================================================
@@ -183,21 +183,19 @@ const EXPENSE: EntityMetadata = {
     '過去の経費申請・支払履歴を CSV / Excel から HIKARU へ移行できます。' +
     'この処理は「履歴データの移行」です。新規申請通知や承認通知は発生しません。',
   icon:      Receipt,
-  status:    'coming_soon',
+  status:    'enabled',
   fields: [
     { label: '発生日',           required: true, description: '例: 2026-03-15' },
-    { label: '申請者',           description: '社員番号または氏名で指定' },
-    { label: 'カテゴリ',         description: '交通費 / 駐車料 / 備品費 / 消耗品費 / その他' },
-    { label: '金額',             required: true, description: '例: 1200' },
+    { label: '申請者',           required: true, description: '社員番号または氏名で指定' },
+    { label: 'カテゴリ',         description: 'transport / parking / supplies / consumables / other' },
+    { label: '金額',             description: '例: 1200' },
     { label: '内容',             description: '例: 現場移動タクシー代' },
     { label: '関連案件',         description: '案件コードまたは案件名 (任意)' },
-    { label: 'ステータス',       description: '下書き / 申請済み / 承認済み / 却下 / 精算済み' },
+    { label: 'ステータス',       description: 'draft / submitted / approved / rejected / settled / withdrawn' },
     { label: '備考',             description: 'その他の任意情報' },
   ],
-  actionEnabled: false,
-  unavailableReason:
-    'このデータ移行機能は現在準備中です。' +
-    '画面の確認までは行えますが、実際の履歴移行はまだ利用できません。',
+  actionEnabled: true,
+  wizardEntityParam: 'expense',
 }
 
 const ATTENDANCE: EntityMetadata = {
@@ -208,22 +206,23 @@ const ATTENDANCE: EntityMetadata = {
   fullDesc:
     '過去の出退勤・休憩時間・勤務時間などの勤怠履歴を CSV / Excel から' +
     'HIKARU へ移行できます。この処理は「履歴データの移行」です。' +
-    '新規勤怠打刻や修正申請の通知は発生しません。',
+    '新規勤怠打刻や修正申請の通知は発生しません。' +
+    '対象の従業員は既に HIKARU にログインアカウントを持っている必要があります。',
   icon:      Clock,
-  status:    'coming_soon',
+  status:    'enabled',
   fields: [
-    { label: '従業員',           required: true, description: '社員番号または氏名で指定' },
+    { label: '従業員',           required: true, description: '社員番号または氏名で指定 (auth 済み必須)' },
     { label: '勤務日',           required: true, description: '例: 2026-03-15' },
-    { label: '出勤時刻',         description: '例: 09:00' },
-    { label: '休憩開始',         description: '例: 12:00 (任意)' },
-    { label: '休憩終了',         description: '例: 13:00 (任意)' },
-    { label: '退勤時刻',         description: '例: 18:00' },
+    { label: '出勤時刻',         description: '例: 2026-03-15T09:00:00+09:00' },
+    { label: '休憩開始',         description: '例: 2026-03-15T12:00:00+09:00 (任意)' },
+    { label: '休憩終了',         description: '例: 2026-03-15T13:00:00+09:00 (任意)' },
+    { label: '退勤時刻',         description: '例: 2026-03-15T18:00:00+09:00' },
+    { label: '休憩(分)',          description: '例: 60' },
+    { label: '勤務(分)',          description: '例: 480' },
     { label: '備考',             description: 'その他の任意情報' },
   ],
-  actionEnabled: false,
-  unavailableReason:
-    'このデータ移行機能は現在準備中です。' +
-    '画面の確認までは行えますが、実際の履歴移行はまだ利用できません。',
+  actionEnabled: true,
+  wizardEntityParam: 'attendance',
 }
 
 const SHIFT: EntityMetadata = {
@@ -236,20 +235,20 @@ const SHIFT: EntityMetadata = {
     'この処理は「履歴データの移行」です。' +
     '新規シフト作成や変更通知は従業員へ送信されません。',
   icon:      CalendarDays,
-  status:    'coming_soon',
+  status:    'enabled',
   fields: [
     { label: '案件',             required: true, description: '案件コードまたは案件名で指定' },
-    { label: '従業員',           required: true, description: '社員番号または氏名で指定' },
+    { label: '担当者種別',       required: true, description: 'employee または partner' },
+    { label: '従業員',           description: '社員番号または氏名 (担当者種別=employee の時必須)' },
+    { label: '協力業者',         description: '協力業者コードまたは名 (担当者種別=partner の時必須)' },
     { label: 'シフト日',         required: true, description: '例: 2026-03-15' },
-    { label: '開始時刻',         required: true, description: '例: 09:00' },
-    { label: '終了時刻',         required: true, description: '例: 18:00' },
-    { label: 'ステータス',       description: '予定 / 確定 / 進行中 / 完了 / キャンセル' },
+    { label: '開始時刻',         required: true, description: '例: 09:00 (JST TIME)' },
+    { label: '終了時刻',         required: true, description: '例: 18:00 (JST TIME)' },
+    { label: 'ステータス',       description: 'scheduled / confirmed / in_progress / completed / cancelled' },
     { label: '備考',             description: 'その他の任意情報' },
   ],
-  actionEnabled: false,
-  unavailableReason:
-    'このデータ移行機能は現在準備中です。' +
-    '画面の確認までは行えますが、実際の履歴移行はまだ利用できません。',
+  actionEnabled: true,
+  wizardEntityParam: 'shift',
 }
 
 // ============================================================

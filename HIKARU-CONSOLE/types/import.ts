@@ -27,6 +27,8 @@ export type ImportEntityType =
   | 'project'
   | 'invoice'
   | 'expense'
+  | 'attendance'
+  | 'shift'
 
 export type ImportValidationStatus = 'pending' | 'valid' | 'invalid' | 'warning'
 

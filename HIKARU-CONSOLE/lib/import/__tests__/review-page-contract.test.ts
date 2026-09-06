@@ -80,19 +80,22 @@ describe('Review page — wording is entity-agnostic (not client-only)', () => {
 })
 
 describe('Review page — SUPPORTED_COMMIT_ENTITIES contract sanity', () => {
-  it('exactly allows the three entities currently wired end-to-end', () => {
-    // This test cross-links with commit-eligibility.test.ts. If someone widens
-    // SUPPORTED_COMMIT_ENTITIES (e.g. adds project) without wiring backend,
-    // both suites will need to be updated together.
+  it('allows the seven entities wired end-to-end (Phase A + Phase B)', () => {
+    // Phase A: client / store / employee (Migration 051 / 053 / 054 + 055 fix)
+    // Phase B: project / expense / attendance / shift (Migration 056-060, Production apply pending)
     expect([...SUPPORTED_COMMIT_ENTITIES].sort()).toEqual([
+      'attendance',
       'client',
       'employee',
+      'expense',
+      'project',
+      'shift',
       'store',
     ])
   })
 
-  it('does NOT include any of project / expense / attendance / shift', () => {
-    for (const et of ['project', 'expense', 'attendance', 'shift']) {
+  it('does NOT include unimplemented entities (invoice など)', () => {
+    for (const et of ['invoice', 'unknown']) {
       expect(SUPPORTED_COMMIT_ENTITIES).not.toContain(et)
     }
   })

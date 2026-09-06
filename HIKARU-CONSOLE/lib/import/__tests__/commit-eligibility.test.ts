@@ -18,15 +18,16 @@ const base = {
 }
 
 describe('SUPPORTED_COMMIT_ENTITIES allowlist', () => {
-  it('exactly matches expected set (client / store / employee only — project/expense/attendance/shift 未実装)', () => {
-    // このリストは backend RPC (Migration 051/053/054) と Production 適用状態の Source of Truth。
-    // 追加は必ず: Migration 適用 + POSTCHECK PASS + Real E2E PASS の 3 条件成立後のみ。
+  it('exactly matches expected set (Phase A + Phase B: 7 entities)', () => {
+    // このリストは backend RPC (Migration 051/053/054/057/058/059/060) と
+    // Production 適用状態の Source of Truth。
+    // 'invoice' は将来対応 (Backend 未実装)。
     expect([...SUPPORTED_COMMIT_ENTITIES].sort())
-      .toEqual(['client', 'employee', 'store'])
+      .toEqual(['attendance', 'client', 'employee', 'expense', 'project', 'shift', 'store'])
   })
 
   it('does NOT include unimplemented entities', () => {
-    for (const et of ['project', 'expense', 'attendance', 'shift', 'invoice']) {
+    for (const et of ['invoice', 'unknown_entity']) {
       expect(SUPPORTED_COMMIT_ENTITIES).not.toContain(et)
     }
   })
@@ -62,9 +63,8 @@ describe('evaluateCommitEligibility — allow', () => {
 
 describe('evaluateCommitEligibility — reject', () => {
   it('rejects entity types not in SUPPORTED_COMMIT_ENTITIES allowlist', () => {
-    // project / expense / attendance / shift はまだ Backend RPC 未実装。
-    // invoice も未対応。すべて ENTITY_NOT_SUPPORTED として弾く。
-    for (const et of ['project', 'invoice', 'expense', 'attendance', 'shift']) {
+    // invoice は将来対応。unknown_entity は当然拒否。
+    for (const et of ['invoice', 'unknown_entity']) {
       expect(evaluateCommitEligibility({ ...base, entityType: et }))
         .toEqual({ canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' })
     }
@@ -99,7 +99,7 @@ describe('evaluateCommitEligibility — precedence', () => {
     // unsupported entity + 無効 status → entity 側が先に検知される
     expect(evaluateCommitEligibility({
       ...base,
-      entityType:    'project',
+      entityType:    'invoice',   // ← 未対応 entity
       sessionStatus: 'created',
     })).toEqual({ canCommit: false, reason: 'ENTITY_NOT_SUPPORTED' })
   })
