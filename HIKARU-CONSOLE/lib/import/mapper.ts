@@ -22,6 +22,16 @@
 // ============================================================
 
 import type { ImportEntityType } from '@/types/import'
+import { normalizeHeader }        from './normalizers/header-normalizer'
+import { normalizeDate }          from './normalizers/date-normalizer'
+import { normalizeTime }          from './normalizers/time-normalizer'
+import { normalizeMoney }         from './normalizers/money-normalizer'
+import { normalizeBoolean }       from './normalizers/boolean-normalizer'
+import { normalizeExpenseCategory } from './enum-dictionaries/expense-category'
+import { normalizeExpenseStatus }   from './enum-dictionaries/expense-status'
+import { normalizeProjectType }     from './enum-dictionaries/project-type'
+import { normalizeProjectStatus }   from './enum-dictionaries/project-status'
+import { normalizeAssigneeType }    from './enum-dictionaries/assignee-type'
 
 // ---- Alias Maps ----
 // key = normalized header (lowercase for comparison), value = canonical field name
@@ -596,7 +606,18 @@ export interface RowValidationResult {
 }
 
 // ---- Build Header Mapping (once per file) ----
-// AliasをlowercaseでmatchするためnormalizedHeaderをlowercase比較する。
+//
+// Tiered matching (Phase U1):
+//   L0: exact lowercase match (既存契約、first-match-wins)
+//   L1: normalized header match (normalizeHeader() 経由で書式揺れ吸収)
+//        - trim / NFKC / lowercase / separator 統一を適用
+//        - L1 で複数 alias が同一 normalized key に collide し、
+//          異なる canonical field を指す場合は L1 mapping を skip (silent 誤 mapping 防止)
+//   L2 (Phase U2): synonym dictionary (`スタッフNo → 社員番号` 等の意味変換)
+//
+// L0 が hit する header は L1 tier まで進まない (優先順位固定)。
+// L1 で hit したら header → canonical mapping を保存し、usedCanonical set で
+// 既にマップ済み canonical への duplicate mapping を防ぐ (L0 同様)。
 
 export function buildHeaderMapping(
   normalizedHeaders: string[],
@@ -604,12 +625,29 @@ export function buildHeaderMapping(
 ): MappingResult {
   const aliases = getAliases(entityType)
 
-  // Pre-build a lookup: lowercase(alias) → canonicalField
-  const aliasLookup = new Map<string, string>()
+  // L0 lookup: lowercase(alias) → canonicalField (first match wins)
+  const l0Lookup = new Map<string, string>()
   for (const [alias, field] of aliases) {
     const key = alias.toLowerCase()
-    if (!aliasLookup.has(key)) aliasLookup.set(key, field)  // first match wins
+    if (!l0Lookup.has(key)) l0Lookup.set(key, field)
   }
+
+  // L1 lookup: normalizeHeader(alias) → canonicalField
+  //   - 複数 alias が同一 key に collide し、canonical が異なる場合は
+  //     その key を「ambiguous」として全 map から除外 (silent 誤 mapping 防止)
+  const l1Lookup    = new Map<string, string>()
+  const l1Ambiguous = new Set<string>()
+  for (const [alias, field] of aliases) {
+    const key = normalizeHeader(alias)
+    if (key.length === 0) continue
+    const existing = l1Lookup.get(key)
+    if (existing === undefined) {
+      l1Lookup.set(key, field)
+    } else if (existing !== field) {
+      l1Ambiguous.add(key)  // multiple aliases resolve to different canonicals
+    }
+  }
+  for (const k of l1Ambiguous) l1Lookup.delete(k)
 
   const headerMapping:   HeaderMapping = {}
   const unmappedHeaders: UnmappedKeys  = []
@@ -618,7 +656,15 @@ export function buildHeaderMapping(
   for (const header of normalizedHeaders) {
     if (!header || header.startsWith('_col') || header.startsWith('_raw_col')) continue
 
-    const match = aliasLookup.get(header.toLowerCase())
+    // L0: exact lowercase
+    let match = l0Lookup.get(header.toLowerCase())
+
+    // L1: normalized match (L0 で hit しなかった場合のみ)
+    if (!match) {
+      const nk = normalizeHeader(header)
+      if (nk.length > 0) match = l1Lookup.get(nk)
+    }
+
     if (match && !usedCanonical.has(match)) {
       headerMapping[header] = match
       usedCanonical.add(match)
@@ -632,15 +678,30 @@ export function buildHeaderMapping(
 }
 
 // ---- Apply Mapping to one Row ----
+//
+// Phase U1: value normalization を per-field-type で適用する。
+//   - Date field       → normalizeDate() → 'YYYY-MM-DD' or raw 保持 (validator へ委ねる)
+//   - Time field       → normalizeTime() → 'HH:MM:SS'
+//   - Money/int field  → normalizeMoney() → 整数文字列
+//   - Boolean field    → normalizeBoolean() → 'true'/'false'
+//   - Enum field       → normalize<Entity>Category / Status / Type / AssigneeType
+//                        (entity と field 種別で辞書を分岐)
+// 正規化 失敗時は raw 値をそのまま mappedData に残す (Postgres cast error や
+// enum check で最終的に reject される契約)。**raw_data (staging_rows の元列) は
+// 一切変更しない** — 元値は extractor 段階で normalized_data / raw_data として
+// 保持されており、本 mapper は canonical field 名を key とする独立の mappedData
+// を作るだけである。
 
 export function applyRowMapping(
   normalizedData: Record<string, string | null>,
   mapping: MappingResult,
+  entityType?: ImportEntityType,   // U1: field-type-aware normalization に必要
 ): RowMappingResult {
   const mappedData: MappedData = {}
 
   for (const [normHeader, canonicalField] of Object.entries(mapping.headerMapping)) {
-    mappedData[canonicalField] = normalizedData[normHeader] ?? null
+    const raw = normalizedData[normHeader] ?? null
+    mappedData[canonicalField] = normalizeValueForField(canonicalField, raw, entityType)
   }
 
   return {
@@ -648,6 +709,113 @@ export function applyRowMapping(
     unmappedHeaders: mapping.unmappedHeaders,
   }
 }
+
+// ---- Field-Type-Aware Value Normalization (Phase U1) ----
+
+/**
+ * 指定 canonical field の value を Phase U1 の共通 normalizer で正規化する。
+ * 失敗時は raw 値をそのまま返す (validator / RPC で最終判定される)。
+ * FK 系 field (client_id / worker_id 等 UUID) は Map route が resolve するため
+ * 本 helper は触らない (canonicalField が UUID 系なら raw を返す)。
+ */
+function normalizeValueForField(
+  canonicalField: string,
+  raw: string | null,
+  entityType?: ImportEntityType,
+): string | null {
+  if (raw === null) return null
+  if (typeof raw !== 'string') return null
+  if (raw.trim().length === 0) return null
+
+  // Date (DATE column)
+  if (DATE_FIELDS.has(canonicalField)) {
+    const r = normalizeDate(raw)
+    return r.ok ? r.value : raw
+  }
+
+  // Timestamptz field (attendance の clock_in / break_start 等) はここでは扱わない
+  //   → Migration 059 の RPC が ::TIMESTAMPTZ cast する。ISO 8601 で入力される
+  //     前提のため date/time normalizer とは別扱い、Phase U1 では touch しない。
+
+  // Time (TIME column, shifts / projects の start_time / end_time / work_start_time / work_end_time)
+  if (TIME_FIELDS.has(canonicalField)) {
+    const r = normalizeTime(raw)
+    return r.ok ? r.value : raw
+  }
+
+  // Money / integer (expenses.amount, settled_amount, break_minutes 等)
+  if (MONEY_FIELDS.has(canonicalField)) {
+    const r = normalizeMoney(raw)
+    return r.ok ? r.value : raw
+  }
+
+  // Boolean (projects.key_borrowing 等)
+  if (BOOLEAN_FIELDS.has(canonicalField)) {
+    const r = normalizeBoolean(raw)
+    return r.ok ? r.value : raw
+  }
+
+  // Enum: entity + field 種別で辞書分岐
+  if (canonicalField === 'category' && entityType === 'expense') {
+    const v = normalizeExpenseCategory(raw)
+    return v ?? raw
+  }
+  if (canonicalField === 'status' && entityType === 'expense') {
+    const v = normalizeExpenseStatus(raw)
+    return v ?? raw
+  }
+  if (canonicalField === 'project_type' && entityType === 'project') {
+    const v = normalizeProjectType(raw)
+    return v ?? raw
+  }
+  if (canonicalField === 'status' && entityType === 'project') {
+    const v = normalizeProjectStatus(raw)
+    return v ?? raw
+  }
+  if (canonicalField === 'assignee_type' && (entityType === 'expense' || entityType === 'shift')) {
+    const v = normalizeAssigneeType(raw)
+    return v ?? raw
+  }
+
+  // それ以外の文字列 field はそのまま
+  return raw
+}
+
+// ---- Field type registries (Phase U1) ----
+//
+// canonical field 名から type を判定するための集合。
+// 新 entity 追加時に必ずこの set を更新する。
+
+const DATE_FIELDS: ReadonlySet<string> = new Set([
+  'start_date',    // projects
+  'end_date',      // projects
+  'birth_date',    // employees
+  'hire_date',     // employees
+  'expense_date',  // expenses
+  'claim_month',   // expenses (月初 date として扱う運用)
+  'work_date',     // attendance
+  'shift_date',    // shifts
+])
+
+const TIME_FIELDS: ReadonlySet<string> = new Set([
+  'work_start_time', // projects
+  'work_end_time',   // projects
+  'start_time',      // shifts
+  'end_time',        // shifts
+])
+
+const MONEY_FIELDS: ReadonlySet<string> = new Set([
+  'amount',          // expenses
+  'settled_amount',  // expenses
+  'break_minutes',   // attendance
+  'work_minutes',    // attendance
+  'hourly_rate',     // attendance
+  'daily_pay',       // attendance
+])
+
+const BOOLEAN_FIELDS: ReadonlySet<string> = new Set([
+  'key_borrowing',   // projects
+])
 
 // ---- Validate Mapped Row ----
 

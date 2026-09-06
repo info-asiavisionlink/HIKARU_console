@@ -208,7 +208,7 @@ export async function POST(
   const processedRows = (stagingRows as Record<string, unknown>[]).map(row => {
     const normalizedData = (row['normalized_data'] as Record<string, string | null>) ?? {}
 
-    const { mappedData, unmappedHeaders: rowUnmapped } = applyRowMapping(normalizedData, mappingResult)
+    const { mappedData, unmappedHeaders: rowUnmapped } = applyRowMapping(normalizedData, mappingResult, entityType)
 
     // FK Resolution: Store の場合 client_code / client_name → client_id 変換
     if (entityType === 'store' && storeClientIndex) {
