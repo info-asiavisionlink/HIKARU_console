@@ -45,10 +45,12 @@ describe('mapper — L1 normalized header matching (Phase U1 new)', () => {
     expect(hm2['Employee Number']).toBe('employee_number')
   })
 
-  it('意味変換しない: スタッフNo は unmapped のまま (Phase U2 で対応)', () => {
-    const { headerMapping, unmappedHeaders } = buildHeaderMapping(['スタッフNo'], 'employee')
-    expect(headerMapping['スタッフNo']).toBeUndefined()
-    expect(unmappedHeaders).toContain('スタッフNo')
+  it('意味変換 (L2 synonym) は L1 には含まれない — L1 だけの候補では unmapped になる', () => {
+    // U1 単独では意味変換なし。ここでは L2 で mapping されない synonym-ish な header
+    // (「担当営業」等、どの entity にも意味定義が無い) を検証する。
+    const { headerMapping, unmappedHeaders } = buildHeaderMapping(['担当営業'], 'employee')
+    expect(headerMapping['担当営業']).toBeUndefined()
+    expect(unmappedHeaders).toContain('担当営業')
   })
 
   it('L0 が優先される (L1 fallback は L0 miss 時のみ)', () => {

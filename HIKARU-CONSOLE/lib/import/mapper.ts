@@ -32,6 +32,7 @@ import { normalizeExpenseStatus }   from './enum-dictionaries/expense-status'
 import { normalizeProjectType }     from './enum-dictionaries/project-type'
 import { normalizeProjectStatus }   from './enum-dictionaries/project-status'
 import { normalizeAssigneeType }    from './enum-dictionaries/assignee-type'
+import { getSynonyms }              from './header-synonyms'
 
 // ---- Alias Maps ----
 // key = normalized header (lowercase for comparison), value = canonical field name
@@ -588,9 +589,18 @@ export type HeaderMapping = Record<string, string>  // normalizedHeader → cano
 export type MappedData    = Record<string, string | null>  // canonicalField → normalized value
 export type UnmappedKeys  = string[]
 
+/**
+ * mapping tier — どの階層で header が canonical field に解決されたか。
+ * 将来の U3 UI で「この列は synonym で自動判定されました」等の表示に使用する。
+ * Phase U2 では metadata として記録するのみで、UI からは参照されない。
+ */
+export type MappingTier = 'exact' | 'normalized' | 'synonym'
+
 export interface MappingResult {
   headerMapping:  HeaderMapping   // which normalized header → which canonical field
   unmappedHeaders: UnmappedKeys  // normalized headers with no mapping
+  /** header (map key と同じ) → 解決 tier。optional で後方互換性を維持。 */
+  mappingTiers?:   Record<string, MappingTier>
 }
 
 export interface RowMappingResult {
@@ -607,23 +617,32 @@ export interface RowValidationResult {
 
 // ---- Build Header Mapping (once per file) ----
 //
-// Tiered matching (Phase U1):
-//   L0: exact lowercase match (既存契約、first-match-wins)
-//   L1: normalized header match (normalizeHeader() 経由で書式揺れ吸収)
-//        - trim / NFKC / lowercase / separator 統一を適用
-//        - L1 で複数 alias が同一 normalized key に collide し、
-//          異なる canonical field を指す場合は L1 mapping を skip (silent 誤 mapping 防止)
-//   L2 (Phase U2): synonym dictionary (`スタッフNo → 社員番号` 等の意味変換)
+// Tiered matching:
+//   L0 (exact):       lowercase(header) === lowercase(alias)            (既存契約)
+//   L1 (normalized):  normalizeHeader(header) === normalizeHeader(alias) (Phase U1)
+//                     - trim / NFKC / lowercase / separator 統一を適用
+//   L2 (synonym):     normalizeHeader(header) === normalizeHeader(synonym) (Phase U2)
+//                     - `スタッフNo → 社員番号` 等の意味変換
+//                     - entity 別 synonym dictionary (`header-synonyms.ts`)
 //
-// L0 が hit する header は L1 tier まで進まない (優先順位固定)。
-// L1 で hit したら header → canonical mapping を保存し、usedCanonical set で
-// 既にマップ済み canonical への duplicate mapping を防ぐ (L0 同様)。
+// 優先順位: L0 → L1 → L2 (最初に hit した tier で確定、下位は評価しない)。
+//
+// Ambiguity guard:
+//   1) tier 内 collision — 同 tier の複数 alias/synonym が同一 normalized key に
+//      collide し、異なる canonical field を指す場合、その key を全 map から除外。
+//   2) cross-tier collision — L1 で確定した key を L2 が異なる canonical に上書き
+//      しようとする場合、L2 側の当該 key を削除 (L1 authoritative)。
+//   ↳ どちらも「勝手に片方を選ばない」= silent 誤 mapping 防止のため。
+//
+// canonical field の duplicate mapping (同 field を 2 header へ) は usedCanonical
+// set により第 2 header を skip (既存契約)。
 
 export function buildHeaderMapping(
   normalizedHeaders: string[],
   entityType: ImportEntityType,
 ): MappingResult {
-  const aliases = getAliases(entityType)
+  const aliases  = getAliases(entityType)
+  const synonyms = getSynonyms(entityType)
 
   // L0 lookup: lowercase(alias) → canonicalField (first match wins)
   const l0Lookup = new Map<string, string>()
@@ -649,24 +668,60 @@ export function buildHeaderMapping(
   }
   for (const k of l1Ambiguous) l1Lookup.delete(k)
 
-  const headerMapping:   HeaderMapping = {}
-  const unmappedHeaders: UnmappedKeys  = []
+  // L2 lookup: normalizeHeader(synonym) → canonicalField (Phase U2)
+  //   - 同 tier collision: 複数 synonym が同一 key で異なる canonical → ambiguous
+  //   - cross-tier collision: L1 が同 key を異なる canonical で既に持っている
+  //     場合、L2 側を skip (L1 authoritative)
+  const l2Lookup    = new Map<string, string>()
+  const l2Ambiguous = new Set<string>()
+  for (const [syn, field] of synonyms) {
+    const key = normalizeHeader(syn)
+    if (key.length === 0) continue
+
+    // Cross-tier check: L1 already resolves this key to a different canonical
+    const l1Existing = l1Lookup.get(key)
+    if (l1Existing !== undefined && l1Existing !== field) {
+      l2Ambiguous.add(key)
+      continue
+    }
+
+    const existing = l2Lookup.get(key)
+    if (existing === undefined) {
+      l2Lookup.set(key, field)
+    } else if (existing !== field) {
+      l2Ambiguous.add(key)  // 同 tier 内 collision
+    }
+  }
+  for (const k of l2Ambiguous) l2Lookup.delete(k)
+
+  const headerMapping:   HeaderMapping           = {}
+  const unmappedHeaders: UnmappedKeys            = []
+  const mappingTiers:    Record<string, MappingTier> = {}
   const usedCanonical = new Set<string>()
 
   for (const header of normalizedHeaders) {
     if (!header || header.startsWith('_col') || header.startsWith('_raw_col')) continue
 
     // L0: exact lowercase
-    let match = l0Lookup.get(header.toLowerCase())
+    let match: string | undefined = l0Lookup.get(header.toLowerCase())
+    let tier:  MappingTier | undefined = match ? 'exact' : undefined
 
-    // L1: normalized match (L0 で hit しなかった場合のみ)
+    // L1 / L2: normalized (L0 で hit しなかった場合のみ)
     if (!match) {
       const nk = normalizeHeader(header)
-      if (nk.length > 0) match = l1Lookup.get(nk)
+      if (nk.length > 0) {
+        match = l1Lookup.get(nk)
+        if (match) tier = 'normalized'
+        else {
+          match = l2Lookup.get(nk)
+          if (match) tier = 'synonym'
+        }
+      }
     }
 
     if (match && !usedCanonical.has(match)) {
       headerMapping[header] = match
+      mappingTiers[header]  = tier!
       usedCanonical.add(match)
     } else if (!match) {
       unmappedHeaders.push(header)
@@ -674,7 +729,7 @@ export function buildHeaderMapping(
     // duplicate alias (same canonical field already mapped) → silently skip second header
   }
 
-  return { headerMapping, unmappedHeaders }
+  return { headerMapping, unmappedHeaders, mappingTiers }
 }
 
 // ---- Apply Mapping to one Row ----
