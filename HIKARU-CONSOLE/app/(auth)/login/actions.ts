@@ -6,7 +6,6 @@ import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server'
 import { setConsoleSessionCookies, clearConsoleSessionCookies } from '@/lib/auth/console-session'
 import { safeLoginNext } from '@/lib/auth/safe-next'
-import { getSetupStatus } from '@/lib/setup/get-setup-status'
 
 interface LoginState {
   error: string | null
@@ -83,21 +82,10 @@ export async function loginAction(
   // ④ Redirect 決定
   //   優先順位:
   //     1. 明示的な safe next (認証切れで飛ばされた元 page 等) → next
-  //     2. Setup 未完了 (BUSINESS_READY=false) → /setup
-  //     3. Setup 完了 or Status 取得失敗 → /dashboard (安全 fallback)
-  //   Setup status 取得失敗はログイン自体を失敗扱いにしない。
+  //     2. 常に /dashboard へ
+  //   初期設定 UI 撤去 (2026-09) 以降、businessReady による /setup 分岐は廃止。
   if (next) {
     redirect(next)
-  }
-
-  // Setup status 取得失敗 (COMPANY_NOT_FOUND / DB_ERROR) は Login 自体を
-  // 失敗扱いにせず、default /dashboard に fallback する仕様。
-  const result = profile.company_id
-    ? await getSetupStatus(profile.company_id, admin)
-    : null
-
-  if (result?.ok && !result.status.readiness.businessReady) {
-    redirect('/setup')
   }
 
   redirect('/dashboard')

@@ -2,9 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createEmployee } from '@/services/employees.service'
-import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -13,9 +12,7 @@ import { ArrowLeft, Lock, User, Monitor, Smartphone } from 'lucide-react'
 
 function NewEmployeeContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const returnTo = safeSetupReturn(searchParams.get('return'))
-  const destination = returnTo ?? '/employees'
+  const destination = '/employees'
   const [loading, setLoading] = React.useState(false)
   const [hasLogin, setHasLogin] = React.useState(true)
 

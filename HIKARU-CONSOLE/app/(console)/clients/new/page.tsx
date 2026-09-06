@@ -2,9 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClientRecord } from '@/services/clients.service'
-import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
 } from '@hikaru/ui'
@@ -12,9 +11,7 @@ import { ArrowLeft, UserPlus, Lock, Eye, EyeOff, ChevronDown, ChevronUp } from '
 
 function NewClientContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const returnTo = safeSetupReturn(searchParams.get('return'))
-  const destination = returnTo ?? '/clients'
+  const destination = '/clients'
   const [loading, setLoading] = React.useState(false)
   const [showPortal, setShowPortal] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)

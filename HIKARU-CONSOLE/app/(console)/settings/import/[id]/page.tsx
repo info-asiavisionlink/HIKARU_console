@@ -1,12 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import {
   PageHeader, Button, Card, CardContent, CardHeader, CardTitle,
   Skeleton, toast,
 } from '@hikaru/ui'
-import { safeSetupReturn } from '@/lib/setup/return-to'
 import { evaluateCommitEligibility, SUPPORTED_COMMIT_ENTITIES } from '@/lib/import/commit-eligibility'
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, AlertTriangle,
@@ -380,10 +379,8 @@ function RowCard({
 function ImportSessionContent() {
   const router                = useRouter()
   const { id: sessionId }     = useParams<{ id: string }>()
-  const searchParams          = useSearchParams()
-  const returnTo              = safeSetupReturn(searchParams.get('return'))
-  const backDestination       = returnTo ?? '/settings/import'
-  const backLabel             = returnTo === '/setup' ? '初期設定へ戻る' : '一覧へ戻る'
+  const backDestination       = '/settings/import'
+  const backLabel             = '一覧へ戻る'
 
   const [session, setSession]   = React.useState<ImportSession | null>(null)
   const [summary, setSummary]   = React.useState<ReviewSummary | null>(null)

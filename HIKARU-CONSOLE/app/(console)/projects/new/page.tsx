@@ -2,9 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createProject } from '@/services/projects.service'
-import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -23,9 +22,7 @@ const STATUS_OPTIONS = [
 
 function NewProjectContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const returnTo = safeSetupReturn(searchParams.get('return'))
-  const destination = returnTo ?? '/projects'
+  const destination = '/projects'
   const [loading, setLoading] = React.useState(false)
   const [assignees, setAssignees] = React.useState<Assignee[]>([])
   const [clients, setClients] = React.useState<{ id: string; name: string }[]>([])

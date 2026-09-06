@@ -17,7 +17,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import {
   PageHeader, Button, Card, CardContent, Badge,
 } from '@hikaru/ui'
@@ -236,8 +236,6 @@ function SecurityNote() {
 export default function ImportPreviewPage() {
   const router       = useRouter()
   const params       = useParams<{ entity: string }>()
-  const searchParams = useSearchParams()
-  const returnPath   = searchParams.get('return')
 
   const entityParam = params?.entity ?? null
 
@@ -251,13 +249,12 @@ export default function ImportPreviewPage() {
 
   const meta      = ENTITY_METADATA[entityParam]
   const Icon      = meta.icon
-  const backHref  = returnPath ?? '/settings/import'
-  const backLabel = returnPath === '/setup' ? '初期設定へ戻る' : 'データ移行センターへ戻る'
+  const backHref  = '/settings/import'
+  const backLabel = 'データ移行センターへ戻る'
 
   const handleStart = () => {
     if (!meta.actionEnabled || !meta.wizardEntityParam) return
     const query = new URLSearchParams({ entity_type: meta.wizardEntityParam })
-    if (returnPath) query.set('return', returnPath)
     router.push(`/settings/import/new?${query.toString()}`)
   }
 

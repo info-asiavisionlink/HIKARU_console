@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createStore } from '@/services/stores.service'
 import { listClients } from '@/services/clients.service'
-import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   PageHeader, Button, Input, Textarea, Card, CardContent, toast, Breadcrumb,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -16,8 +15,7 @@ function NewStoreContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultClientId = searchParams.get('client_id') ?? ''
-  const returnTo = safeSetupReturn(searchParams.get('return'))
-  const destination = returnTo ?? '/stores'
+  const destination = '/stores'
 
   const [loading, setLoading] = React.useState(false)
   const [clients, setClients] = React.useState<any[]>([])

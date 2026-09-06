@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderOpen, Building2, UserCheck, HandshakeIcon,
   BookOpen, BarChart3, Settings, ChevronLeft, ChevronRight,
   Bell, FileText, X, UserCog, Inbox, ClockArrowUp, CalendarDays, Receipt,
-  FileSpreadsheet, Star, Package, FileSignature, Cpu, Upload, ClipboardCheck,
+  FileSpreadsheet, Star, Package, FileSignature, Cpu, Upload,
 } from 'lucide-react'
 import { cn } from '@hikaru/ui'
 
@@ -70,7 +70,6 @@ const navItems: NavItem[] = [
   },
   { label: '通知管理',         href: '/notifications', icon: Bell },
   { label: 'AI分析',           href: '/analytics',     icon: BarChart3 },
-  { label: '初期設定',         href: '/setup',           icon: ClipboardCheck },
   { label: 'データ移行',       href: '/settings/import', icon: Upload },
 ]
 

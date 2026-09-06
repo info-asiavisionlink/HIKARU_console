@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   PageHeader, Button, Card, CardContent, CardHeader, CardTitle, toast,
 } from '@hikaru/ui'
-import { safeSetupReturn } from '@/lib/setup/return-to'
 import {
   Building2, Store, Users, FolderOpen, Receipt, Clock, CalendarDays, Ban,
   ChevronRight, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2,
@@ -191,10 +190,6 @@ function NewImportContent() {
 
   // URL preselect: ?entity_type=client|store で entity Step をスキップ
   const preselectedEntity = parsePreselectedEntityType(searchParams.get('entity_type'))
-  // Setup Center から呼ばれた場合の戻り先 (allowlist)
-  const returnTo = safeSetupReturn(searchParams.get('return'))
-  // Review page への遷移時に return を保持するための query suffix
-  const returnQuery = returnTo ? `?return=${encodeURIComponent(returnTo)}` : ''
 
   const [step, setStep]           = React.useState<Step>(preselectedEntity ? 2 : 1)
   const [entityType, setEntityType] = React.useState<EntityType | null>(preselectedEntity)
@@ -335,7 +330,7 @@ function NewImportContent() {
 
       // All done — redirect to review (return は保持して Review ページから /setup へ戻れるように)
       toast.success('解析が完了しました。内容を確認してください。')
-      router.push(`/settings/import/${sessionId}${returnQuery}`)
+      router.push(`/settings/import/${sessionId}`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : '予期しないエラーが発生しました。'
       setErrorMsg(msg)
