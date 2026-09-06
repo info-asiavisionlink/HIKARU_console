@@ -772,8 +772,11 @@ export function applyRowMapping(
  * 失敗時は raw 値をそのまま返す (validator / RPC で最終判定される)。
  * FK 系 field (client_id / worker_id 等 UUID) は Map route が resolve するため
  * 本 helper は触らない (canonicalField が UUID 系なら raw を返す)。
+ *
+ * Phase U3: Review UI からの inline edit / column default 適用でも同じ
+ * canonical contract を保証するため export し、review-edit.ts から再利用する。
  */
-function normalizeValueForField(
+export function normalizeValueForField(
   canonicalField: string,
   raw: string | null,
   entityType?: ImportEntityType,

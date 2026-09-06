@@ -7,9 +7,11 @@ import {
   Skeleton, toast,
 } from '@hikaru/ui'
 import { evaluateCommitEligibility, SUPPORTED_COMMIT_ENTITIES } from '@/lib/import/commit-eligibility'
+import { getEditableFields, type EditableField } from '@/lib/import/editable-fields'
+import type { ImportEntityType } from '@/types/import'
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, AlertTriangle,
-  ChevronDown, ChevronUp, Loader2, RotateCcw, Upload,
+  ChevronDown, ChevronUp, Loader2, RotateCcw, Upload, Pencil, Save, X, Zap,
 } from 'lucide-react'
 
 // ============================================================
@@ -171,6 +173,130 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 // ============================================================
+// FK Candidate Select (Phase U3)
+// ============================================================
+//
+// reference field 用の非同期 select。session の /fk-candidates を呼び、
+// 候補一覧を表示する。value は candidate id (UUID)。
+
+interface FkCandidate { id: string; name: string; code: string | null; sub?: string | null }
+
+function FkCandidateSelect({
+  sessionId, referenceType, value, onChange, disabled,
+}: {
+  sessionId:     string
+  referenceType: 'client' | 'store' | 'employee' | 'project' | 'partner'
+  value:         string | null
+  onChange:      (id: string | null) => void
+  disabled?:     boolean
+}) {
+  const [candidates, setCandidates] = React.useState<FkCandidate[]>([])
+  const [loading,    setLoading]    = React.useState(false)
+
+  React.useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    const url = `/api/import/sessions/${sessionId}/fk-candidates?type=${referenceType}&limit=200`
+    fetch(url, { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled) return
+        setCandidates((d?.data?.candidates as FkCandidate[]) ?? [])
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [sessionId, referenceType])
+
+  return (
+    <select
+      className="w-full rounded-lg border px-2 py-1 text-xs"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+      value={value ?? ''}
+      disabled={disabled || loading}
+      onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
+    >
+      <option value="">— 未選択 —</option>
+      {candidates.map(c => (
+        <option key={c.id} value={c.id}>
+          {c.name}{c.code ? ` (${c.code})` : ''}{c.sub ? ` — ${c.sub}` : ''}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+// ============================================================
+// Field Editor (Phase U3)
+// ============================================================
+//
+// EditableField.type に応じて input を切り替える。canonical value を
+// そのまま送信する (enum は canonical、reference は UUID)。
+
+function FieldEditor({
+  meta, value, onChange, sessionId, disabled,
+}: {
+  meta:      EditableField
+  value:     string | null
+  onChange:  (v: string | null) => void
+  sessionId: string
+  disabled?: boolean
+}) {
+  const commonInputStyle = {
+    borderColor: 'var(--color-border)',
+    background:  'var(--color-surface)',
+  }
+  const commonClass = "w-full rounded-lg border px-2 py-1 text-xs"
+
+  if (meta.type === 'enum' || meta.type === 'boolean') {
+    return (
+      <select
+        className={commonClass}
+        style={commonInputStyle}
+        value={value ?? ''}
+        disabled={disabled}
+        onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
+      >
+        <option value="">— 未選択 —</option>
+        {(meta.enumOptions ?? []).map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    )
+  }
+
+  if (meta.type === 'reference' && meta.referenceType) {
+    return (
+      <FkCandidateSelect
+        sessionId={sessionId}
+        referenceType={meta.referenceType}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+      />
+    )
+  }
+
+  const inputType =
+    meta.type === 'date' ? 'date' :
+    meta.type === 'time' ? 'time' :
+    meta.type === 'datetime' ? 'datetime-local' :
+    meta.type === 'money' || meta.type === 'integer' ? 'text' :
+    'text'
+
+  return (
+    <input
+      type={inputType}
+      className={commonClass}
+      style={commonInputStyle}
+      value={value ?? ''}
+      disabled={disabled}
+      onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
+      placeholder={meta.help ?? ''}
+    />
+  )
+}
+
+// ============================================================
 // Row Card
 // ============================================================
 
@@ -178,17 +304,54 @@ function RowCard({
   row,
   saving,
   onAction,
+  onFieldSave,
+  entityType,
+  sessionId,
 }: {
-  row:      ReviewRow
-  saving:   boolean
-  onAction: (rowId: string, action: 'CREATE' | 'UPDATE' | 'SKIP', candidateId?: string) => Promise<void>
+  row:         ReviewRow
+  saving:      boolean
+  onAction:    (rowId: string, action: 'CREATE' | 'UPDATE' | 'SKIP', candidateId?: string) => Promise<void>
+  onFieldSave: (rowId: string, patch: Record<string, string | null>) => Promise<boolean>
+  entityType:  ImportEntityType
+  sessionId:   string
 }) {
   const [expanded, setExpanded]   = React.useState(false)
+  const [editing,  setEditing]    = React.useState(false)
+  const [draft,    setDraft]      = React.useState<Record<string, string | null>>({})
+  const [editSaving, setEditSaving] = React.useState(false)
   const isReviewed = row.review_status !== 'pending'
   const hasDups    = row.duplicate_candidates.some(c => c.review_status === 'pending')
 
   const mapped = row.mapped_data ?? {}
   const primaryFields = ['name', 'email', 'phone', 'address']
+  const editable      = getEditableFields(entityType)
+
+  React.useEffect(() => {
+    // 編集開始時に現在の mapped_data を draft へコピー
+    if (editing) {
+      const seed: Record<string, string | null> = {}
+      for (const f of editable) seed[f.key] = mapped[f.key] ?? null
+      setDraft(seed)
+    }
+  }, [editing])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSaveEdit() {
+    // 変更差分だけ patch として送る
+    const patch: Record<string, string | null> = {}
+    for (const f of editable) {
+      const cur = mapped[f.key] ?? null
+      const nxt = draft[f.key] ?? null
+      if (cur !== nxt) patch[f.key] = nxt
+    }
+    if (Object.keys(patch).length === 0) {
+      setEditing(false)
+      return
+    }
+    setEditSaving(true)
+    const ok = await onFieldSave(row.id, patch)
+    setEditSaving(false)
+    if (ok) setEditing(false)
+  }
 
   return (
     <div
@@ -328,22 +491,89 @@ function RowCard({
         </div>
       </div>
 
-      {/* Expanded: full field details */}
+      {/* Expanded: full field details (+ Phase U3 inline edit) */}
       {expanded && (
         <div
           className="px-4 pb-4 pt-0"
           style={{ borderTop: '1px solid var(--color-border)' }}
         >
           <div className="pt-3 space-y-3">
-            {/* Mapped data */}
-            {Object.keys(mapped).length > 0 && (
+            {/* Mapped data — READ mode */}
+            {!editing && (
               <div>
-                <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-2">HIKARU変換後</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)]">HIKARU変換後</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-6"
+                    onClick={() => setEditing(true)}
+                    aria-label="この行を編集する"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    編集
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                  {Object.entries(mapped).map(([k, v]) => (
-                    <div key={k} className="text-xs">
-                      <span className="text-[var(--color-muted-foreground)]">{FIELD_LABELS[k] ?? k}: </span>
-                      <span className="text-[var(--color-foreground)]">{v ?? '—'}</span>
+                  {editable.length > 0
+                    ? editable.map(f => (
+                        <div key={f.key} className="text-xs">
+                          <span className="text-[var(--color-muted-foreground)]">{f.label}: </span>
+                          <span className="text-[var(--color-foreground)]">{formatDisplayValue(f, mapped[f.key] ?? null)}</span>
+                        </div>
+                      ))
+                    : Object.entries(mapped).map(([k, v]) => (
+                        <div key={k} className="text-xs">
+                          <span className="text-[var(--color-muted-foreground)]">{FIELD_LABELS[k] ?? k}: </span>
+                          <span className="text-[var(--color-foreground)]">{v ?? '—'}</span>
+                        </div>
+                      ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mapped data — EDIT mode (Phase U3) */}
+            {editing && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)]">HIKARU変換後 — 編集モード</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-6"
+                      onClick={() => { setEditing(false); setDraft({}) }}
+                      disabled={editSaving}
+                      aria-label="編集をキャンセル"
+                    >
+                      <X className="h-3 w-3" />
+                      キャンセル
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="text-xs h-6"
+                      onClick={handleSaveEdit}
+                      disabled={editSaving}
+                      aria-label="編集内容を保存"
+                    >
+                      {editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      保存
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {editable.map(f => (
+                    <div key={f.key} className="text-xs">
+                      <label className="block text-[var(--color-muted-foreground)] mb-1">
+                        {f.label}{f.help && <span className="ml-1 text-[10px]">({f.help})</span>}
+                      </label>
+                      <FieldEditor
+                        meta={f}
+                        value={draft[f.key] ?? null}
+                        onChange={v => setDraft(d => ({ ...d, [f.key]: v }))}
+                        sessionId={sessionId}
+                        disabled={editSaving}
+                      />
                     </div>
                   ))}
                 </div>
@@ -368,6 +598,122 @@ function RowCard({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** enum field は canonical value を日本語ラベルへ、UUID field はそのまま表示 */
+function formatDisplayValue(meta: EditableField, value: string | null): string {
+  if (value === null || value === '') return '—'
+  if ((meta.type === 'enum' || meta.type === 'boolean') && meta.enumOptions) {
+    const opt = meta.enumOptions.find(o => o.value === value)
+    return opt ? opt.label : value
+  }
+  return value
+}
+
+// ============================================================
+// Column Default Panel (Phase U3)
+// ============================================================
+//
+// 「空欄の全行に同じ値を適用」する UX。既存値を上書きしない (empty-only)。
+// reference field は本 panel では選択できない (spec)。
+
+function ColumnDefaultPanel({
+  entityType, sessionId, onApplied,
+}: {
+  entityType: ImportEntityType
+  sessionId:  string
+  onApplied:  () => void
+}) {
+  const [field, setField]     = React.useState<string>('')
+  const [value, setValue]     = React.useState<string | null>(null)
+  const [busy,  setBusy]      = React.useState(false)
+  const editable = getEditableFields(entityType).filter(f => f.type !== 'reference')
+  const meta     = editable.find(f => f.key === field)
+
+  async function handleApply() {
+    if (!meta) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/import/sessions/${sessionId}/review/apply-default`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ field, value }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok || !body?.success) {
+        toast.error(body?.message ?? '一括適用に失敗しました。')
+        return
+      }
+      toast.success(`空欄 ${body.data.updated_count} 件に適用しました（スキップ ${body.data.skipped_count} 件）`)
+      onApplied()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div
+      className="rounded-xl p-4 space-y-3"
+      style={{ background: 'var(--color-muted)', border: '1px solid var(--color-border)' }}
+    >
+      <div className="flex items-center gap-2">
+        <Zap className="h-3.5 w-3.5" />
+        <p className="text-xs font-semibold text-[var(--color-foreground)]">
+          空欄の全行に値を一括適用
+        </p>
+        <span className="text-[10px] text-[var(--color-muted-foreground)]">
+          （既存値は上書きしません）
+        </span>
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex-1 min-w-[160px]">
+          <label className="block text-[10px] text-[var(--color-muted-foreground)] mb-1">対象フィールド</label>
+          <select
+            className="w-full rounded-lg border px-2 py-1 text-xs"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+            value={field}
+            onChange={e => { setField(e.target.value); setValue(null) }}
+            disabled={busy}
+          >
+            <option value="">— フィールドを選択 —</option>
+            {editable.map(f => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[160px]">
+          <label className="block text-[10px] text-[var(--color-muted-foreground)] mb-1">値</label>
+          {meta ? (
+            <FieldEditor
+              meta={meta}
+              value={value}
+              onChange={setValue}
+              sessionId={sessionId}
+              disabled={busy}
+            />
+          ) : (
+            <input
+              type="text"
+              className="w-full rounded-lg border px-2 py-1 text-xs"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+              disabled
+              placeholder="先にフィールドを選択"
+            />
+          )}
+        </div>
+        <Button
+          size="sm"
+          className="text-xs h-8"
+          onClick={handleApply}
+          disabled={!meta || busy}
+          aria-label="一括適用"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : '適用'}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -437,6 +783,46 @@ function ImportSessionContent() {
       loadRows(filter, 0)
     }
   }, [session, filter, loadRows])
+
+  // Phase U3: field-level PATCH — returns true on success
+  const handleFieldSave = React.useCallback(async (rowId: string, patch: Record<string, string | null>): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/import/sessions/${sessionId}/review/${rowId}/fields`, {
+        method:      'PATCH',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ fields: patch }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok || !body?.success) {
+        toast.error(body?.message ?? '保存に失敗しました。')
+        return false
+      }
+      // Refresh row locally with server-normalized value
+      setRows(prev => prev.map(r =>
+        r.id === rowId
+          ? {
+              ...r,
+              mapped_data:       body.data.mapped_data,
+              validation_status: body.data.validation_status,
+              validation_errors: body.data.validation_errors,
+              review_status:     body.data.review_status,
+            }
+          : r,
+      ))
+      // Refresh summary
+      const s = await fetch(`/api/import/sessions/${sessionId}/review/summary`, { credentials: 'include', cache: 'no-store' })
+      if (s.ok) {
+        const sd = await s.json()
+        if (sd?.data) setSummary(sd.data)
+      }
+      toast.success('保存しました')
+      return true
+    } catch {
+      toast.error('保存に失敗しました。')
+      return false
+    }
+  }, [sessionId])
 
   async function handleAction(rowId: string, action: 'CREATE' | 'UPDATE' | 'SKIP', candidateId?: string) {
     setSaving(p => ({ ...p, [rowId]: true }))
@@ -802,6 +1188,13 @@ function ImportSessionContent() {
           </div>
         )}
 
+        {/* Phase U3: Column default panel (empty-only bulk fill) */}
+        <ColumnDefaultPanel
+          entityType={session.entity_type as ImportEntityType}
+          sessionId={sessionId}
+          onApplied={() => loadRows(filter, offset)}
+        />
+
         {/* Filter tabs */}
         <div className="flex items-center gap-1 flex-wrap">
           {FILTER_OPTIONS.map(opt => (
@@ -848,6 +1241,9 @@ function ImportSessionContent() {
                 row={row}
                 saving={!!saving[row.id]}
                 onAction={handleAction}
+                onFieldSave={handleFieldSave}
+                entityType={session.entity_type as ImportEntityType}
+                sessionId={sessionId}
               />
             ))}
           </div>
