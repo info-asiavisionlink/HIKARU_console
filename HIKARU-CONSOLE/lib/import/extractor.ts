@@ -16,6 +16,7 @@
 import { parse as csvParse } from 'csv-parse/sync'
 import * as XLSX from 'xlsx'
 import { detectSpreadsheetFormulaRisk } from './file-security'
+import { cellToString } from './xlsx-cells'
 
 // ---- Resource Limits ----
 
@@ -43,6 +44,7 @@ export interface ExtractMeta {
   emptyHeaders:      string[]    // original headers that were blank
   sheetCount?:       number      // XLSX only
   selectedSheet?:    string      // XLSX only
+  availableSheets?:  string[]    // XLSX only — full list of sheet names in workbook (Phase U4)
 }
 
 export interface ParseResult {
@@ -197,7 +199,75 @@ export { decodeCsvBuffer }
 
 // ---- XLSX Parser ----
 
-export function parseXlsx(buffer: Buffer): ParseResult {
+/**
+ * Workbook 内の sheet 名一覧を取得する (parse せずに discovery だけ行う)。
+ * Phase U4: sheet selection UI が extract 前に必要な情報を返す。
+ */
+export function listXlsxSheets(buffer: Buffer): {
+  sheets: Array<{ name: string; index: number; rowCount: number; columnCount: number }>
+  errors: string[]
+} {
+  let workbook: XLSX.WorkBook
+  try {
+    // bookSheets:true は sheet 名だけしか読まないため、rowCount / columnCount を計算する
+    // 本 helper では通常の read を使う (worksheet の !ref から range を計算するため)。
+    workbook = XLSX.read(buffer, {
+      type:        'buffer',
+      cellFormula: false,
+      cellNF:      false,
+      cellHTML:    false,
+      cellDates:   false,
+      dense:       true,
+    })
+  } catch (e) {
+    return {
+      sheets: [],
+      errors: [`XLSXブックの読み込みエラー: ${e instanceof Error ? e.message : String(e)}`],
+    }
+  }
+
+  // 有効な XLSX でも SheetNames が空 = 破損 or 非 XLSX として扱う
+  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+    return {
+      sheets: [],
+      errors: ['XLSXブックにシートが存在しないか、ファイルが破損しています'],
+    }
+  }
+
+  const sheets = workbook.SheetNames.map((name, index) => {
+    const ws = workbook.Sheets[name]
+    let rowCount = 0
+    let columnCount = 0
+    if (ws && ws['!ref']) {
+      const range = XLSX.utils.decode_range(ws['!ref'] as string)
+      rowCount    = Math.max(0, range.e.r - range.s.r + 1)
+      columnCount = Math.max(0, range.e.c - range.s.c + 1)
+    }
+    return { name, index, rowCount, columnCount }
+  })
+
+  return { sheets, errors: [] }
+}
+
+/**
+ * Phase U4: sheet を任意選択できるようにする optional 引数を追加。
+ * 後方互換: 引数無し呼び出しは従来通り「最初のシート」を選択。
+ *
+ * sheet 指定方法:
+ *   - string: SheetName で検索 (exact match)
+ *   - number: 0-based index
+ *   - undefined / null: 最初のシート (従来動作)
+ *
+ * Excel native cell の扱い (Phase U4):
+ *   - cellDates: true でネイティブ Date cell を JS Date object 化する
+ *     (Excel serial 番号 → Date は SheetJS が処理、1900/1904 date system も同時に解決)
+ *   - sheet_to_json で raw:true のまま Date/number/boolean を返させ、`cellToString`
+ *     helper で ISO 化 (YYYY-MM-DD / YYYY-MM-DDTHH:MM:SS / "1280" / "true") する。
+ *   - 元の serial number は raw_data に保存しない (native Date として上流に届く)。
+ *     ただし formatted 表示文字列 (「¥1,280」) は Excel cell の .w に存在するが、
+ *     U4 では raw value を優先する (U1 normalizer が canonical 変換する)。
+ */
+export function parseXlsx(buffer: Buffer, options?: { sheet?: string | number }): ParseResult {
   const warnings: string[] = []
   const errors: string[]   = []
 
@@ -208,8 +278,8 @@ export function parseXlsx(buffer: Buffer): ParseResult {
       cellFormula: false,   // Formula文字列を読み込まない (important for security)
       cellNF:      false,
       cellHTML:    false,
-      cellDates:   false,   // 日付を文字列として扱う (parse時に意味変換させない)
-      raw:         true,    // Raw cell values
+      cellDates:   true,    // (U4) Excel Date cell を JS Date object 化する
+      raw:         true,    // Raw cell values (Date/number/boolean)
       dense:       true,
     })
   } catch (e) {
@@ -226,12 +296,38 @@ export function parseXlsx(buffer: Buffer): ParseResult {
     return { rows: [], meta: emptyMeta(), warnings, errors: ['Workbookにシートが存在しません'] }
   }
 
-  if (sheetCount > 1) {
-    warnings.push(`複数シートが存在します (${sheetCount}枚)。最初のシートのみ処理します: "${workbook.SheetNames[0]}"`)
+  // (U4) sheet 選択ロジック
+  const requested = options?.sheet
+  let selectedSheet: string
+  if (typeof requested === 'string' && requested.length > 0) {
+    if (!workbook.SheetNames.includes(requested)) {
+      return {
+        rows: [],
+        meta: { ...emptyMeta(), sheetCount, availableSheets: workbook.SheetNames.slice() },
+        warnings,
+        errors: [`指定されたシートが見つかりません: "${requested}" (利用可能: ${workbook.SheetNames.join(', ')})`],
+      }
+    }
+    selectedSheet = requested
+  } else if (typeof requested === 'number') {
+    if (!Number.isInteger(requested) || requested < 0 || requested >= sheetCount) {
+      return {
+        rows: [],
+        meta: { ...emptyMeta(), sheetCount, availableSheets: workbook.SheetNames.slice() },
+        warnings,
+        errors: [`指定されたシートインデックスが範囲外です: ${requested} (0〜${sheetCount - 1})`],
+      }
+    }
+    selectedSheet = workbook.SheetNames[requested]
+  } else {
+    // 後方互換: 引数無し / 未指定 → 最初のシート
+    selectedSheet = workbook.SheetNames[0]
+    if (sheetCount > 1) {
+      warnings.push(`複数シートが存在します (${sheetCount}枚)。最初のシートを選択しました: "${selectedSheet}"`)
+    }
   }
 
-  const selectedSheet = workbook.SheetNames[0]
-  const worksheet     = workbook.Sheets[selectedSheet]
+  const worksheet = workbook.Sheets[selectedSheet]
 
   if (!worksheet) {
     return { rows: [], meta: emptyMeta(), warnings, errors: ['シートデータが読み取れません'] }
@@ -245,17 +341,16 @@ export function parseXlsx(buffer: Buffer): ParseResult {
     blankrows: true,    // include blank rows (we filter later)
   }) as unknown[][]
 
-  // Convert each cell to string
+  // (U4) Convert each native cell (Date/number/boolean/string) to canonical string
+  // via cellToString helper. Date → ISO, number → digit string, boolean → "true"/"false".
   const stringRows: string[][] = rawRows.map(row =>
-    (row as unknown[]).map(cell => {
-      if (cell === null || cell === undefined) return ''
-      return String(cell)
-    })
+    (row as unknown[]).map(cell => cellToString(cell))
   )
 
   const result    = buildParseResult(stringRows, warnings, errors)
-  result.meta.sheetCount    = sheetCount
-  result.meta.selectedSheet = selectedSheet
+  result.meta.sheetCount      = sheetCount
+  result.meta.selectedSheet   = selectedSheet
+  result.meta.availableSheets = workbook.SheetNames.slice()
   return result
 }
 
@@ -326,8 +421,38 @@ function buildParseResult(
   if (emptyHeaders.length > 0) {
     warnings.push(`空のヘッダー列が ${emptyHeaders.length} 件あります: ${emptyHeaders.slice(0, 5).join(', ')}`)
   }
+
+  // (Fix 1) 重複ヘッダーは silent overwrite (last-wins) を引き起こすため、Extraction 全体を
+  // FATAL error として停止させる。normalizedHeaders が衝突している場合、そのまま処理を
+  // 続けると raw_data / normalized_data の両方で最後の列の値だけが残り、最初の値が
+  // 復元不可能に失われる。契約: 「入口は柔軟、出口は厳格」— 重複列は入口レベルで拒否し、
+  // ユーザーに列名修正を促す。
+  //
+  // 対象:
+  //   - Exact duplicate:      "電話番号,電話番号"
+  //   - Normalized duplicate: "  電話番号  ,電話番号"  (trim/NFC で collide)
+  //   ↑ どちらも normalizedHeaders に同じ key として現れる。
+  //
+  // 対象外:
+  //   - Semantic L2 synonym collision (「電話」「TEL」→ 同 canonical field):
+  //       これは Extractor ではなく mapper.ts の buildHeaderMapping が collision guard
+  //       で処理する。Extractor はあくまで structural duplicate のみ拒否する。
   if (duplicateHeaders.length > 0) {
-    warnings.push(`重複するヘッダーが ${duplicateHeaders.length} 件あります: ${duplicateHeaders.join(', ')}`)
+    const preview = duplicateHeaders.slice(0, 5).join(', ')
+    const suffix  = duplicateHeaders.length > 5 ? ` 他 ${duplicateHeaders.length - 5} 件` : ''
+    return {
+      rows:     [],
+      meta:     {
+        ...emptyMeta(),
+        rawHeaders,
+        normalizedHeaders,
+        columnCount:      normalizedHeaders.length,
+        duplicateHeaders,
+        emptyHeaders:     emptyHeaders.map(h => h),
+      },
+      warnings,
+      errors:   [`同じ列名として認識される項目が複数あります: ${preview}${suffix}。列名を重複しないよう修正してから再アップロードしてください。`],
+    }
   }
 
   const dataRows       = rawRows.slice(1)
@@ -416,9 +541,13 @@ function emptyMeta(): ExtractMeta {
 
 // ---- Unified Entry Point ----
 
-export function extractFile(buffer: Buffer, ext: string): ParseResult {
-  if (ext === 'csv') return parseCsv(buffer)
-  if (ext === 'xlsx') return parseXlsx(buffer)
+export function extractFile(
+  buffer: Buffer,
+  ext: string,
+  options?: { sheet?: string | number },
+): ParseResult {
+  if (ext === 'csv')  return parseCsv(buffer)                  // sheet 引数は無視
+  if (ext === 'xlsx') return parseXlsx(buffer, options)
   return {
     rows:     [],
     meta:     emptyMeta(),

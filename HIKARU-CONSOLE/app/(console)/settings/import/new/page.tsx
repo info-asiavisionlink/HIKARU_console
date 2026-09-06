@@ -200,6 +200,11 @@ function NewImportContent() {
   const [errorMsg, setErrorMsg]   = React.useState<string>('')
   const fileInputRef              = React.useRef<HTMLInputElement>(null)
 
+  // (U4) sheet picker state — XLSX multi-sheet の場合、Upload 後に modal で選択する
+  const [sheetPickerOpen, setSheetPickerOpen] = React.useState(false)
+  const [availableSheets, setAvailableSheets] = React.useState<Array<{ name: string; index: number; rowCount: number; columnCount: number }>>([])
+  const [pendingSessionId, setPendingSessionId] = React.useState<string>('')
+
   function updateStep(key: string, status: ProcessStep['status']) {
     setProcessSteps(prev => prev.map(s => s.key === key ? { ...s, status } : s))
   }
@@ -292,15 +297,62 @@ function NewImportContent() {
       }
       updateStep('upload', 'done')
 
-      // 3. Extract
+      // (U4) 3a. Sheet discovery (XLSX 限定)
+      //    - CSV は sheet 概念なし → skip
+      //    - XLSX で sheet が 1 枚 → auto-use、直接 extract 続行
+      //    - XLSX で sheet が 2 枚以上 → modal 表示、ユーザー選択後に continueWithSheet で continue
+      if (file.name.toLowerCase().endsWith('.xlsx')) {
+        const sheetsRes = await fetch(`/api/import/sessions/${sessionId}/sheets`, {
+          method:      'GET',
+          credentials: 'include',
+          cache:       'no-store',
+        })
+        if (!sheetsRes.ok) {
+          const { message } = await sheetsRes.json().catch(() => ({ message: 'シート一覧の取得に失敗しました。' }))
+          throw new Error(message ?? 'シート一覧の取得に失敗しました。')
+        }
+        const sheetsBody = await sheetsRes.json()
+        const sheets = (sheetsBody?.data?.sheets ?? []) as Array<{ name: string; index: number; rowCount: number; columnCount: number }>
+
+        if (sheets.length > 1) {
+          // 複数シートあり → modal で選択待ち。extract 以降は continueWithSheet が担当。
+          setAvailableSheets(sheets)
+          setPendingSessionId(sessionId)
+          setSheetPickerOpen(true)
+          return  // ここで processing を維持 (Cancel か Select で解除)
+        }
+        // 単一シート (or 0 sheet で先の sheets endpoint が空返し) → 従来通り自動で続行
+      }
+
+      await runExtractAndMap(sessionId, undefined)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '予期しないエラーが発生しました。'
+      setErrorMsg(msg)
+      // Mark current running step as error
+      setProcessSteps(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'error' } : s))
+      setProcessing(false)
+    }
+  }
+
+  // (U4) sheet 選択後 → extract 以降を続行する共通関数
+  async function runExtractAndMap(sessionId: string, sheet: string | undefined) {
+    try {
+      // 3. Extract (with optional sheet)
       updateStep('extract', 'running')
       const extractRes = await fetch(`/api/import/sessions/${sessionId}/extract`, {
         method:      'POST',
         credentials: 'include',
+        headers:     sheet !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+        body:        sheet !== undefined ? JSON.stringify({ sheet }) : undefined,
       })
       if (!extractRes.ok) {
-        const { message } = await extractRes.json().catch(() => ({ message: 'データの解析に失敗しました。' }))
-        throw new Error(message ?? 'データの解析に失敗しました。')
+        const body = await extractRes.json().catch(() => null) as { code?: string; message?: string; duplicates?: string[] } | null
+        // (Fix 1) DUPLICATE_HEADERS の場合は list を含めた説明で silent overwrite を明示的にユーザーへ返す
+        if (body?.code === 'DUPLICATE_HEADERS' && Array.isArray(body.duplicates) && body.duplicates.length > 0) {
+          const list = body.duplicates.slice(0, 10).join(', ') + (body.duplicates.length > 10 ? ` 他 ${body.duplicates.length - 10} 件` : '')
+          throw new Error(`重複している列があります: ${list}\n\nExcel/CSV の列名を重複しないよう修正して、もう一度アップロードしてください。`)
+        }
+        throw new Error(body?.message ?? 'データの解析に失敗しました。')
       }
       updateStep('extract', 'done')
 
@@ -328,16 +380,24 @@ function NewImportContent() {
       }
       updateStep('duplicate', 'done')
 
-      // All done — redirect to review (return は保持して Review ページから /setup へ戻れるように)
       toast.success('解析が完了しました。内容を確認してください。')
       router.push(`/settings/import/${sessionId}`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : '予期しないエラーが発生しました。'
       setErrorMsg(msg)
-      // Mark current running step as error
       setProcessSteps(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'error' } : s))
       setProcessing(false)
     }
+  }
+
+  // (U4) sheet picker 「選択」ハンドラー
+  async function handleSheetSelected(sheetName: string) {
+    setSheetPickerOpen(false)
+    const sid = pendingSessionId
+    setPendingSessionId('')
+    setAvailableSheets([])
+    if (!sid) return
+    await runExtractAndMap(sid, sheetName)
   }
 
   // ---- Render: Step 1 — Entity Type ----
@@ -571,6 +631,60 @@ function NewImportContent() {
           </div>
         )}
       </div>
+
+      {/* (U4) Sheet picker modal — XLSX で複数シート検出時のみ表示 */}
+      {sheetPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'oklch(0 0 0 / 0.55)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sheet-picker-title"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6 space-y-4"
+            style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
+          >
+            <h2 id="sheet-picker-title" className="text-lg font-bold text-[var(--color-foreground)]">
+              取り込むシートを選択
+            </h2>
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              XLSX ファイル内に複数のシートが検出されました。取り込み対象のシートを 1 つ選択してください。
+              （複数シートの一括取り込みには対応していません）
+            </p>
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {availableSheets.map(s => (
+                <button
+                  key={s.name}
+                  onClick={() => handleSheetSelected(s.name)}
+                  className="w-full text-left rounded-lg px-3 py-2 text-sm hover:bg-[var(--color-muted)] transition-colors"
+                  style={{ border: '1px solid var(--color-border)' }}
+                >
+                  <div className="font-medium text-[var(--color-foreground)]">{s.name}</div>
+                  <div className="text-xs text-[var(--color-muted-foreground)]">
+                    {s.rowCount.toLocaleString()} 行 × {s.columnCount} 列
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSheetPickerOpen(false)
+                  setAvailableSheets([])
+                  setPendingSessionId('')
+                  setProcessing(false)
+                  setErrorMsg('シート選択がキャンセルされました。もう一度アップロードしてください。')
+                }}
+              >
+                キャンセル
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -24,10 +24,24 @@ const BATCH_SIZE = 250   // rows per Supabase INSERT batch
 //   - 失敗時は今回のstaging rows削除 → sessionをuploadedへ戻す
 //   - OpenAI calls: 0
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: sessionId } = await params
+
+  // (U4) optional body: { sheet?: string | number } — XLSX の場合のみ使用
+  let requestedSheet: string | number | undefined = undefined
+  try {
+    const bodyText = await req.text()
+    if (bodyText.length > 0) {
+      const body = JSON.parse(bodyText) as Record<string, unknown>
+      const s = body?.['sheet']
+      if (typeof s === 'string' && s.length > 0) requestedSheet = s
+      else if (typeof s === 'number' && Number.isInteger(s) && s >= 0) requestedSheet = s
+    }
+  } catch {
+    // body が無い / 不正 JSON → 従来通り first sheet (backward compat)
+  }
 
   // 1. Authentication
   const auth = await getAuthContext()
@@ -113,20 +127,35 @@ export async function POST(
   const buffer      = Buffer.from(arrayBuffer)
 
   // 8. Parse (CSV or XLSX)
+  //    (U4) XLSX の場合は optional sheet 引数を extractor へ渡す。
+  //    sheet 名 / index は extractor 側で workbook 存在を再検証するため、ここで
+  //    信用チェックせずそのまま渡してよい (fail → PARSE_FAILED 422 で拒否)。
   const ext    = getExtension(fr.original_filename as string)
-  const result = extractFile(buffer, ext)
+  const result = extractFile(buffer, ext, ext === 'xlsx' ? { sheet: requestedSheet } : undefined)
 
   if (result.errors.length > 0) {
     const errMsg = result.errors[0]
     await resetSession(auth, sessionId, errMsg)
+    // (Fix 1) audit: duplicate header の場合は重複列名も記録 (PII 無し、structural metadata のみ)
+    const isDuplicateHeaders = result.meta.duplicateHeaders && result.meta.duplicateHeaders.length > 0
     writeAuditLog(auth, sessionId, 'extraction.failed', {
       file_id: fr.id,
       error:   errMsg,
+      ...(isDuplicateHeaders ? { duplicate_headers: result.meta.duplicateHeaders } : {}),
     })
     const code = errMsg.includes('空') ? 'EMPTY_FILE'
                : errMsg.includes('列数') ? 'COLUMN_LIMIT_EXCEEDED'
                : errMsg.includes('行数') ? 'ROW_LIMIT_EXCEEDED'
+               : isDuplicateHeaders    ? 'DUPLICATE_HEADERS'
                : 'PARSE_FAILED'
+    // duplicate headers の場合は列名一覧を response body にも含める (UI がユーザーに具体的な修正案を提示できるように)
+    if (isDuplicateHeaders) {
+      return NextResponse.json({
+        code,
+        message: errMsg,
+        duplicates: result.meta.duplicateHeaders,
+      }, { status: 422 })
+    }
     return NextResponse.json({ code, message: errMsg }, { status: 422 })
   }
 
@@ -204,6 +233,7 @@ export async function POST(
         formula_warning_count: result.meta.formulaWarningCount,
         sheet_count:           result.meta.sheetCount,
         selected_sheet:        result.meta.selectedSheet,
+        available_sheets:      result.meta.availableSheets,
         parser_warnings:       result.warnings,
       },
     } as never)
@@ -253,6 +283,7 @@ export async function POST(
         warnings:             result.warnings,
         selected_sheet:       result.meta.selectedSheet,
         sheet_count:          result.meta.sheetCount,
+        available_sheets:     result.meta.availableSheets,
       },
     },
   })

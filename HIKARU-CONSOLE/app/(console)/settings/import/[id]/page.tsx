@@ -173,13 +173,56 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 // ============================================================
-// FK Candidate Select (Phase U3)
+// FK Candidate Cache (Phase U4)
 // ============================================================
 //
-// reference field 用の非同期 select。session の /fk-candidates を呼び、
-// 候補一覧を表示する。value は candidate id (UUID)。
+// U3 では FkCandidateSelect が row 毎に fetch していた (N rows × M reference
+// types のリクエスト膨張)。U4 では親コンポーネントで (sessionId, referenceType)
+// 単位に単一 Promise をキャッシュし、全 row で reuse する。
+//
+// company/session scope は既に fk-candidates API 側で強制済 (auth + .eq
+// (company_id))。フロントキャッシュは表示 latency 削減のみで security 影響 0。
 
 interface FkCandidate { id: string; name: string; code: string | null; sub?: string | null }
+type FkCache = Map<string, Promise<FkCandidate[]>>
+
+const FkCacheContext = React.createContext<FkCache | null>(null)
+
+function useFkCandidates(
+  sessionId: string,
+  referenceType: 'client' | 'store' | 'employee' | 'project' | 'partner',
+): { candidates: FkCandidate[]; loading: boolean } {
+  const cache = React.useContext(FkCacheContext)
+  const [state, setState] = React.useState<{ candidates: FkCandidate[]; loading: boolean }>({ candidates: [], loading: true })
+
+  React.useEffect(() => {
+    let cancelled = false
+    const key = `${sessionId}::${referenceType}`
+    if (!cache) { setState({ candidates: [], loading: false }); return }
+    let p = cache.get(key)
+    if (!p) {
+      p = fetch(`/api/import/sessions/${sessionId}/fk-candidates?type=${referenceType}&limit=200`, {
+        credentials: 'include',
+        cache:       'no-store',
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => ((d?.data?.candidates as FkCandidate[]) ?? []))
+        .catch(() => [])
+      cache.set(key, p)
+    }
+    setState({ candidates: [], loading: true })
+    p.then(list => {
+      if (!cancelled) setState({ candidates: list, loading: false })
+    })
+    return () => { cancelled = true }
+  }, [cache, sessionId, referenceType])
+
+  return state
+}
+
+// ============================================================
+// FK Candidate Select (Phase U3, U4-cached)
+// ============================================================
 
 function FkCandidateSelect({
   sessionId, referenceType, value, onChange, disabled,
@@ -190,22 +233,7 @@ function FkCandidateSelect({
   onChange:      (id: string | null) => void
   disabled?:     boolean
 }) {
-  const [candidates, setCandidates] = React.useState<FkCandidate[]>([])
-  const [loading,    setLoading]    = React.useState(false)
-
-  React.useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    const url = `/api/import/sessions/${sessionId}/fk-candidates?type=${referenceType}&limit=200`
-    fetch(url, { credentials: 'include', cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (cancelled) return
-        setCandidates((d?.data?.candidates as FkCandidate[]) ?? [])
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [sessionId, referenceType])
+  const { candidates, loading } = useFkCandidates(sessionId, referenceType)
 
   return (
     <select
@@ -307,13 +335,17 @@ function RowCard({
   onFieldSave,
   entityType,
   sessionId,
+  selected,
+  onSelectToggle,
 }: {
-  row:         ReviewRow
-  saving:      boolean
-  onAction:    (rowId: string, action: 'CREATE' | 'UPDATE' | 'SKIP', candidateId?: string) => Promise<void>
-  onFieldSave: (rowId: string, patch: Record<string, string | null>) => Promise<boolean>
-  entityType:  ImportEntityType
-  sessionId:   string
+  row:            ReviewRow
+  saving:         boolean
+  onAction:       (rowId: string, action: 'CREATE' | 'UPDATE' | 'SKIP', candidateId?: string) => Promise<void>
+  onFieldSave:    (rowId: string, patch: Record<string, string | null>) => Promise<boolean>
+  entityType:     ImportEntityType
+  sessionId:      string
+  selected:       boolean
+  onSelectToggle: (rowId: string) => void
 }) {
   const [expanded, setExpanded]   = React.useState(false)
   const [editing,  setEditing]    = React.useState(false)
@@ -366,6 +398,14 @@ function RowCard({
     >
       {/* Row header */}
       <div className="flex items-start gap-3 p-4">
+        {/* (U4) bulk-select checkbox — 既 reviewed row でも UI 上は選択許可 (server が eligibility 判定) */}
+        <input
+          type="checkbox"
+          className="mt-1 shrink-0"
+          checked={selected}
+          onChange={() => onSelectToggle(row.id)}
+          aria-label={`行 ${row.row_index} を選択`}
+        />
         {/* Status icon */}
         <div className="mt-0.5 shrink-0">
           {isReviewed && row.review_status === 'approved' && <CheckCircle2 className="h-4 w-4" style={{ color: 'oklch(0.72 0.18 150)' }} />}
@@ -602,6 +642,22 @@ function RowCard({
   )
 }
 
+// (U4) Bulk action rejected reason 集計 (row 単位 → reason 単位)
+function aggregateRejectedReasons(rejected: Array<{ row_id: string; reason: string }>): Array<{ reason: string; count: number }> {
+  const m = new Map<string, number>()
+  for (const r of rejected) m.set(r.reason, (m.get(r.reason) ?? 0) + 1)
+  return Array.from(m.entries()).map(([reason, count]) => ({ reason, count }))
+}
+
+function rejectReasonLabel(reason: string): string {
+  switch (reason) {
+    case 'not_found_or_not_owned': return '行が見つからない、または対象外'
+    case 'validation_not_valid':   return '検証エラー (必須項目不足など)'
+    case 'duplicate_unresolved':   return '未解決の重複候補あり'
+    default: return reason
+  }
+}
+
 /** enum field は canonical value を日本語ラベルへ、UUID field はそのまま表示 */
 function formatDisplayValue(meta: EditableField, value: string | null): string {
   if (value === null || value === '') return '—'
@@ -734,6 +790,12 @@ function ImportSessionContent() {
   const [total, setTotal]       = React.useState(0)
   const [filter, setFilter]     = React.useState('needs_review')
   const [offset, setOffset]     = React.useState(0)
+  // (U4) bulk selection state
+  const [selectedRowIds, setSelectedRowIds] = React.useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = React.useState<null | 'CREATE' | 'SKIP'>(null)
+  const [bulkResult, setBulkResult] = React.useState<null | { action: string; requested: number; applied: number; skipped: number; rejected: Array<{ row_id: string; reason: string }> }>(null)
+  // (U4) FK candidate cache — 1 cache instance per page mount
+  const fkCache = React.useRef<FkCache>(new Map()).current
   const [loading, setLoading]   = React.useState(true)
   const [rowsLoading, setRowsLoading] = React.useState(false)
   const [saving, setSaving]     = React.useState<Record<string, boolean>>({})
@@ -783,6 +845,46 @@ function ImportSessionContent() {
       loadRows(filter, 0)
     }
   }, [session, filter, loadRows])
+
+  // (U4) Clear selection whenever filter / offset changes (avoid stale selection across pages)
+  React.useEffect(() => { setSelectedRowIds(new Set()) }, [filter, offset])
+
+  // (U4) Bulk action — CREATE / SKIP
+  const handleBulkAction = React.useCallback(async (action: 'CREATE' | 'SKIP') => {
+    const ids = Array.from(selectedRowIds)
+    if (ids.length === 0) return
+    setBulkBusy(action)
+    try {
+      const res = await fetch(`/api/import/sessions/${sessionId}/review/rows/batch`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ action, row_ids: ids }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok || !body?.success) {
+        toast.error(body?.message ?? '一括処理に失敗しました。')
+        return
+      }
+      setBulkResult({
+        action:    body.data.action,
+        requested: body.data.requested,
+        applied:   body.data.applied,
+        skipped:   body.data.skipped,
+        rejected:  body.data.rejected ?? [],
+      })
+      setSelectedRowIds(new Set())
+      // Refresh rows + summary
+      await loadRows(filter, offset)
+      const s = await fetch(`/api/import/sessions/${sessionId}/review/summary`, { credentials: 'include', cache: 'no-store' })
+      if (s.ok) {
+        const sd = await s.json()
+        if (sd?.data) setSummary(sd.data)
+      }
+    } finally {
+      setBulkBusy(null)
+    }
+  }, [sessionId, selectedRowIds, filter, offset, loadRows])
 
   // Phase U3: field-level PATCH — returns true on success
   const handleFieldSave = React.useCallback(async (rowId: string, patch: Record<string, string | null>): Promise<boolean> => {
@@ -995,6 +1097,7 @@ function ImportSessionContent() {
   const currentPage  = Math.floor(offset / LIMIT) + 1
 
   return (
+    <FkCacheContext.Provider value={fkCache}>
     <div>
       <PageHeader
         title={session.label ?? `${entityLabel}データ移行 — 確認`}
@@ -1195,6 +1298,101 @@ function ImportSessionContent() {
           onApplied={() => loadRows(filter, offset)}
         />
 
+        {/* (U4) Bulk action bar — 選択行に対して CREATE / SKIP を一括適用 */}
+        {selectedRowIds.size > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-3 rounded-xl p-3"
+            style={{ background: 'oklch(0.73 0.12 78 / 0.10)', border: '1px solid oklch(0.73 0.12 78 / 0.30)' }}
+          >
+            <span className="text-sm font-medium text-[var(--color-foreground)]">
+              選択中: {selectedRowIds.size.toLocaleString()} 行
+            </span>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7"
+                disabled={bulkBusy !== null}
+                onClick={() => setSelectedRowIds(new Set())}
+              >
+                選択解除
+              </Button>
+              <Button
+                size="sm"
+                className="text-xs h-7"
+                disabled={bulkBusy !== null}
+                onClick={() => handleBulkAction('CREATE')}
+                aria-label="選択行を新規登録として確定"
+              >
+                {bulkBusy === 'CREATE' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                選択行を新規登録
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7"
+                disabled={bulkBusy !== null}
+                onClick={() => handleBulkAction('SKIP')}
+                aria-label="選択行を取り込まないに確定"
+              >
+                {bulkBusy === 'SKIP' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                選択行を取り込まない
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* (U4) Bulk action result modal */}
+        {bulkResult && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'oklch(0 0 0 / 0.55)' }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="w-full max-w-md rounded-2xl p-6 space-y-3"
+              style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
+            >
+              <h2 className="text-base font-bold text-[var(--color-foreground)]">
+                一括処理結果 ({bulkResult.action === 'CREATE' ? '新規登録' : '取り込まない'})
+              </h2>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">要求</p>
+                  <p className="text-xl font-bold">{bulkResult.requested.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">適用</p>
+                  <p className="text-xl font-bold" style={{ color: 'oklch(0.72 0.18 150)' }}>{bulkResult.applied.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">スキップ</p>
+                  <p className="text-xl font-bold text-[var(--color-muted-foreground)]">{bulkResult.skipped.toLocaleString()}</p>
+                </div>
+              </div>
+              {bulkResult.rejected.length > 0 && (
+                <div className="text-xs">
+                  <p className="text-[var(--color-muted-foreground)] mb-1">
+                    <AlertCircle className="inline h-3 w-3 mr-1" />
+                    {bulkResult.rejected.length.toLocaleString()} 行は条件を満たさず適用できませんでした:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 max-h-32 overflow-y-auto">
+                    {aggregateRejectedReasons(bulkResult.rejected).map(r => (
+                      <li key={r.reason}>
+                        {rejectReasonLabel(r.reason)}: {r.count.toLocaleString()} 行
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setBulkResult(null)}>閉じる</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filter tabs */}
         <div className="flex items-center gap-1 flex-wrap">
           {FILTER_OPTIONS.map(opt => (
@@ -1234,7 +1432,34 @@ function ImportSessionContent() {
              'データがありません'}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
+            {/* (U4) select-all header */}
+            <div className="flex items-center gap-2 text-xs text-[var(--color-muted-foreground)] pl-4">
+              <input
+                type="checkbox"
+                checked={rows.length > 0 && rows.every(r => selectedRowIds.has(r.id))}
+                ref={el => {
+                  if (el) el.indeterminate = rows.some(r => selectedRowIds.has(r.id)) && !rows.every(r => selectedRowIds.has(r.id))
+                }}
+                onChange={e => {
+                  if (e.target.checked) {
+                    setSelectedRowIds(prev => {
+                      const next = new Set(prev)
+                      for (const r of rows) next.add(r.id)
+                      return next
+                    })
+                  } else {
+                    setSelectedRowIds(prev => {
+                      const next = new Set(prev)
+                      for (const r of rows) next.delete(r.id)
+                      return next
+                    })
+                  }
+                }}
+                aria-label="表示中の全ての行を選択"
+              />
+              <span>表示中の全ての行を選択</span>
+            </div>
             {rows.map(row => (
               <RowCard
                 key={row.id}
@@ -1244,6 +1469,12 @@ function ImportSessionContent() {
                 onFieldSave={handleFieldSave}
                 entityType={session.entity_type as ImportEntityType}
                 sessionId={sessionId}
+                selected={selectedRowIds.has(row.id)}
+                onSelectToggle={rid => setSelectedRowIds(prev => {
+                  const next = new Set(prev)
+                  if (next.has(rid)) next.delete(rid); else next.add(rid)
+                  return next
+                })}
               />
             ))}
           </div>
@@ -1283,6 +1514,7 @@ function ImportSessionContent() {
 
       </div>
     </div>
+    </FkCacheContext.Provider>
   )
 }
 

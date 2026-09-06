@@ -129,10 +129,14 @@ describe('parseCsv — basic', () => {
 // ---- CSV: Headers ----
 
 describe('parseCsv — headers', () => {
-  it('detects duplicate headers', () => {
+  it('duplicate headers → FATAL error (Fix 1: silent overwrite 防止)', () => {
     const r = parseCsv(csvBuf('名前,名前,住所\nA,B,C\n'))
+    // Fix 1: 重複ヘッダーは errors として停止させる契約
+    expect(r.errors.length).toBeGreaterThan(0)
+    expect(r.errors[0]).toMatch(/同じ列名として認識される項目が複数あります/)
     expect(r.meta.duplicateHeaders).toContain('名前')
-    expect(r.warnings.some(w => w.includes('重複'))).toBe(true)
+    // rows は空 (staging へ 部分的な壊れデータを流さない)
+    expect(r.rows).toEqual([])
   })
 
   it('detects empty headers', () => {
