@@ -11,6 +11,7 @@ import {
 } from '@hikaru/ui'
 import { useAuthStore } from '@/stores/auth.store'
 import { logoutAction } from '@/app/(auth)/login/actions'
+import { isSafeInternalNotificationPath } from '@/lib/notifications/safe-url'
 
 type SysNotification = {
   id: string
@@ -41,15 +42,32 @@ function useSysNotifications() {
     return () => clearInterval(id)
   }, [fetchNotifs])
 
-  async function markRead(notifId: string) {
+  async function markRead(notifId: string): Promise<boolean> {
     try {
-      await fetch(`/api/console-notifications/${notifId}/read`, { method: 'PATCH' })
+      const res = await fetch(`/api/console-notifications/${notifId}/read`, { method: 'PATCH' })
+      if (!res.ok) return false
       setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n))
       setUnreadCount(prev => Math.max(0, prev - 1))
-    } catch { /* ignore */ }
+      return true
+    } catch {
+      return false
+    }
   }
 
-  return { notifications, unreadCount, fetchNotifs, markRead }
+  async function markAllRead(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/console-notifications/read-all', { method: 'PATCH' })
+      if (!res.ok) return false
+      // 成功時のみ local state を反映 (失敗時は UI 上不整合を起こさない)
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      setUnreadCount(0)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return { notifications, unreadCount, fetchNotifs, markRead, markAllRead }
 }
 
 interface ConsoleHeaderProps {
@@ -63,7 +81,7 @@ export function ConsoleHeader({
 }: ConsoleHeaderProps) {
   const user = useAuthStore((s) => s.user)
   const router = useRouter()
-  const { notifications, unreadCount, fetchNotifs, markRead } = useSysNotifications()
+  const { notifications, unreadCount, fetchNotifs, markRead, markAllRead } = useSysNotifications()
   const [time, setTime] = React.useState('')
   const [date, setDate] = React.useState('')
 
@@ -168,11 +186,28 @@ export function ConsoleHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
             <DropdownMenuLabel className="flex items-center justify-between">
-              <span>通知</span>
+              <div className="flex items-center gap-2">
+                <span>通知</span>
+                {unreadCount > 0 && (
+                  <span className="text-xs font-normal" style={{ color: 'oklch(0.65 0.20 25)' }}>
+                    未読 {unreadCount}件
+                  </span>
+                )}
+              </div>
               {unreadCount > 0 && (
-                <span className="text-xs font-normal" style={{ color: 'oklch(0.65 0.20 25)' }}>
-                  未読 {unreadCount}件
-                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    void markAllRead()
+                  }}
+                  className="text-[10px] font-normal underline underline-offset-2 hover:no-underline"
+                  style={{ color: 'oklch(0.55 0.008 60)' }}
+                  aria-label="すべて既読"
+                >
+                  すべて既読
+                </button>
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -186,8 +221,15 @@ export function ConsoleHeader({
                 <DropdownMenuItem
                   key={n.id}
                   onSelect={async () => {
-                    if (!n.is_read) await markRead(n.id)
-                    if (n.target_url) router.push(n.target_url)
+                    // 未読の場合のみ既読処理を試行する。既読の場合はナビゲーションのみ。
+                    // 既読 PATCH が失敗した場合はナビゲーションを中止しない
+                    // (target 画面側で最新状態を再取得できるため)。
+                    if (!n.is_read) {
+                      void markRead(n.id)
+                    }
+                    if (isSafeInternalNotificationPath(n.target_url)) {
+                      router.push(n.target_url)
+                    }
                   }}
                   className={cn('flex flex-col items-start gap-0.5 py-2.5 cursor-pointer', !n.is_read && 'font-medium')}
                 >

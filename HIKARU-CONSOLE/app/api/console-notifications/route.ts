@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
-
-// 管理者向け通知 type のみ表示する。
-// Worker 本人向け通知（expense_approved, shift_created 等）は除外。
-// 将来の管理者通知を追加する場合はここに追記する。
-const ADMIN_NOTIFICATION_TYPES = [
-  'attendance_correction_submitted',
-  'expense_submitted',
-  'project_report_submitted',
-  'project_proposal_submitted',
-]
+import { ADMIN_NOTIFICATION_TYPES } from '@/lib/notifications/types'
 
 // GET /api/console-notifications
 // 管理者本人宛 System通知（recipient_profile_id = 自分）
@@ -17,6 +8,9 @@ const ADMIN_NOTIFICATION_TYPES = [
 // ADMIN_NOTIFICATION_TYPES と target_app の二重防御:
 //   - type IN ADMIN_NOTIFICATION_TYPES: typeによる第1防御
 //   - target_app='console' OR target_app IS NULL: appによる第2防御 (NULL=legacy互換)
+//
+// unread_count は list.filter ではなく別 count query で算出。
+// list を .limit(30) で切っても unread の総数を正しく報告する。
 export async function GET(_req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -37,6 +31,20 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const unread_count = (notifications ?? []).filter((n: { is_read: boolean }) => !n.is_read).length
+  // 未読総数を別 count query で取得 (list limit の影響を受けない)
+  const { count: unreadTotal, error: countError } = await auth.adminClient
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', auth.companyId)
+    .eq('recipient_profile_id', auth.userId)
+    .in('type', ADMIN_NOTIFICATION_TYPES)
+    .or('target_app.eq.console,target_app.is.null')
+    .eq('is_read', false)
+
+  // count query 失敗時は list ベースの近似値へフォールバック (badge が壊れないように)
+  const unread_count = countError || unreadTotal === null
+    ? (notifications ?? []).filter((n: { is_read: boolean }) => !n.is_read).length
+    : unreadTotal
+
   return NextResponse.json({ notifications: notifications ?? [], unread_count })
 }

@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
-
-// CONSOLE管理者向け通知と同じ境界（取得APIと一致させる）。
-const ADMIN_NOTIFICATION_TYPES = [
-  'attendance_correction_submitted',
-  'expense_submitted',
-  'project_report_submitted',
-  'project_proposal_submitted',
-]
+import { ADMIN_NOTIFICATION_TYPES } from '@/lib/notifications/types'
 
 // PATCH /api/console-notifications/[id]/read
 // 管理者本人宛 CONSOLE 通知のみ既読化。
