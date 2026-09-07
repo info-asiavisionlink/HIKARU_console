@@ -34,6 +34,12 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/employees  - 従業員登録
+//
+// contract_type / hourly_rate は employees テーブルには存在しない
+// (Production Schema 実測、migration にも定義なし)。
+// 一方 profiles テーブル側に存在するため (attendance route が
+// profiles から select している)、これら2列は profiles に流す。
+// 詳細は Phase 3 Hotfix Report Issue 3 参照。
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -43,15 +49,20 @@ export async function POST(req: NextRequest) {
   const { loginPassword, role } = body
 
   // ホワイトリスト: 権限系・ID系フィールドはBodyから受け取らない
+  // contract_type / hourly_rate は employees テーブルに存在しないため含めない。
   const ALLOWED_EMP_FIELDS = [
     'name', 'name_kana', 'birth_date', 'gender', 'phone', 'email',
     'address', 'emergency_contact', 'hire_date', 'department', 'position',
-    'qualifications', 'notes', 'contract_type', 'hourly_rate',
+    'qualifications', 'notes',
   ] as const
   const safeFields: Record<string, unknown> = {}
   for (const f of ALLOWED_EMP_FIELDS) {
     if (body[f] !== undefined) safeFields[f] = body[f]
   }
+
+  // profiles 側に格納する field。employees では未サポート。
+  const contract_type = body.contract_type ?? null
+  const hourly_rate   = body.hourly_rate   ?? null
 
   // ① まず employees レコードを作成（employee_number はDBトリガーで自動採番）
   const { data: employee, error: empError } = await admin
@@ -85,12 +96,14 @@ export async function POST(req: NextRequest) {
 
     const authUserId = authUser.user.id
 
-    // profiles 更新
+    // profiles 更新 (contract_type / hourly_rate もここで保存)
     await admin.from('profiles').update({
-      company_id: companyId,
-      role: role ?? 'worker',
-      entity_type: 'employee',
-      entity_id: (employee as any).id,
+      company_id:    companyId,
+      role:          role ?? 'worker',
+      entity_type:   'employee',
+      entity_id:     (employee as any).id,
+      contract_type: contract_type,
+      hourly_rate:   hourly_rate,
     }).eq('id', authUserId)
 
     // employee に auth_user_id を紐付け

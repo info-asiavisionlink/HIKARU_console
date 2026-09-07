@@ -48,57 +48,60 @@ function NewClientContent() {
     }
 
     setLoading(true)
+    try {
+      // ① 顧客作成
+      const { data: client, error } = await createClientRecord({
+        name:         form.name.trim(),
+        code:         form.code.trim()         || null,
+        email:        form.email.trim()        || null,
+        phone:        form.phone.trim()        || null,
+        address:      form.address.trim()      || null,
+        contact_name: form.contact_name.trim() || null,
+        notes:        form.notes.trim()        || null,
+      }) as any
 
-    // ① 顧客作成
-    const { data: client, error } = await createClientRecord({
-      name:         form.name.trim(),
-      code:         form.code.trim()         || null,
-      email:        form.email.trim()        || null,
-      phone:        form.phone.trim()        || null,
-      address:      form.address.trim()      || null,
-      contact_name: form.contact_name.trim() || null,
-      notes:        form.notes.trim()        || null,
-    }) as any
-
-    if (error || !client?.id) {
-      toast.error('顧客の保存に失敗しました')
-      setLoading(false)
-      return
-    }
-
-    // ② ポータルアカウント作成（任意）
-    if (showPortal) {
-      const loginId = portal.loginId.toUpperCase()
-
-      const res = await fetch('/api/client-accounts', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          loginId,
-          password:    portal.password,
-          contactName: portal.contactName,
-          clientId:    client.id,
-          projectIds:  [],
-        }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        toast.error('ポータルアカウントの作成に失敗しました: ' + (data.error ?? ''))
-        // 顧客は作成済みなので詳細ページへ遷移
-        router.push(destination)
-        setLoading(false)
+      if (error || !client?.id) {
+        toast.error('顧客の保存に失敗しました' + (error?.message ? ': ' + error.message : ''))
         return
       }
 
-      toast.success('顧客とポータルアカウントを作成しました')
-    } else {
-      toast.success('顧客を作成しました')
-    }
+      // ② ポータルアカウント作成（任意）
+      if (showPortal) {
+        const loginId = portal.loginId.toUpperCase()
 
-    router.push(destination)
-    setLoading(false)
+        const res = await fetch('/api/client-accounts', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loginId,
+            password:    portal.password,
+            contactName: portal.contactName,
+            clientId:    client.id,
+            projectIds:  [],
+          }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          toast.error('ポータルアカウントの作成に失敗しました: ' + (data.error ?? ''))
+          // 顧客は作成済みなので詳細ページへ遷移
+          router.push(destination)
+          return
+        }
+
+        toast.success('顧客とポータルアカウントを作成しました')
+      } else {
+        toast.success('顧客を作成しました')
+      }
+
+      router.push(destination)
+    } catch (err) {
+      // 想定外例外でも "保存中..." に張り付かせない
+      toast.error('顧客の保存に失敗しました: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

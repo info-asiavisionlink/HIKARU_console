@@ -81,15 +81,30 @@ async function getCompanyId(): Promise<string | null> {
 }
 
 export async function createClientRecord(input: ClientInsert) {
-  const supabase = createClient()
-  const companyId = await getCompanyId()
-  if (!companyId) return { data: null, error: new Error('会社情報が取得できません') }
-  const { data, error } = await supabase
-    .from('clients')
-    .insert({ company_id: companyId, ...input })
-    .select()
-    .single()
-  return { data, error }
+  // Console は独自 auth cookie (hk_c_at) を使用しており browser Supabase SDK は
+  // 認証セッションを共有しない。/api/clients は getAuthContext で Console admin auth を
+  // 解決するため必ずこちら経由で作成する (createEmployee と同じパターン)。
+  try {
+    const res = await fetch('/api/clients', {
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify(input),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return {
+        data: null,
+        error: new Error(body.error ?? `HTTP ${res.status}`),
+      }
+    }
+    return { data: (body.client ?? body.data ?? null) as ClientRow | null, error: null }
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e : new Error('顧客の作成に失敗しました'),
+    }
+  }
 }
 
 export async function updateClient(id: string, input: Partial<ClientInsert> & { is_active?: boolean }) {

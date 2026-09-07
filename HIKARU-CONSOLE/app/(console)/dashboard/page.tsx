@@ -336,7 +336,7 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: '案件を追加',   href: '/projects/new', icon: FolderOpen },
+            { label: '案件を追加',   href: '/projects/spot/new', icon: FolderOpen },
             { label: '顧客を追加',   href: '/clients/new',  icon: Building2 },
             { label: '従業員管理',   href: '/employees',    icon: UserCheck },
             { label: 'AI分析',       href: '/analytics',    icon: Activity },
