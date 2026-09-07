@@ -80,29 +80,48 @@ async function getCompanyId(): Promise<string | null> {
   return data?.company_id ?? null
 }
 
-export async function createClientRecord(input: ClientInsert) {
+export async function createClientRecord(input: ClientInsert): Promise<{
+  data:   ClientRow | null
+  error:  Error | null
+  status: number | null
+}> {
   // Console は独自 auth cookie (hk_c_at) を使用しており browser Supabase SDK は
   // 認証セッションを共有しない。/api/clients は getAuthContext で Console admin auth を
   // 解決するため必ずこちら経由で作成する (createEmployee と同じパターン)。
+  //
+  // 追加防御:
+  //   - AbortSignal.timeout(15s) — fetch がハングしても 15秒で AbortError を投げて
+  //     "保存中..." に張り付かないようにする。
+  //   - status を戻り値に含める — 呼び出し側で 401 のときに /login リダイレクト等が可能。
   try {
     const res = await fetch('/api/clients', {
       method:      'POST',
       credentials: 'include',
       headers:     { 'Content-Type': 'application/json' },
       body:        JSON.stringify(input),
+      signal:      AbortSignal.timeout(15_000),
     })
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
       return {
-        data: null,
-        error: new Error(body.error ?? `HTTP ${res.status}`),
+        data:   null,
+        error:  new Error(body.error ?? `HTTP ${res.status}`),
+        status: res.status,
       }
     }
-    return { data: (body.client ?? body.data ?? null) as ClientRow | null, error: null }
-  } catch (e) {
     return {
-      data: null,
-      error: e instanceof Error ? e : new Error('顧客の作成に失敗しました'),
+      data:   (body.client ?? body.data ?? null) as ClientRow | null,
+      error:  null,
+      status: res.status,
+    }
+  } catch (e) {
+    const isTimeout = e instanceof DOMException && e.name === 'TimeoutError'
+    return {
+      data:   null,
+      error:  isTimeout
+        ? new Error('サーバーとの通信がタイムアウトしました。時間をおいて再度お試しください。')
+        : (e instanceof Error ? e : new Error('顧客の作成に失敗しました')),
+      status: null,
     }
   }
 }

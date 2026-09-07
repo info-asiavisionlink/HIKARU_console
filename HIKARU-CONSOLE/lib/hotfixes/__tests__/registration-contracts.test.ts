@@ -67,7 +67,7 @@ describe('Issue 2: createClientRecord uses server API not browser Supabase', () 
   const svcSrc = readFileSync(CLIENTS_SERVICE, 'utf8')
 
   it('createClientRecord は fetch(/api/clients) を経由する', () => {
-    const fn = svcSrc.match(/export async function createClientRecord[\s\S]{0,2000}?^}/m)
+    const fn = svcSrc.match(/export async function createClientRecord[\s\S]*?(?=\nexport\s|$)/)
     expect(fn).toBeTruthy()
     expect(fn![0]).toMatch(/fetch\(\s*['"]\/api\/clients['"]/)
     expect(fn![0]).toMatch(/method:\s*['"]POST['"]/)
@@ -75,7 +75,7 @@ describe('Issue 2: createClientRecord uses server API not browser Supabase', () 
   })
 
   it('createClientRecord は browser Supabase 直呼び (supabase.from\\(clients\\)) をしない', () => {
-    const fn = svcSrc.match(/export async function createClientRecord[\s\S]{0,2000}?^}/m)
+    const fn = svcSrc.match(/export async function createClientRecord[\s\S]*?(?=\nexport\s|$)/)
     expect(fn).toBeTruthy()
     // browser client 直接呼びの痕跡がないこと
     expect(fn![0]).not.toMatch(/supabase\.from\(\s*['"]clients['"]/)
@@ -83,9 +83,19 @@ describe('Issue 2: createClientRecord uses server API not browser Supabase', () 
   })
 
   it('例外を try/catch で拾い error を返す (Promise rejection で UI が hang しない)', () => {
-    const fn = svcSrc.match(/export async function createClientRecord[\s\S]{0,2000}?^}/m)
+    const fn = svcSrc.match(/export async function createClientRecord[\s\S]*?(?=\nexport\s|$)/)
     expect(fn![0]).toMatch(/try\s*\{/)
     expect(fn![0]).toMatch(/catch\s*\(/)
+  })
+
+  it('AbortSignal.timeout を付けており fetch が無限 hang しない', () => {
+    const fn = svcSrc.match(/export async function createClientRecord[\s\S]*?(?=\nexport\s|$)/)
+    expect(fn![0]).toMatch(/AbortSignal\.timeout\(\s*\d+/)
+  })
+
+  it('戻り値に HTTP status を含めて呼び出し側で 401 判定できる', () => {
+    const fn = svcSrc.match(/export async function createClientRecord[\s\S]*?(?=\nexport\s|$)/)
+    expect(fn![0]).toMatch(/status:\s*(res\.status|null)/)
   })
 })
 
@@ -109,6 +119,12 @@ describe('Issue 2: clients/new submit handler has try/finally', () => {
 
   it('duplicate click guard: submit button に disabled={loading} が残っている', () => {
     expect(pageSrc).toMatch(/<Button\s+type="submit"\s+disabled=\{loading\}/)
+  })
+
+  it('401 セッション切れは /login?next=/clients/new へリダイレクトする', () => {
+    const handler = pageSrc.match(/async function handleSubmit[\s\S]{0,4000}?\n\s{2}\}/)
+    expect(handler![0]).toMatch(/status\s*===\s*401/)
+    expect(handler![0]).toMatch(/router\.push\(\s*['"]\/login\?next=\/clients\/new['"]/)
   })
 })
 

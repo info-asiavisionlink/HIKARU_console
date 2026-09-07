@@ -50,7 +50,7 @@ function NewClientContent() {
     setLoading(true)
     try {
       // ① 顧客作成
-      const { data: client, error } = await createClientRecord({
+      const { data: client, error, status } = await createClientRecord({
         name:         form.name.trim(),
         code:         form.code.trim()         || null,
         email:        form.email.trim()        || null,
@@ -58,7 +58,14 @@ function NewClientContent() {
         address:      form.address.trim()      || null,
         contact_name: form.contact_name.trim() || null,
         notes:        form.notes.trim()        || null,
-      }) as any
+      })
+
+      // 401 セッション切れは silent toast よりログイン誘導が親切
+      if (status === 401) {
+        toast.error('セッションが切れています。再ログインしてください。')
+        router.push('/login?next=/clients/new')
+        return
+      }
 
       if (error || !client?.id) {
         toast.error('顧客の保存に失敗しました' + (error?.message ? ': ' + error.message : ''))
