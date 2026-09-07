@@ -114,7 +114,7 @@ export function MiniConsolePanel() {
         {recentMessages.length > 0 && (
           <button
             onClick={() => setExpanded(p => !p)}
-            className="flex h-4 w-4 items-center justify-center rounded-full"
+            className="flex h-4 w-4 items-center justify-center rounded-full transition-colors"
             style={{ color: GD }}
             aria-label={expanded ? '折りたたむ' : '会話を展開'}
           >
@@ -124,7 +124,7 @@ export function MiniConsolePanel() {
 
         <button
           onClick={stopSession}
-          className="flex h-4 w-4 items-center justify-center rounded-full"
+          className="flex h-4 w-4 items-center justify-center rounded-full transition-colors"
           style={{ color: GD }}
           aria-label="JARVIS終了"
         >

@@ -7,24 +7,36 @@ import { ConsoleHikaruCore }   from '@/components/voice/ConsoleHikaruCore'
 import { useConsoleJarvis }    from '@/lib/voice/ConsoleVoiceContext'
 import { browserTTS }          from '@/lib/voice/tts/browser'
 import { VOICE_ASSISTANT_NAME } from '@/lib/voice/config'
-import type { VoiceSettings }  from '@/lib/voice/state/types'
+import type { VoiceSettings, VoiceMode }  from '@/lib/voice/state/types'
 
 // ============================================================
 // CONSOLE JARVIS — System JARVIS UI Mirror
-// Visual 100% System準拠。Voice Logic は ConsoleVoiceContext のまま。
+// Visual は System (HIKARU-System/components/voice + assistant/page.tsx)
+// と 1:1 で同期。Voice Logic は ConsoleVoiceContext のまま (Realtime 経路
+// / tool factory / L0-L5 safety / navigation registry すべて未変更)。
+//
+// Console-specific 保持:
+//   - useConsoleJarvis (Console voice engine)
+//   - /dashboard router.push (Console-side ホーム route)
+//   - QUICK action 8 items (admin workflow 特化。System の 4 items は
+//     worker 用で Console admin utility を包含できないため保持)
 // ============================================================
 
-const BG   = '#010202'
+const BG   = '#020202'
 const GD   = '#FFD700'
 const GB   = '#FFE878'
 const GDim = 'rgba(255,215,0,0.45)'
 const GBdr = 'rgba(255,215,0,0.22)'
 
+// Status definitions — used for single current-state display
+// System と完全同一の 7 状態 (working を含む — Console voice engine mode enum
+// と 1:1 対応、mode='working' 時に不適切な fallback を防ぐ)
 const STATUS_ITEMS = [
-  { key:'idle',       label:'STANDBY',    sub:'待機中',        color:'#C89010', dot:'#AA7800' },
-  { key:'connecting', label:'CONNECTING', sub:'接続中',        color:'#00AFFF', dot:'#00AFFF' },
+  { key:'idle',       label:'STANDBY',    sub:'停止中',       color:'#C89010', dot:'#AA7800' },
+  { key:'connecting', label:'CONNECTING', sub:'接続中',       color:'#00AFFF', dot:'#00AFFF' },
   { key:'listening',  label:'LISTENING',  sub:'聞いています',  color:'#FFD700', dot:'#FFD700' },
   { key:'processing', label:'THINKING',   sub:'考えています',  color:'#FFB800', dot:'#FFB800' },
+  { key:'working',    label:'PROCESSING', sub:'処理中',       color:'#C030D8', dot:'#C030D8' },
   { key:'speaking',   label:'SPEAKING',   sub:'応答しています', color:'#00D860', dot:'#00D860' },
   { key:'error',      label:'ERROR',      sub:'接続エラー',    color:'#FF3030', dot:'#FF3030' },
 ] as const
@@ -122,7 +134,7 @@ function SettingsPanel({ settings, onClose, onSave }: {
 
 // ─── Responsive JARVIS HUD ────────────────────────────────────
 function JarvisHUD({ mode, isConnecting, onClick }: {
-  mode: string; isConnecting: boolean; onClick: () => void
+  mode: VoiceMode; isConnecting: boolean; onClick: () => void
 }) {
   const ref = React.useRef<HTMLDivElement>(null)
   const [sz,  setSz]  = React.useState(360)
@@ -132,7 +144,7 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
     const ro = new ResizeObserver(([e]) => {
       const cw = e.contentRect.width, ch = e.contentRect.height
       const s  = Math.floor(Math.min(cw, ch) / 1.04)
-      setSz(Math.min(Math.max(s, 180), 700))
+      setSz(Math.min(Math.max(s, 200), 700))
     })
     ro.observe(ref.current)
     return () => ro.disconnect()
@@ -142,7 +154,7 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',minHeight:0,overflow:'hidden'}}>
       <ConsoleHikaruCore
-        mode={mode as any}
+        mode={mode}
         size={sz}
         isConnecting={isConnecting}
         onClick={onClick}
@@ -152,338 +164,15 @@ function JarvisHUD({ mode, isConnecting, onClick }: {
   )
 }
 
-// ─── JARVIS Mystic Holographic AI Core ───────────────────────
+// ─── (Removed) CircuitBackground ─────────────────────────────
+// System JARVIS の assistant/page.tsx は追加背景 layer を持たない (単色 BG のみ)。
+// Console 側にあった CircuitBackground (neural network + fluid ribbons + floor grid
+// + energy aura, ~330 lines, jm-* keyframes) は System との視覚同期のため削除。
+// Voice engine / tool / navigation ロジックには一切影響しない (presentation-only)。
 
-const _JCX=430, _JCY=375, _JFY=548
-
-function _arc(r:number,a0:number,a1:number):string{
-  const s=a0*Math.PI/180, e=a1*Math.PI/180, lg=a1-a0>180?1:0
-  return `M${(_JCX+r*Math.cos(s)).toFixed(1)},${(_JCY+r*Math.sin(s)).toFixed(1)} A${r},${r} 0 ${lg},1 ${(_JCX+r*Math.cos(e)).toFixed(1)},${(_JCY+r*Math.sin(e)).toFixed(1)}`
-}
-
-// Fluid wave particle ribbons — pre-computed sinusoidal paths
-const _FW:{d:string;op:number;sw:number;da:string;dur:number;rev:boolean;cyan:boolean}[] = (()=>{
-  const out:{d:string;op:number;sw:number;da:string;dur:number;rev:boolean;cyan:boolean}[] = []
-  function wp(y0:number,y1:number,amp:number,freq:number,phase:number):string{
-    const pts:string[]=[]
-    for(let x=0;x<=1000;x+=18){
-      const y=(y0+(y1-y0)*x/1000)+amp*Math.sin(x*freq+phase)
-      pts.push(`${x===0?'M':'L'}${x},${y.toFixed(1)}`)
-    }
-    return pts.join(' ')
-  }
-  // top group (y~85–225, gold + cyan)
-  const T:[number,number,number,number,number,number,number,string,number,boolean,boolean][]=[
-    [95, 112,55,0.0055,0.0, .48,1.6,'2 8',   22,false,false],
-    [112,128,46,0.0060,1.2, .38,1.3,'1.5 7', 27,true, false],
-    [128,142,38,0.0065,2.4, .27,1.0,'1 9',   31,false,false],
-    [80, 98, 65,0.0050,3.6, .18,0.8,'1 12',  38,true, false],
-    [104,120,52,0.0058,0.8, .30,1.1,'1.5 9', 29,false,true ],
-    [148,158,28,0.0072,1.6, .14,0.7,'1 13',  44,true, true ],
-  ]
-  // bottom group (y~510–680, gold + cyan)
-  const B:[number,number,number,number,number,number,number,string,number,boolean,boolean][]=[
-    [552,528,46,0.0058,0.8, .42,1.5,'2 8',   25,true, false],
-    [570,546,38,0.0063,2.0, .32,1.2,'1.5 7', 29,false,false],
-    [588,562,30,0.0068,3.2, .22,0.9,'1 9',   33,true, false],
-    [538,512,54,0.0052,1.6, .16,0.7,'1 12',  40,false,false],
-    [560,536,42,0.0060,4.0, .26,1.0,'1.5 9', 27,true, true ],
-  ]
-  for(const [y0,y1,amp,freq,phase,op,sw,da,dur,rev,cyan] of [...T,...B])
-    out.push({d:wp(y0,y1,amp,freq,phase),op,sw,da,dur,rev,cyan})
-  return out
-})()
-
-// Arc segments: REMOVED — no circular HUD arcs
-const _GSEGS:{d:string;op:number;sw:number;cyan:boolean;dur:number;ccw:boolean}[] = []
-
-// Neural network — organic AI field: [x1,y1, x2,y2, lineOp, sigDur, isCyan, lineLen]
-const _NN:[number,number,number,number,number,number,boolean,number][] = [
-  // Left cluster
-  [48, 90, 95,165,  0.12,5.5,false, 88],[95,165, 52,252,  0.10,4.8,false, 97],
-  [52,252,108,322,  0.09,5.2,false, 88],[108,322,148,415, 0.09,5.5,false, 99],
-  [148,415, 88,495, 0.10,4.5,false,102],[88,495, 50,578,  0.09,5.8,false, 91],
-  [50,578,108,648,  0.09,4.8,false, 91],[108,648,188,698, 0.08,5.2,false, 94],
-  [225,145,185,228, 0.10,4.5,false, 92],[185,228,245,308, 0.09,5.0,false, 98],
-  [245,308,242,448, 0.08,5.5,false,140],[95,165,225,145,  0.08,4.8,false,131],
-  // Right cluster
-  [922, 88,870,162, 0.12,5.2,false, 93],[870,162,922,252, 0.10,4.8,false,102],
-  [922,252,868,328, 0.09,5.5,false, 93],[868,328,922,412, 0.09,4.5,false, 97],
-  [922,412,868,492, 0.10,5.0,false, 97],[868,492,922,572, 0.09,4.2,false,100],
-  [922,572,870,648, 0.09,5.8,false, 92],[870,648,808,695, 0.08,4.5,false, 78],
-  [775,148,768,228, 0.10,4.8,false, 77],[768,228,755,308, 0.09,5.0,false, 81],
-  [755,308,758,448, 0.08,5.5,false,140],[870,162,775,148, 0.08,4.5,false, 96],
-  // Top connections
-  [305, 45,382, 52, 0.10,4.5,false, 77],[382, 52,455, 48, 0.09,5.0,false, 73],
-  [455, 48,528, 52, 0.09,4.8,false, 73],[528, 52,598, 78, 0.08,5.2,false, 78],
-  [598, 78,648, 98, 0.08,4.8,false, 54],
-  // Bottom connections
-  [305,698,382,685, 0.09,5.0,false, 78],[382,685,455,692, 0.08,4.8,false, 73],
-  [455,692,528,685, 0.09,5.2,false, 73],[528,685,598,662, 0.08,4.5,false, 76],
-  // Cyan accent connections
-  [78,348, 52,252,  0.10,3.8,true,  99],[195,268,245,308, 0.09,4.2,true,  61],
-  [752,348,768,228, 0.10,3.8,true, 122],[808,268,755,308, 0.09,4.2,true,  61],
-  [345, 88,305, 45, 0.09,4.0,true,  61],[512, 88,528, 52, 0.09,4.0,true,  40],
-]
-// Neural nodes: [cx,cy,r,isCyan,delay]
-const _NND:[number,number,number,boolean,number][] = [
-  // Left cluster nodes
-  [48, 90,2.8,false,0.0],[95,165,2.5,false,1.2],[52,252,2.8,false,2.8],
-  [108,322,2.5,false,0.5],[148,415,2.8,false,3.5],[88,495,2.5,false,1.8],
-  [50,578,2.8,false,4.2],[108,648,2.5,false,0.8],[188,698,2.2,false,2.5],
-  [225,145,2.8,false,1.5],[185,228,2.5,false,3.0],[245,308,2.8,false,0.2],[242,448,2.5,false,2.2],
-  // Right cluster nodes
-  [922, 88,2.8,false,0.3],[870,162,2.5,false,1.8],[922,252,2.8,false,3.2],
-  [868,328,2.5,false,0.8],[922,412,2.8,false,2.8],[868,492,2.5,false,1.5],
-  [922,572,2.8,false,4.5],[870,648,2.5,false,0.5],[808,695,2.2,false,3.0],
-  [775,148,2.8,false,1.0],[768,228,2.5,false,3.8],[755,308,2.8,false,0.2],[758,448,2.5,false,2.0],
-  // Top nodes
-  [305, 45,2.5,false,2.2],[382, 52,2.8,false,0.8],[455, 48,2.5,false,3.5],
-  [528, 52,2.8,false,1.5],[598, 78,2.5,false,4.0],[648, 98,2.2,false,0.5],
-  // Bottom nodes
-  [305,698,2.5,false,1.8],[382,685,2.8,false,3.2],[455,692,2.5,false,0.5],
-  [528,685,2.8,false,2.5],[598,662,2.5,false,1.0],
-  // Cyan accent nodes
-  [78,348,2.8,true,1.2],[195,268,2.5,true,3.5],[752,348,2.8,true,0.8],
-  [808,268,2.5,true,2.8],[345, 88,2.5,true,1.5],[512, 88,2.5,true,0.2],
-]
-
-// Particles: [cx, cy, r, anim, delay, isCyan]
-const _GPTS:[number,number,number,string,number,boolean][] = [
-  [82,148,1.0,'jm-da',0,false],[195,68,1.2,'jm-db',1.2,false],[348,45,0.8,'jm-dc',2.8,false],
-  [625,40,1.1,'jm-da',0.6,false],[788,92,0.9,'jm-dd',2.0,false],[912,182,1.2,'jm-de',3.8,false],
-  [922,345,0.8,'jm-da',1.0,false],[918,438,1.0,'jm-db',5.2,false],[825,562,1.1,'jm-dc',0.4,false],
-  [698,660,1.0,'jm-dd',3.2,false],[452,708,0.8,'jm-de',1.8,false],[275,720,1.2,'jm-da',5.8,false],
-  [128,640,1.0,'jm-db',0.8,false],[48,510,1.1,'jm-dc',4.2,false],[38,356,0.8,'jm-dd',2.5,false],
-  [52,230,1.0,'jm-de',0.2,false],[140,108,1.2,'jm-da',4.8,false],[258,160,0.9,'jm-db',1.6,false],
-  [392,70,1.0,'jm-dc',3.0,false],[515,108,1.1,'jm-dd',6.8,false],[650,158,0.8,'jm-de',0.5,false],
-  [815,280,1.0,'jm-da',2.0,false],[860,418,1.2,'jm-db',4.6,false],[768,540,0.9,'jm-dc',1.3,false],
-  [602,595,1.0,'jm-dd',3.6,false],[418,612,1.1,'jm-de',5.0,false],[265,575,0.8,'jm-da',0.7,false],
-  [138,492,1.0,'jm-db',2.4,false],[90,385,1.2,'jm-dc',4.0,false],[118,282,0.9,'jm-dd',1.1,false],
-  [430,193,1.8,'jm-da',0,false],[278,313,1.5,'jm-db',2.0,false],[582,313,1.5,'jm-dc',1.0,false],
-  [278,437,1.5,'jm-dd',3.0,false],[582,437,1.5,'jm-de',4.0,false],
-  [435,65,1.3,'jm-da',7.0,true],[790,375,1.1,'jm-db',3.5,true],[430,680,1.2,'jm-dc',1.8,true],
-  [70,375,1.0,'jm-dd',5.5,true],[355,92,0.9,'jm-de',2.8,true],
-]
-
-// Floor ellipses: [rx, ry, opacity, strokeWidth, isCyan]
-const _GFLOOR:[number,number,number,number,boolean][] = [
-  [42, 8, 0.88,1.8,false],[70, 13,0.78,1.6,false],[102,18,0.68,1.5,false],
-  [140,24,0.56,1.4,false],[182,30,0.44,1.3,false],[228,38,0.32,1.2,false],
-  [278,46,0.22,1.0,false],[335,55,0.14,0.8,false],[395,65,0.08,0.6,false],
-  [162,28,0.25,0.9,true],[252,44,0.18,0.7,true],
-]
-
-// (old tick/arm/node/particle data removed — replaced by _GSEGS/_GPTS/_GFLOOR)
-
-
-
-
-// PERMANENT — background runs independently of voice state; mode used for subtle highlights only
-function CircuitBackground({ mode }: { mode: string }) {
-  const isListen = mode==='listening'
-  const isSpeak  = mode==='speaking'
-  const isProc   = mode==='processing'
-  return (
-    <div aria-hidden="true"
-      style={{position:'absolute',inset:0,zIndex:-1,pointerEvents:'none',overflow:'hidden'}}>
-      <style>{`
-        @keyframes jm-cw    {to{transform:rotate(360deg)}}
-        @keyframes jm-ccw   {to{transform:rotate(-360deg)}}
-        @keyframes jm-pulse {0%,100%{opacity:.18}50%{opacity:.90}}
-        @keyframes jm-pbr   {0%,100%{opacity:.40}50%{opacity:1}}
-        @keyframes jm-glow  {0%,100%{opacity:.52}50%{opacity:1}}
-        @keyframes jm-beam  {0%,100%{opacity:.58}50%{opacity:1}}
-        @keyframes jm-floor {0%,100%{opacity:.58}50%{opacity:.92}}
-        @keyframes jm-da    {0%,100%{transform:translate(0,0)}50%{transform:translate(4px,-6px)}}
-        @keyframes jm-db    {0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,4px)}}
-        @keyframes jm-dc    {0%,100%{transform:translate(0,0)}50%{transform:translate(3px,7px)}}
-        @keyframes jm-dd    {0%,100%{transform:translate(0,0)}50%{transform:translate(-4px,-5px)}}
-        @keyframes jm-de    {0%,100%{transform:translate(0,0)}50%{transform:translate(6px,2px)}}
-        @keyframes jm-wf    {to{stroke-dashoffset:-300}}
-        @keyframes jm-wr    {to{stroke-dashoffset:300}}
-        @keyframes jm-sig   {to{stroke-dashoffset:-268}}
-        @keyframes jm-ripple{0%{transform:scale(0.01);opacity:.75}100%{transform:scale(1);opacity:0}}
-        @media(prefers-reduced-motion:reduce){.jm{animation:none!important}}
-      `}</style>
-
-      {/* ── BACK LAYER ── */}
-
-      {/* 1. Deep black base — micro gold tint at center only */}
-      <div style={{position:'absolute',inset:0,
-        background:'radial-gradient(ellipse 58% 68% at 43% 50%,#030604 0%,#020403 22%,#010302 55%,#010202 100%)'}}/>
-
-      {/* 2. Gold ambient glow — primary light, state-reactive */}
-      <div className="jm" style={{
-        position:'absolute',left:'3%',top:'2%',width:'66%',height:'96%',
-        background:`radial-gradient(ellipse at 43% 50%,rgba(255,192,22,${isSpeak?.28:isListen?.21:.16}) 0%,rgba(255,165,0,.07) 28%,rgba(255,128,0,.02) 52%,transparent 72%)`,
-        animation:'jm-glow 11s ease-in-out infinite',
-        transition:'background 1.2s ease',
-      }}/>
-
-      {/* 3. Secondary breathing halo */}
-      <div className="jm" style={{
-        position:'absolute',left:'10%',top:'8%',width:'58%',height:'84%',
-        background:`radial-gradient(ellipse at 43% 50%,rgba(255,212,42,${isSpeak?.15:isProc?.12:.09}) 0%,rgba(255,180,8,.03) 38%,transparent 62%)`,
-        animation:'jm-glow 8s ease-in-out infinite 2.5s',
-        transition:'background 1.2s ease',
-      }}/>
-
-      {/* 4. Gold vertical energy axis */}
-      <div style={{
-        position:'absolute',top:0,bottom:0,left:'calc(43% - 14px)',width:'28px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(255,210,48,.00) 8%,rgba(255,212,50,.07) 36%,rgba(255,216,55,.18) 50%,rgba(255,212,50,.07) 64%,rgba(255,210,48,.00) 92%,transparent 100%)',
-      }}/>
-      <div className="jm" style={{
-        position:'absolute',top:0,bottom:0,left:'calc(43% - 1px)',width:'2px',
-        background:'linear-gradient(to bottom,transparent 0%,rgba(255,212,50,.04) 8%,rgba(255,218,58,.40) 36%,rgba(255,222,65,.62) 50%,rgba(255,218,58,.40) 64%,rgba(255,210,45,.10) 84%,rgba(255,205,38,.24) 94%,rgba(255,200,35,.08) 100%)',
-        animation:'jm-beam 9s ease-in-out infinite',
-      }}/>
-
-      {/* 5. Cyan projection beam — center downward to floor */}
-      <div className="jm" style={{
-        position:'absolute',top:'51%',bottom:0,left:'calc(43% - 24px)',width:'48px',
-        background:`linear-gradient(to bottom,rgba(0,200,220,${isListen?.32:.22}) 0%,rgba(0,188,212,.15) 30%,rgba(0,175,205,.07) 65%,rgba(0,162,198,.02) 100%)`,
-        maskImage:'linear-gradient(to bottom,black 0%,rgba(0,0,0,.6) 55%,transparent 100%)',
-        WebkitMaskImage:'linear-gradient(to bottom,black 0%,rgba(0,0,0,.6) 55%,transparent 100%)',
-        filter:'blur(4px)',animation:'jm-beam 7s ease-in-out infinite 1s',
-        transition:'background 1.2s ease',
-      }}/>
-      <div style={{
-        position:'absolute',top:'51%',bottom:0,left:'calc(43% - 1px)',width:'2px',
-        background:'linear-gradient(to bottom,rgba(0,210,230,.60) 0%,rgba(0,195,220,.38) 32%,rgba(0,178,210,.14) 70%,transparent 100%)',
-      }}/>
-
-      {/* Bottom perspective grid — very subtle depth layer */}
-      <div style={{
-        position:'absolute',bottom:0,left:'-10%',right:'-10%',height:'48%',
-        backgroundImage:'linear-gradient(rgba(255,210,48,.042) 1px,transparent 1px),linear-gradient(90deg,rgba(255,210,48,.030) 1px,transparent 1px)',
-        backgroundSize:'55px 55px',
-        transform:'perspective(500px) rotateX(62deg)',
-        transformOrigin:'50% 0%',
-        maskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.7) 35%,transparent 75%)',
-        WebkitMaskImage:'linear-gradient(to top,black 0%,rgba(0,0,0,.7) 35%,transparent 75%)',
-      }}/>
-
-      {/* Core Energy Aura — organic gold energy field (CSS, centered at JARVIS) */}
-      <div className="jm" style={{
-        position:'absolute',
-        left:'calc(43% - 240px)',top:'calc(50% - 240px)',
-        width:'480px',height:'480px',
-        background:`radial-gradient(circle at 50% 50%,rgba(255,200,40,${isSpeak?.28:isListen?.20:.14}) 0%,rgba(255,175,0,${isSpeak?.14:isProc?.12:.08}) 35%,rgba(255,140,0,.04) 58%,transparent 78%)`,
-        filter:'blur(18px)',
-        borderRadius:'50%',
-        animation:'jm-glow 10s ease-in-out infinite 1s',
-        pointerEvents:'none',
-        transition:'background 1.2s ease',
-      }}/>
-      {/* Core inner ring tight glow */}
-      <div style={{
-        position:'absolute',
-        left:'calc(43% - 280px)',top:'calc(50% - 280px)',
-        width:'560px',height:'560px',
-        background:`radial-gradient(circle at 50% 50%,transparent 42%,rgba(255,215,55,${isSpeak?.10:isProc?.08:.055}) 48%,transparent 54%)`,
-        borderRadius:'50%',
-        pointerEvents:'none',
-      }}/>
-
-      {/* ── SVG ── */}
-      <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid slice"
-        style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
-
-        {/* ── BACK: Fluid wave particle ribbons ── */}
-        {_FW.map(({d,op,sw,da,dur,rev,cyan},i)=>(
-          <path key={i} d={d} fill="none"
-            stroke={`rgba(${cyan?'0,200,215':'255,214,54'},${op})`}
-            strokeWidth={sw} strokeLinecap="round"
-            strokeDasharray={da} className="jm"
-            style={{animation:`${rev?'jm-wr':'jm-wf'} ${dur}s linear infinite ${(i*.88)%6}s`}}/>
-        ))}
-
-        {/* ── BACK: Neural network lines + traveling signals ── */}
-        {_NN.map(([x1,y1,x2,y2,lineOp,sigDur,cyan,len],i)=>(
-          <g key={i}>
-            <line x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke={`rgba(${cyan?'0,200,215':'255,210,50'},${lineOp})`}
-              strokeWidth="0.7"/>
-            <line x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke={`rgba(${cyan?'0,215,225':'255,222,62'},.82)`}
-              strokeWidth="1.5" strokeLinecap="round"
-              strokeDasharray={`4 ${len+4}`} className="jm"
-              style={{animation:`jm-sig ${sigDur}s linear infinite ${(i*.72)%4}s`}}/>
-          </g>
-        ))}
-
-        {/* Neural nodes */}
-        {_NND.map(([cx,cy,r,cyan,delay],i)=>(
-          <g key={i} className="jm"
-            style={{animation:`${i%3===0?'jm-pbr':'jm-pulse'} ${3+(i%4)*.7}s ease-in-out ${delay}s infinite`}}>
-            <circle cx={cx} cy={cy} r={r*2.2}
-              fill={`rgba(${cyan?'0,205,220':'255,205,45'},.08)`}/>
-            <circle cx={cx} cy={cy} r={r}
-              fill={`rgba(${cyan?'0,225,235':'255,228,68'},.94)`}
-              style={{filter:`drop-shadow(0 0 3px rgba(${cyan?'0,210,222':'255,212,50'},1))`}}/>
-          </g>
-        ))}
-
-        {/* No additional rings — ConsoleHikaruCore provides the core ring */}
-
-        {/* ── FLOOR: holographic projection platform ── */}
-        <g className="jm" style={{animation:'jm-floor 14s ease-in-out infinite'}}>
-          {([0,22.5,45,67.5,90,112.5,135,157.5] as number[]).map((deg,i)=>{
-            const a=deg*Math.PI/180, r=385
-            return (
-              <line key={i} x1={_JCX} y1={_JFY}
-                x2={(_JCX+r*Math.cos(a)).toFixed(1)}
-                y2={(_JFY+r*0.18*Math.sin(a)).toFixed(1)}
-                stroke={`rgba(${i%4===1?'0,200,215':'255,208,48'},.${i%3===0?'09':'06'})`}
-                strokeWidth="0.6"/>
-            )
-          })}
-          {_GFLOOR.map(([rx,ry,op,sw,cyan],i)=>(
-            <ellipse key={i} cx={_JCX} cy={_JFY} rx={rx} ry={ry} fill="none"
-              stroke={`rgba(${cyan?'0,200,215':'255,208,48'},${op})`}
-              strokeWidth={sw}
-              style={{filter:`drop-shadow(0 1px ${cyan?2:3}px rgba(${cyan?'0,195,212':'255,200,42'},${op*.4}))`}}/>
-          ))}
-          {/* Scanner ripple rings */}
-          <circle cx={_JCX} cy={_JFY} r="385" fill="none"
-            stroke="rgba(0,200,215,.55)" strokeWidth="1.2" className="jm"
-            style={{transformOrigin:`${_JCX}px ${_JFY}px`,animation:'jm-ripple 8s ease-out infinite'}}/>
-          <circle cx={_JCX} cy={_JFY} r="385" fill="none"
-            stroke="rgba(255,208,48,.45)" strokeWidth="1.0" className="jm"
-            style={{transformOrigin:`${_JCX}px ${_JFY}px`,animation:'jm-ripple 8s ease-out infinite 4s'}}/>
-          {/* Floor center bright point */}
-          <circle cx={_JCX} cy={_JFY} r="4.8" fill="rgba(255,220,60,.94)"
-            style={{filter:'drop-shadow(0 0 8px rgba(255,210,48,1))'}}/>
-          <circle cx={_JCX} cy={_JFY} r="12" fill="rgba(255,215,50,.14)"/>
-        </g>
-
-        {/* ── BACK: particles ── */}
-        {_GPTS.map(([cx,cy,r,anim,delay,cyan],i)=>(
-          <circle key={i} cx={cx} cy={cy} r={r}
-            fill={`rgba(${cyan?'0,198,218':r>=1.5?'255,224,66':'255,214,54'},${r>=1.5?.74:.44})`}
-            className="jm"
-            style={{
-              animation:`${anim} ${12+(i%7)*1.4}s ease-in-out ${delay}s infinite`,
-              filter:`drop-shadow(0 0 ${r>=1.5?3:2}px rgba(${cyan?'0,194,214':'255,208,48'},${r>=1.5?.82:.50}))`,
-            }}/>
-        ))}
-
-        {/* ── FRONT: bright energy nodes at Core axis top/bottom ── */}
-        <circle cx={_JCX} cy={_JCY-274} r="4.0" fill="rgba(255,226,66,.90)"
-          className="jm" style={{animation:'jm-pbr 5s ease-in-out infinite'}}/>
-        <circle cx={_JCX} cy={_JCY-274} r="10" fill="rgba(255,215,50,.10)"/>
-        <circle cx={_JCX} cy={_JCY+274} r="4.0" fill="rgba(255,226,66,.90)"
-          className="jm" style={{animation:'jm-pbr 5s ease-in-out infinite 2.5s'}}/>
-        <circle cx={_JCX} cy={_JCY+274} r="10" fill="rgba(255,215,50,.10)"/>
-      </svg>
-    </div>
-  )
-}
 
 // ─── Main ─────────────────────────────────────────────────────
-export default function ConsoleAssistantPage() {
+function AssistantContent() {
   const router = useRouter()
   const [showSettings, setShowSettings] = React.useState(false)
 
@@ -513,14 +202,13 @@ export default function ConsoleAssistantPage() {
   void isSpeechSupported
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - var(--header-height, 64px))',background:BG,position:'relative',overflow:'hidden',isolation:'isolate'}}>
-      <CircuitBackground mode={mode}/>
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100dvh - var(--header-height, 64px))',background:BG,position:'relative',overflow:'hidden'}}>
       <style>{`
         .jp-right{
           display:flex;flex-direction:column;
           width:240px;flex-shrink:0;
           border-left:1px solid ${GBdr};
-          background:rgba(3,4,5,.92);overflow-y:auto;
+          background:#030303;overflow-y:auto;
         }
         @media(max-width:880px){.jp-right{display:none!important}}
         @keyframes jconn{0%,100%{opacity:.3}50%{opacity:1}}
@@ -713,5 +401,18 @@ export default function ConsoleAssistantPage() {
         </aside>
       </div>
     </div>
+  )
+}
+
+export default function ConsoleAssistantPage() {
+  return (
+    <React.Suspense fallback={
+      <div style={{display:'flex',height:'100dvh',alignItems:'center',justifyContent:'center',background:BG}}>
+        <div style={{width:28,height:28,borderRadius:'50%',border:`2px solid ${GD}`,borderTopColor:'transparent',animation:'sp 1s linear infinite'}}/>
+        <style>{`@keyframes sp{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    }>
+      <AssistantContent/>
+    </React.Suspense>
   )
 }
