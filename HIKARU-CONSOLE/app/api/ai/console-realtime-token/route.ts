@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { getAuthContext } from '@/lib/supabase/server-admin'
+import {
+  checkRateLimit,
+  CONSOLE_TOKEN_RATE_LIMIT,
+  rateLimitExceededResponse,
+} from '@/lib/ai/ratelimit'
 
 // ============================================================
 // POST /api/ai/console-realtime-token — CONSOLE Realtime Ephemeral Token
@@ -15,6 +20,14 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(
+    `console-realtime-token:${auth.userId}`,
+    CONSOLE_TOKEN_RATE_LIMIT.limit,
+    CONSOLE_TOKEN_RATE_LIMIT.windowMs,
+  )) {
+    return rateLimitExceededResponse()
   }
 
   const apiKey = process.env.OPENAI_API_KEY

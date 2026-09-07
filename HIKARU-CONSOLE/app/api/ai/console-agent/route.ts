@@ -4,6 +4,11 @@ import { createOpenAIClient, OPENAI_MODELS } from '@/lib/openai/client'
 import { isValidConsoleAction, getConsoleActionLevel } from '@/lib/voice/registry/console.actions'
 import { CONSOLE_AGENT_TOOLS, toOpenAITools } from '@/lib/voice/agent/console.tools'
 import type { ConsoleAgentContext, ConsoleAgentApiResponse } from '@/lib/voice/agent/types'
+import {
+  checkRateLimit,
+  CONSOLE_ADMIN_RATE_LIMIT,
+  rateLimitExceededResponse,
+} from '@/lib/ai/ratelimit'
 
 // ============================================================
 // POST /api/ai/console-agent — CONSOLE JARVIS Agent
@@ -55,6 +60,14 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(
+    `console-agent:${auth.userId}`,
+    CONSOLE_ADMIN_RATE_LIMIT.limit,
+    CONSOLE_ADMIN_RATE_LIMIT.windowMs,
+  )) {
+    return rateLimitExceededResponse()
   }
 
   let body: {

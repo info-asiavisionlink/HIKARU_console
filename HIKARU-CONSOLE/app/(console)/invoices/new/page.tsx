@@ -9,6 +9,7 @@ import {
 import { Plus, Trash2, ArrowLeft } from 'lucide-react'
 import { calcInvoice, type LineItem } from '@/lib/billing/calculator'
 import { createInvoice, fmtMoney } from '@/services/invoices.service'
+import { todayJST } from '@/lib/utils/jst'
 import { cn } from '@hikaru/ui'
 
 // 月名ラベル
@@ -47,7 +48,7 @@ function NewInvoiceContent() {
   const [projectId,  setProjectId]  = React.useState(initProject)
   const [projectType, setProjectType] = React.useState<'spot'|'recurring'|'hotel'>('spot')
   const [periodMonth, setPeriodMonth] = React.useState<string>('')
-  const [issueDate,   setIssueDate]   = React.useState(new Date().toISOString().split('T')[0])
+  const [issueDate,   setIssueDate]   = React.useState(todayJST())
   const [dueDate,     setDueDate]     = React.useState('')
   const [title,       setTitle]       = React.useState('')
   const [notes,       setNotes]       = React.useState('')

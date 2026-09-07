@@ -6,6 +6,11 @@ import {
   type ManualItem,
   type ScopedManuals,
 } from '@hikaru/lib/manual-ai'
+import {
+  checkRateLimit,
+  CONSOLE_ADMIN_RATE_LIMIT,
+  rateLimitExceededResponse,
+} from '@/lib/ai/ratelimit'
 
 // ============================================================
 // POST /api/ai/console-manual-qa — Console Manual QA
@@ -41,6 +46,15 @@ export async function POST(req: NextRequest) {
   if (!auth) {
     return Response.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
   }
+
+  if (!checkRateLimit(
+    `console-manual-qa:${auth.userId}`,
+    CONSOLE_ADMIN_RATE_LIMIT.limit,
+    CONSOLE_ADMIN_RATE_LIMIT.windowMs,
+  )) {
+    return rateLimitExceededResponse()
+  }
+
   const { companyId, adminClient } = auth
   const admin = adminClient as AnyClient
 

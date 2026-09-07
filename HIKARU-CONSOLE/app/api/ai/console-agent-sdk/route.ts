@@ -3,6 +3,11 @@ import { run }           from '@openai/agents'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { consoleJarvisAgent, type ConsoleAgentSDKContext } from '@/lib/voice/agent/console-sdk-agent'
 import type { ConsoleAgentApiResponse } from '@/lib/voice/agent/types'
+import {
+  checkRateLimit,
+  CONSOLE_ADMIN_RATE_LIMIT,
+  rateLimitExceededResponse,
+} from '@/lib/ai/ratelimit'
 
 // ============================================================
 // POST /api/ai/console-agent-sdk — CONSOLE JARVIS Agent (Agents SDK)
@@ -16,6 +21,14 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(
+    `console-agent-sdk:${auth.userId}`,
+    CONSOLE_ADMIN_RATE_LIMIT.limit,
+    CONSOLE_ADMIN_RATE_LIMIT.windowMs,
+  )) {
+    return rateLimitExceededResponse()
   }
 
   let body: {

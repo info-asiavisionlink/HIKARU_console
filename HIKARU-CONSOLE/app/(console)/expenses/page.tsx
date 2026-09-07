@@ -58,11 +58,44 @@ export default function ExpensesPage() {
   React.useEffect(() => { fetchExpenses() }, [fetchExpenses])
 
   async function bulkSettle(ids: string[]) {
-    for (const id of ids) {
-      await fetch(`/api/expenses/${id}/settle`, { method: 'POST', credentials: 'include' })
+    try {
+      const res = await fetch('/api/expenses/settle-batch', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ ids }),
+      })
+
+      if (res.status === 429) {
+        toast.error('リクエストが集中しています。少し時間をおいて再度お試しください。')
+        return
+      }
+
+      const data = await res.json().catch(() => null) as {
+        settled_count?: number
+        failed_count?:  number
+      } | null
+
+      if (!res.ok) {
+        toast.error('一括精算に失敗しました')
+        return
+      }
+
+      const settled = data?.settled_count ?? 0
+      const failed  = data?.failed_count  ?? 0
+
+      if (failed === 0) {
+        toast.success(`${settled}件を精算済みにしました`)
+      } else if (settled === 0) {
+        toast.error(`${failed}件を精算できませんでした`)
+      } else {
+        toast.success(`${settled}件を精算済みにしました（${failed}件はスキップ）`)
+      }
+    } catch {
+      toast.error('一括精算に失敗しました')
+    } finally {
+      fetchExpenses()
     }
-    toast.success(`${ids.length}件を精算済みにしました`)
-    fetchExpenses()
   }
 
   const approvedExpenses = expenses.filter(e => e.status === 'approved')

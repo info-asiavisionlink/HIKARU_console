@@ -2,6 +2,11 @@ import { NextRequest } from 'next/server'
 import { getAuthContext } from '@/lib/supabase/server-admin'
 import { createOpenAIClient, OPENAI_MODELS } from '@/lib/openai/client'
 import {
+  checkRateLimit,
+  CONSOLE_ADMIN_RATE_LIMIT,
+  rateLimitExceededResponse,
+} from '@/lib/ai/ratelimit'
+import {
   buildConsoleActionListForPrompt,
   isValidConsoleAction,
   getConsoleActionLevel,
@@ -99,6 +104,14 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthContext()
   if (!auth) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(
+    `console-intent:${auth.userId}`,
+    CONSOLE_ADMIN_RATE_LIMIT.limit,
+    CONSOLE_ADMIN_RATE_LIMIT.windowMs,
+  )) {
+    return rateLimitExceededResponse()
   }
 
   let body: {

@@ -13,6 +13,7 @@ import {
   CreditCard, Globe, RefreshCw, FilePlus, AlertCircle, Edit3, Save, X as XIcon,
   Mail,
 } from 'lucide-react'
+import { todayJST } from '@/lib/utils/jst'
 import {
   getInvoice, changeInvoiceStatus, generatePdf, publishInvoice, convertToInvoice,
   recordPayment, deleteInvoice, updateInvoice,
@@ -38,13 +39,13 @@ export default function InvoiceDetailPage() {
   // 入金ダイアログ
   const [payOpen,   setPayOpen]   = React.useState(false)
   const [payAmount, setPayAmount] = React.useState('')
-  const [payDate,   setPayDate]   = React.useState(new Date().toISOString().split('T')[0])
+  const [payDate,   setPayDate]   = React.useState(todayJST())
   const [payMethod, setPayMethod] = React.useState('bank_transfer')
   const [payNotes,  setPayNotes]  = React.useState('')
 
   // 請求書変換ダイアログ
   const [convOpen,  setConvOpen]  = React.useState(false)
-  const [convDate,  setConvDate]  = React.useState(new Date().toISOString().split('T')[0])
+  const [convDate,  setConvDate]  = React.useState(todayJST())
   const [convDue,   setConvDue]   = React.useState('')
 
   // キャンセルダイアログ
